@@ -37,11 +37,12 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import type { Tool } from './context';
+import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
@@ -266,25 +267,40 @@ function Diagram({
   useInitialFit(fitView);
 
   // React Flow owns transient state (drag positions, measurements, selection); the model is
-  // re-applied whenever it changes.
-  const [nodes, setNodes] = useState<IstarFlowNode[]>(graph.nodes);
-  const [edges, setEdges] = useState<IstarFlowEdge[]>(graph.edges);
+  // re-applied whenever it changes, and the editor's selection whenever that changes (e.g.
+  // `select()` called from outside the canvas).
+  const { selection } = editor;
+  const selectionKey = selection && `${selection.type}:${selection.id}`;
+  const [initial] = useState(() => showSelection(graph.nodes, graph.edges, selection));
+  const [nodes, setNodes] = useState<IstarFlowNode[]>(initial.nodes);
+  const [edges, setEdges] = useState<IstarFlowEdge[]>(initial.edges);
   const [syncedGraph, setSyncedGraph] = useState(graph);
-  if (syncedGraph !== graph) {
-    // Adjust state while rendering when the model changes, keeping React Flow's measurements
-    // and selection for nodes that still exist.
-    setSyncedGraph(graph);
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    setNodes(
-      graph.nodes.map((n) => {
-        const old = byId.get(n.id);
-        return old
-          ? ({ ...n, measured: old.measured, selected: old.selected } as IstarFlowNode)
-          : n;
-      }),
-    );
-    const selectedEdges = new Set(edges.filter((e) => e.selected).map((e) => e.id));
-    setEdges(graph.edges.map((e) => (selectedEdges.has(e.id) ? { ...e, selected: true } : e)));
+  const [syncedSelection, setSyncedSelection] = useState(selectionKey);
+  if (syncedGraph !== graph || syncedSelection !== selectionKey) {
+    // Adjust state while rendering; both updates are computed together, since the model and
+    // the selection often change at once (e.g. adding an element selects it).
+    let next = { nodes, edges };
+    if (syncedGraph !== graph) {
+      // Keep React Flow's measurements and selection for nodes that still exist.
+      setSyncedGraph(graph);
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const selectedEdges = new Set(edges.filter((e) => e.selected).map((e) => e.id));
+      next = {
+        nodes: graph.nodes.map((n) => {
+          const old = byId.get(n.id);
+          return old
+            ? ({ ...n, measured: old.measured, selected: old.selected } as IstarFlowNode)
+            : n;
+        }),
+        edges: graph.edges.map((e) => (selectedEdges.has(e.id) ? { ...e, selected: true } : e)),
+      };
+    }
+    if (syncedSelection !== selectionKey) {
+      setSyncedSelection(selectionKey);
+      next = showSelection(next.nodes, next.edges, selection);
+    }
+    setNodes(next.nodes);
+    setEdges(next.edges);
   }
 
   const onNodesChange = useCallback((changes: NodeChange<IstarFlowNode>[]) => {
@@ -438,8 +454,30 @@ function Diagram({
   );
 
   const { select } = editor;
+  // What React Flow was last handed, for telling its selection reports apart from stale ones.
+  // A layout effect runs before React Flow's passive effects adopt the new nodes and report.
+  const rendered = useRef({ nodes, edges });
+  useLayoutEffect(() => {
+    rendered.current = { nodes, edges };
+  }, [nodes, edges]);
   const onSelectionChange = useCallback(
     ({ nodes: selNodes, edges: selEdges }: OnSelectionChangeParams) => {
+      // React Flow reports its selection an update late, e.g. an empty one at mount before it
+      // has seen nodes selected through the editor. Only a report matching the flags rendered
+      // now is current; acting on a stale one would undo the editor's selection and loop.
+      const current = rendered.current;
+      if (
+        !sameIds(
+          selNodes.map((n) => n.id),
+          current.nodes.flatMap((n) => (n.selected ? [n.id] : [])),
+        ) ||
+        !sameIds(
+          selEdges.map((e) => e.id),
+          current.edges.flatMap((e) => (e.selected ? [e.id] : [])),
+        )
+      ) {
+        return;
+      }
       const node = selNodes[0];
       const edge = selEdges[0];
       if (node) select({ type: 'element', id: node.id });
@@ -519,6 +557,41 @@ function Diagram({
       </ReactFlow>
     </div>
   );
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
+}
+
+/**
+ * Makes React Flow's `selected` flags show the editor's selection. Left alone when they already
+ * include it (the selection came from React Flow, possibly with other nodes shift-selected);
+ * otherwise exactly the selected element or link is flagged.
+ */
+function showSelection(
+  nodes: IstarFlowNode[],
+  edges: IstarFlowEdge[],
+  selection: Selection,
+): { nodes: IstarFlowNode[]; edges: IstarFlowEdge[] } {
+  const shown =
+    selection === null
+      ? !nodes.some((n) => n.selected) && !edges.some((e) => e.selected)
+      : selection.type === 'element'
+        ? nodes.some((n) => n.id === selection.id && n.selected)
+        : edges.some((e) => e.id === selection.id && e.selected);
+  if (shown) return { nodes, edges };
+  const nodeId = selection?.type === 'element' ? selection.id : null;
+  const edgeId = selection?.type === 'link' ? selection.id : null;
+  return {
+    nodes: nodes.map((n) =>
+      Boolean(n.selected) === (n.id === nodeId) ? n : { ...n, selected: n.id === nodeId },
+    ),
+    edges: edges.map((e) =>
+      Boolean(e.selected) === (e.id === edgeId) ? e : { ...e, selected: e.id === edgeId },
+    ),
+  };
 }
 
 /** While dragging a new link, explains why the hovered target would be rejected. */
