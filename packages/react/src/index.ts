@@ -1,1 +1,1 @@
-export { VERSION as CORE_VERSION } from '@istar-ts/core';
+export type { IstarModel } from '@istar-ts/core';

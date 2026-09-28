@@ -1,6 +1,6 @@
+import { ELEMENT_KINDS } from '@istar-ts/core';
 import { expect, test } from 'vitest';
-import { CORE_VERSION } from '../src/index';
 
-test('package loads and resolves core from source', () => {
-  expect(CORE_VERSION).toBe('0.1.0');
+test('resolves @istar-ts/core from source', () => {
+  expect(ELEMENT_KINDS).toContain('istar.Goal');
 });
