@@ -111,4 +111,15 @@ describe('IstarInspector', () => {
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(screen.getByRole('complementary', { name: 'Inspector' }).textContent).toBe('');
   });
+
+  test('reset to default colour removes backgroundColor from display', () => {
+    const { store, resource } = setup();
+    expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
+    act(() =>
+      store.updateElement(resource.id, { display: { backgroundColor: '#8fb6f2', width: 120 } }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
+    expect(store.getModel().elements.get(resource.id)?.display).toEqual({ width: 120 });
+    expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
+  });
 });

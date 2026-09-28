@@ -384,13 +384,25 @@ export function DefaultElementInspector({
         readOnly={readOnly}
       />
       <InspectorField label="Color" htmlFor={colorId}>
-        <input
-          id={colorId}
-          type="color"
-          value={normalizeColor(target.display?.backgroundColor, isActorKind(target.kind))}
-          disabled={readOnly}
-          onChange={(e) => actions.setDisplay({ backgroundColor: e.target.value })}
-        />
+        <div className="istar-color-field">
+          <input
+            id={colorId}
+            type="color"
+            value={normalizeColor(target.display?.backgroundColor, isActorKind(target.kind))}
+            disabled={readOnly}
+            onChange={(e) => actions.setDisplay({ backgroundColor: e.target.value })}
+          />
+          {target.display?.backgroundColor !== undefined && !readOnly && (
+            // Like piStar, the default colour is stored as no colour at all.
+            <button
+              type="button"
+              className="istar-icon-button"
+              onClick={() => actions.setDisplay({ backgroundColor: undefined })}
+            >
+              Reset to default
+            </button>
+          )}
+        </div>
       </InspectorField>
       {!readOnly && (
         <button type="button" className="istar-danger-button" onClick={actions.remove}>
