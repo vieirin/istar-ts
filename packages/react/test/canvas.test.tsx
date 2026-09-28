@@ -119,3 +119,25 @@ describe('IstarCanvas', () => {
     errors.mockRestore();
   });
 });
+
+describe('inline name editing', () => {
+  test('typing keeps every character and Enter commits once', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={store} />
+      </div>,
+    );
+    const node = container.querySelector(`.react-flow__node[data-id="${goal.id}"] .istar-element`)!;
+    fireEvent.doubleClick(node);
+    const input = screen.getByLabelText('Element name') as HTMLTextAreaElement;
+    for (const value of ['G', 'G1', 'G1:', 'G1: Collect']) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(input.value).toBe('G1: Collect');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(store.getModel().elements.get(goal.id)?.name).toBe('G1: Collect');
+  });
+});

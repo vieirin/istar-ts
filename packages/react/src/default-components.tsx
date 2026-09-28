@@ -31,10 +31,9 @@ function LabelEditor({ value, onCommit, onDone, className }: EditableLabelProps)
   };
   return (
     <textarea
-      ref={(el) => {
-        el?.focus();
-        el?.select();
-      }}
+      // oxlint-disable-next-line jsx-a11y/no-autofocus -- editing starts on explicit user action
+      autoFocus
+      onFocus={(e) => e.currentTarget.select()}
       className={`istar-label-input nodrag nopan nowheel ${className ?? ''}`}
       value={draft}
       aria-label="Element name"
