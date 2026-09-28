@@ -264,7 +264,10 @@
 }
 .istar-element.is-selected .istar-shape,
 .istar-actor.is-selected .istar-actor-symbol .istar-shape {
-  filter: drop-shadow(0 0 2px var(--istar-selection));
+  /* Layered halo so the selection reads clearly on pale node fills. */
+  filter:
+    drop-shadow(0 0 1px var(--istar-selection)) drop-shadow(0 0 3px var(--istar-selection))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--istar-selection) 70%, transparent));
 }
 /*
  * Match piStar's text metrics: JointJS wraps names at the element's full width with a 1em line
@@ -308,6 +311,7 @@
 }
 .istar-actor.is-selected .istar-actor-boundary rect {
   stroke: var(--istar-selection);
+  stroke-width: calc(var(--istar-stroke-width) + 1.5px);
 }
 .istar-actor-symbol {
   position: absolute;
@@ -362,6 +366,7 @@
 .istar-link.is-selected .istar-link-line,
 .istar-link.is-selected .istar-link-marker {
   stroke: var(--istar-selection);
+  stroke-width: calc(var(--istar-link-width) + 1.5px);
 }
 .istar-link-marker {
   fill: none;
