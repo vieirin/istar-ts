@@ -61,7 +61,29 @@ export function Controlled() {
 
 `<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` or `'bottom'` for a piStar-style bar, or `false`), `aside`, `extensions`,
 `controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain) and
-`fitView`.
+`fitView` (on by default; waits until the container has a usable size, so a canvas mounted in a
+panel that is still opening is fitted once it has room).
+
+### Controlling the viewport
+
+The canvas owns its React Flow instance, so `useReactFlow()` isn't available to your app. Pass a
+`ref` instead to fit, zoom, or reveal elements, e.g. after resizing the container or when an element
+is selected elsewhere. Each method resolves to `true` once the viewport has moved (after any
+animation), or `false` if it couldn't (for example, an unknown element id).
+
+```tsx
+import { useRef } from 'react';
+import type { IstarCanvasHandle } from '@istar-ts/react';
+
+const canvas = useRef<IstarCanvasHandle>(null);
+
+<IstarCanvas ref={canvas} store={store} />;
+
+canvas.current?.fitView({ padding: 0.1, duration: 200 }); // or { nodes: [elementId] }
+canvas.current?.centerOn(elementId, { zoom: 1.5, duration: 200 }); // keeps the zoom if omitted
+canvas.current?.zoomIn();
+canvas.current?.zoomOut();
+```
 
 ## Editing behaviour
 

@@ -7,6 +7,7 @@ import type {
   EdgeChange,
   NodeChange,
   OnSelectionChangeParams,
+  ReactFlowInstance,
 } from '@xyflow/react';
 import {
   Background,
@@ -18,15 +19,28 @@ import {
   applyNodeChanges,
   ViewportPortal,
   useConnection,
+  useNodesInitialized,
   useReactFlow,
+  useStore,
 } from '@xyflow/react';
 import type {
+  ForwardRefExoticComponent,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   ReactElement,
   ReactNode,
+  Ref,
+  RefAttributes,
 } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
@@ -60,7 +74,38 @@ export interface IstarCanvasProps {
   readonly controls?: boolean;
   /** Show a dotted grid behind the diagram. Default false (piStar's paper is plain white). */
   readonly background?: boolean;
+  /**
+   * Fit the diagram into view once it is laid out. Default true. If the canvas mounts before
+   * its container has a usable size (e.g. in panels still animating open), the fit waits until
+   * it has one.
+   */
   readonly fitView?: boolean;
+}
+
+/** Options for {@link IstarCanvasHandle.fitView}. */
+export interface IstarFitViewOptions {
+  /** Space around the fitted elements, as a fraction of the viewport. React Flow's default is 0.1. */
+  readonly padding?: number;
+  /** Animation length in ms; instant when omitted. */
+  readonly duration?: number;
+  /** Fit only these elements (by `IstarElement` id) instead of the whole diagram. */
+  readonly nodes?: readonly string[];
+}
+
+/**
+ * Viewport controls of an `<IstarCanvas>`, reached through its `ref`. The canvas owns its React
+ * Flow instance, so apps can't call `useReactFlow()` themselves; use this instead, e.g. to
+ * re-fit after the container is resized or to reveal an element selected elsewhere.
+ *
+ * Each method resolves to `true` once the viewport has changed (after any animation), or
+ * `false` if it couldn't (e.g. the canvas isn't ready, or `centerOn` got an unknown id).
+ */
+export interface IstarCanvasHandle {
+  fitView(options?: IstarFitViewOptions): Promise<boolean>;
+  /** Centre an element (by `IstarElement` id), keeping the zoom unless `zoom` is given. */
+  centerOn(elementId: string, options?: { zoom?: number; duration?: number }): Promise<boolean>;
+  zoomIn(options?: { duration?: number }): Promise<boolean>;
+  zoomOut(options?: { duration?: number }): Promise<boolean>;
 }
 
 /**
@@ -68,10 +113,16 @@ export interface IstarCanvasProps {
  * a `store`), or inside an `<IstarProvider>` together with `<IstarPalette>` and
  * `<IstarInspector>` placed wherever you like.
  */
-export function IstarCanvas(props: IstarCanvasProps): ReactElement {
+export const IstarCanvas: ForwardRefExoticComponent<
+  IstarCanvasProps & RefAttributes<IstarCanvasHandle>
+> = forwardRef<IstarCanvasHandle, IstarCanvasProps>(function IstarCanvas(
+  props: IstarCanvasProps,
+  ref: Ref<IstarCanvasHandle>,
+): ReactElement {
   const hasProvider = useHasIstarProvider();
   const content = (
     <ReactFlowProvider>
+      <CanvasHandle ref={ref} />
       <CanvasLayout {...props} />
     </ReactFlowProvider>
   );
@@ -88,6 +139,72 @@ export function IstarCanvas(props: IstarCanvasProps): ReactElement {
       {content}
     </IstarProvider>
   );
+});
+
+/** Exposes the canvas's React Flow viewport through the `IstarCanvas` ref. */
+const CanvasHandle = forwardRef<IstarCanvasHandle>(function CanvasHandle(_props, ref) {
+  const flow = useReactFlow<IstarFlowNode, IstarFlowEdge>();
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitView: (options) => fitNodes(flow, options),
+      centerOn(elementId, { zoom, duration } = {}) {
+        const node = flow.getInternalNode(elementId);
+        if (!node) return Promise.resolve(false);
+        // Nodes inside actors have positions relative to the actor; centre the absolute box.
+        const { x, y } = node.internals.positionAbsolute;
+        const width = node.measured.width ?? node.width ?? 0;
+        const height = node.measured.height ?? node.height ?? 0;
+        return flow.setCenter(x + width / 2, y + height / 2, {
+          zoom: zoom ?? flow.getZoom(),
+          ...(duration !== undefined && { duration }),
+        });
+      },
+      zoomIn: (options) => flow.zoomIn(options),
+      zoomOut: (options) => flow.zoomOut(options),
+    }),
+    [flow],
+  );
+  return null;
+});
+
+/**
+ * Fits the viewport to the given elements, or to every visible one, like React Flow's `fitView`
+ * (same default padding and zoom limits). `fitView` itself only applies on React Flow's next
+ * node update, which may never come, so this fits the measured nodes directly.
+ */
+function fitNodes(
+  flow: ReactFlowInstance<IstarFlowNode, IstarFlowEdge>,
+  { padding = 0.1, duration, nodes }: IstarFitViewOptions = {},
+): Promise<boolean> {
+  const ids = nodes ?? flow.getNodes().flatMap((n) => (n.hidden ? [] : [n.id]));
+  const measured = ids.filter((id) => flow.getInternalNode(id)?.measured.width !== undefined);
+  if (measured.length === 0) return Promise.resolve(false);
+  return flow.fitBounds(flow.getNodesBounds(measured), {
+    padding,
+    ...(duration !== undefined && { duration }),
+  });
+}
+
+/** Below this width or height (px) the flow container is still being laid out; don't fit yet. */
+const MIN_FIT_SIZE = 50;
+
+/**
+ * Fits the diagram once, as soon as it has measured nodes and the container has a usable size.
+ * React Flow's own `fitView` prop fits at mount, which clamps to `minZoom` when the container
+ * starts out a few pixels wide and never corrects itself when it grows.
+ */
+function useInitialFit(enabled: boolean): void {
+  const flow = useReactFlow<IstarFlowNode, IstarFlowEdge>();
+  // False while there are no nodes, so a model loaded after mount is still fitted.
+  const measured = useNodesInitialized();
+  const sized = useStore((s) => s.width >= MIN_FIT_SIZE && s.height >= MIN_FIT_SIZE);
+  const done = useRef(false);
+  useEffect(() => {
+    if (!enabled || done.current || !sized || !measured) return;
+    done.current = true;
+    void fitNodes(flow);
+  }, [enabled, sized, measured, flow]);
 }
 
 function CanvasLayout(props: IstarCanvasProps): ReactElement {
@@ -146,6 +263,7 @@ function Diagram({
   const { model, registry, store, tool, readOnly } = editor;
   const flow = useReactFlow();
   const graph = useMemo(() => modelToFlow(model, registry), [model, registry]);
+  useInitialFit(fitView);
 
   // React Flow owns transient state (drag positions, measurements, selection); the model is
   // re-applied whenever it changes.
@@ -392,7 +510,6 @@ function Diagram({
         elementsSelectable
         elevateNodesOnSelect={false}
         deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-        fitView={fitView}
         minZoom={0.1}
         proOptions={{ hideAttribution: true }}
       >
