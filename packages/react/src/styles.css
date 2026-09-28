@@ -266,18 +266,22 @@
 .istar-actor.is-selected .istar-actor-symbol .istar-shape {
   filter: drop-shadow(0 0 2px var(--istar-selection));
 }
+/*
+ * Match piStar's text metrics: JointJS wraps names at the element's full width with a 1em line
+ * height, and stored element sizes are fitted to that. Anything roomier overflows the shapes.
+ */
 .istar-label,
 .istar-label-input {
   position: relative;
-  max-width: calc(100% - 12px);
+  max-width: 100%;
   font-weight: bold;
-  line-height: 1.2;
+  line-height: 1;
   text-align: center;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .istar-label-input {
-  width: calc(100% - 12px);
+  width: 100%;
   height: calc(100% - 8px);
   padding: 0;
   font: inherit;
