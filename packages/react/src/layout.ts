@@ -34,6 +34,21 @@ export type IstarEdgeData = { linkId: string };
 export type IstarFlowEdge = Edge<IstarEdgeData, 'istar'>;
 
 /**
+ * Merge a model-derived node with the live React Flow node. Selection is kept; `measured` is
+ * set to the model size. React Flow prefers `measured` over `width`/`height`, so carrying a
+ * stale larger measurement after children move inward would leave the actor boundary stuck
+ * expanded (piStar's `updateBoundary` shrinks back to the contents).
+ */
+export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefined): IstarFlowNode {
+  if (!prev) return next;
+  const measured =
+    next.width !== undefined && next.height !== undefined
+      ? { width: next.width, height: next.height }
+      : prev.measured;
+  return { ...next, measured, selected: prev.selected } as IstarFlowNode;
+}
+
+/**
  * The actor's boundary: its own default-size rectangle grown to include all inner elements,
  * like piStar's `updateBoundary`.
  */
