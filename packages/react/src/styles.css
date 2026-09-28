@@ -556,3 +556,16 @@
   align-self: flex-start;
   color: var(--istar-error-text);
 }
+
+/* Resize handles (selected intentional elements) */
+.istar-canvas .react-flow__resize-control.handle.istar-resize-handle {
+  width: 7px;
+  height: 7px;
+  background: var(--istar-canvas-bg);
+  border: 1px solid var(--istar-selection);
+  border-radius: 1px;
+}
+.istar-canvas .react-flow__resize-control.line.istar-resize-line {
+  border-color: var(--istar-selection);
+  opacity: 0.5;
+}

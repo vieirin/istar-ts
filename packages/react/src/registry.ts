@@ -103,6 +103,11 @@ export interface ElementKindConfig {
     | ((ctx: { model: IstarModel }) => CustomProperties);
   readonly inspector?: ComponentType<InspectorProps<IstarElement>> | false;
   readonly palette: PaletteEntry | false;
+  /**
+   * Whether the element shows resize handles when selected. Default: true for intentional
+   * elements; actors are sized by their contents, as in piStar.
+   */
+  readonly resizable?: boolean;
   /** Typed customProperties; the default inspector renders fields from it. */
   readonly properties?: PropertySchema;
 }
@@ -171,6 +176,7 @@ function defaultElementConfig(kind: ElementKind, index: number): ElementKindConf
     label,
     size: DEFAULT_ELEMENT_SIZE[kind],
     component: actor ? DefaultActorComponent : DefaultElementComponent,
+    resizable: !actor,
     palette: {
       label,
       title: ELEMENT_TITLES[kind],

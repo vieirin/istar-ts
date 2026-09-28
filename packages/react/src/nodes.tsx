@@ -1,7 +1,7 @@
-import type { NodeProps, NodeTypes } from '@xyflow/react';
-import { Handle, Position } from '@xyflow/react';
+import type { NodeProps, NodeTypes, ResizeParams } from '@xyflow/react';
+import { Handle, NodeResizer, Position } from '@xyflow/react';
 import type { ComponentType, ReactElement } from 'react';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { useIstarEditor } from './context';
 import type { ActorFlowNode, ElementFlowNode } from './layout';
 import { ACTOR_SYMBOL_OFFSET } from './layout';
@@ -47,19 +47,66 @@ function useElementNode(elementId: string) {
 export const ElementNode: ComponentType<NodeProps<ElementFlowNode>> = memo(function ElementNode({
   data,
   selected,
+  width,
+  height,
 }: NodeProps<ElementFlowNode>): ReactElement | null {
   const { editor, element, editing, setEditing } = useElementNode(data.elementId);
+  const start = useRef<ResizeParams | null>(null);
   if (!element) return null;
   const config = editor.registry.elements[element.kind];
   const Component = config.component;
-  const size = elementSize(editor.registry, element);
+  // While resizing, React Flow updates the node's size before the model; render that.
+  const size = {
+    width: width ?? elementSize(editor.registry, element).width,
+    height: height ?? elementSize(editor.registry, element).height,
+  };
   const linking = editor.tool !== null && editor.tool.type !== 'element';
+  const resizable = config.resizable !== false && !editor.readOnly;
+
+  const commitResize = (end: ResizeParams): void => {
+    const from = start.current;
+    start.current = null;
+    if (!from) return;
+    const { store, registry } = editor;
+    const current = store.getModel().elements.get(element.id);
+    if (!current) return;
+    const base = registry.elements[current.kind].size;
+    const w = Math.round(end.width);
+    const h = Math.round(end.height);
+    store.transaction(() => {
+      // Like piStar, only sizes that differ from the kind's default are stored in `display`.
+      store.updateElement(current.id, {
+        display: {
+          width: w === base.width ? undefined : w,
+          height: h === base.height ? undefined : h,
+        },
+      });
+      const dx = Math.round(end.x - from.x);
+      const dy = Math.round(end.y - from.y);
+      if (dx !== 0 || dy !== 0) store.moveElement(current.id, current.x + dx, current.y + dy);
+    });
+  };
+
   return (
     <div
       className={`istar-element${selected ? ' is-selected' : ''}`}
       data-kind={element.kind}
       onDoubleClick={() => !editor.readOnly && setEditing(true)}
     >
+      {resizable && (
+        <NodeResizer
+          isVisible={selected && !linking}
+          minWidth={30}
+          minHeight={20}
+          color="var(--istar-selection)"
+          handleClassName="istar-resize-handle"
+          lineClassName="istar-resize-line"
+          onResizeStart={(_e, params) => {
+            start.current = params;
+          }}
+          onResizeEnd={(_e, params) => commitResize(params)}
+        />
+      )}
       <Component
         element={element}
         width={size.width}
