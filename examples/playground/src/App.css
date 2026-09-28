@@ -114,7 +114,7 @@ body {
 }
 
 .pg-aside {
-  width: 16rem;
+  width: 20rem;
   flex-shrink: 0;
   padding: 0.75rem 1rem;
   border-left: 1px solid #d4d4d8;
@@ -169,4 +169,39 @@ body {
 .pg-stats dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.pg-inspector.istar-inspector {
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.pg-resource {
+  position: relative;
+}
+
+.pg-resource-badge {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  background: #fff;
+  border: 1px solid #52525b;
+  border-radius: 8px;
+}
+
+.pg-resource-badge.has-issue {
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.pg-checkbox {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
