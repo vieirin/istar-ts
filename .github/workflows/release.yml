@@ -4,8 +4,9 @@
 # package.json are overwritten for the publish, so they don't need bumping in the repo).
 # Pre-release tags such as `v1.3.0-beta.1` are published under the `next` dist-tag.
 #
-# Requires the NPM_SECRET_KEY secret in the `publish` environment: an npm automation (or
-# granular) token with publish rights on the @istar-ts scope.
+# Authentication: npm trusted publishing (configure a trusted publisher for each package on
+# npmjs.com: repository vieirin/istar-ts, workflow release.yml, environment publish). Until
+# then, the NPM_SECRET_KEY secret of the `publish` environment is used as a token.
 name: Release
 
 on:
@@ -61,11 +62,25 @@ jobs:
             echo "DIST_TAG=latest" >> "$GITHUB_ENV"
           fi
 
-      # pnpm publishes in dependency order (core, then react) and rewrites `workspace:^` to
-      # the published version. `prepack` copies the LICENSE and builds each package.
+      # pnpm packs each package (running `prepack`: LICENSE + build) and rewrites `workspace:^`
+      # to the published version; npm publishes the tarballs, core first. npm's CLI is used for
+      # the upload because it supports trusted publishing (OIDC): once the packages have a
+      # trusted publisher on npmjs.com, no token is needed and NPM_SECRET_KEY can be deleted.
       - name: Publish to npm
-        run: pnpm -r --filter "./packages/*" publish --access public --no-git-checks --tag "$DIST_TAG"
+        run: |
+          npm --version
+          mkdir -p "$RUNNER_TEMP/tarballs"
+          for pkg in core react; do
+            (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
+            tarball="$RUNNER_TEMP/tarballs/istar-ts-$pkg-$VERSION.tgz"
+            if npm view "@istar-ts/$pkg@$VERSION" version >/dev/null 2>&1; then
+              echo "@istar-ts/$pkg@$VERSION is already published, skipping"
+            else
+              npm publish "$tarball" --access public --tag "$DIST_TAG"
+            fi
+          done
         env:
+          # Fallback until trusted publishing is configured; unused afterwards.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET_KEY }}
           # Provenance attestations require a public repository.
           NPM_CONFIG_PROVENANCE: ${{ !github.event.repository.private }}
