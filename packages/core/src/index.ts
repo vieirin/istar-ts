@@ -4,3 +4,4 @@ export * from './constraints';
 export * from './serialization';
 export * from './operations';
 export * from './store';
+export * from './properties';
