@@ -165,3 +165,35 @@ describe('palette placement', () => {
     expect(screen.queryByRole('toolbar')).toBeNull();
   });
 });
+
+describe('links are selectable objects', () => {
+  test('clicking a link selects it and shows it in the inspector; it can be deleted', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const g1 = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id, name: 'G1' });
+    const g2 = store.addElement({
+      kind: 'istar.Goal',
+      x: 20,
+      y: 200,
+      parent: actor.id,
+      name: 'G2',
+    });
+    const link = store.connect({ kind: 'istar.AndRefinementLink', source: g2.id, target: g1.id });
+    if (!link.ok) throw new Error(link.reason);
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={store} aside={<IstarInspector />} />
+      </div>,
+    );
+    const edge = container.querySelector(`.react-flow__edge[data-id="${link.link.id}"]`)!;
+    expect(edge).toBeTruthy();
+    fireEvent.click(edge);
+    expect(edge.classList.contains('selected')).toBe(true);
+    expect(screen.getByText('And-Refinement')).toBeTruthy();
+    expect(screen.getByText('G2 → G1')).toBeTruthy();
+    // (The Delete key goes through React Flow's key handling, verified in a browser; jsdom
+    // can't drive it, so delete through the inspector.)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete link' }));
+    expect(store.getModel().links.size).toBe(0);
+  });
+});

@@ -4,6 +4,7 @@ import type {
   Connection,
   FinalConnectionState,
   IsValidConnection,
+  EdgeChange,
   NodeChange,
   OnSelectionChangeParams,
 } from '@xyflow/react';
@@ -13,6 +14,7 @@ import {
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  applyEdgeChanges,
   applyNodeChanges,
   ViewportPortal,
   useConnection,
@@ -28,7 +30,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
-import type { IstarFlowNode } from './layout';
+import type { IstarFlowEdge, IstarFlowNode } from './layout';
 import { modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
@@ -122,6 +124,7 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
   // React Flow owns transient state (drag positions, measurements, selection); the model is
   // re-applied whenever it changes.
   const [nodes, setNodes] = useState<IstarFlowNode[]>(graph.nodes);
+  const [edges, setEdges] = useState<IstarFlowEdge[]>(graph.edges);
   const [syncedGraph, setSyncedGraph] = useState(graph);
   if (syncedGraph !== graph) {
     // Adjust state while rendering when the model changes, keeping React Flow's measurements
@@ -136,6 +139,8 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
           : n;
       }),
     );
+    const selectedEdges = new Set(edges.filter((e) => e.selected).map((e) => e.id));
+    setEdges(graph.edges.map((e) => (selectedEdges.has(e.id) ? { ...e, selected: true } : e)));
   }
 
   const onNodesChange = useCallback((changes: NodeChange<IstarFlowNode>[]) => {
@@ -144,6 +149,17 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
       applyNodeChanges(
         changes.filter((c) => c.type !== 'remove'),
         ns,
+      ),
+    );
+  }, []);
+
+  // Links are ordinary selectable objects, as in piStar: React Flow's select changes must be
+  // applied for clicks, the inspector and Delete to see them.
+  const onEdgesChange = useCallback((changes: EdgeChange<IstarFlowEdge>[]) => {
+    setEdges((es) =>
+      applyEdgeChanges(
+        changes.filter((c) => c.type !== 'remove'),
+        es,
       ),
     );
   }, []);
@@ -321,9 +337,10 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
 
   return (
     <div className="istar-diagram" tabIndex={-1} onKeyDown={onKeyDown}>
-      <ReactFlow<IstarFlowNode>
+      <ReactFlow<IstarFlowNode, IstarFlowEdge>
         nodes={nodes}
-        edges={graph.edges}
+        edges={edges}
+        onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
