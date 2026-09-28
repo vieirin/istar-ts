@@ -42,3 +42,14 @@ export {
 export type { ShapeProps } from './shapes';
 export { ACTOR_PADDING, actorBoundary, modelToFlow } from './layout';
 export type { Box, FlowGraph } from './layout';
+export {
+  CommitText,
+  CustomPropertiesEditor,
+  DefaultElementInspector,
+  DefaultLinkInspector,
+  InspectorField,
+  IstarInspector,
+  PropertyField,
+  useTypedProperties,
+} from './Inspector';
+export type { CommitTextProps, IstarInspectorProps, PropertyFieldProps } from './Inspector';
