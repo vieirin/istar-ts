@@ -138,7 +138,7 @@ describe('defineProperties', () => {
 
   test('read from wrapper object', () => {
     const schema = defineProperties('istar.Goal', { x: string({ default: 'd' }) });
-    expect(schema.read({ customProperties: {} }).values).toEqual({ x: 'd' });
+    expect(schema.read({ kind: 'istar.Goal', customProperties: {} }).values).toEqual({ x: 'd' });
   });
 
   test('cross-field validate', () => {
@@ -234,5 +234,17 @@ describe('fixture no-op writes', () => {
       const schema = defineProperties(owner.kind, {});
       expect(schema.write(owner.customProperties, {})).toEqual(owner.customProperties);
     }
+  });
+});
+
+describe('reading from model objects', () => {
+  test('an element without customProperties is not mistaken for a property bag', () => {
+    const schema = defineProperties('istar.Goal', { name: prop.string({ optional: true }) });
+    const element = { id: 'g', kind: 'istar.Goal', name: 'G1', x: 0, y: 0 } as const;
+    expect(schema.read(element).values).toEqual({});
+    expect(schema.read({ ...element, customProperties: { name: 'n' } }).values).toEqual({
+      name: 'n',
+    });
+    expect(schema.read({ name: 'bag' }).values).toEqual({ name: 'bag' });
   });
 });

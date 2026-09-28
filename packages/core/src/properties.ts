@@ -133,13 +133,11 @@ export interface PropertyIssue {
 export interface PropertySchema<S extends PropertyShape = PropertyShape> {
   readonly kind: ElementKind | LinkKind;
   readonly shape: S;
-  read(source: CustomProperties | undefined | { customProperties?: CustomProperties }): {
+  read(source: CustomProperties | undefined | PropertyOwner): {
     values: Partial<InferProperties<S>>;
     issues: PropertyIssue[];
   };
-  validate(
-    source: CustomProperties | undefined | { customProperties?: CustomProperties },
-  ): PropertyIssue[];
+  validate(source: CustomProperties | undefined | PropertyOwner): PropertyIssue[];
   write(
     current: CustomProperties | undefined,
     patch: { [K in keyof S]?: InferProperties<S>[K] | undefined },
@@ -147,14 +145,28 @@ export interface PropertySchema<S extends PropertyShape = PropertyShape> {
   defaults(): CustomProperties;
 }
 
+/** An element or link, read through its `customProperties`. */
+export interface PropertyOwner {
+  readonly kind: string;
+  readonly customProperties?: CustomProperties;
+}
+
 export interface ModelPropertyIssue extends PropertyIssue {
   id: string;
 }
 
-type PropertySource = CustomProperties | undefined | { customProperties?: CustomProperties };
+type PropertySource = CustomProperties | undefined | PropertyOwner;
 
 function isCustomPropertiesRecord(source: NonNullable<PropertySource>): source is CustomProperties {
-  return !('customProperties' in source);
+  // Elements and links are passed whole, possibly without `customProperties`; recognize them by
+  // their `istar.*` kind and numeric/structural fields a bag of strings can't have.
+  if ('customProperties' in source) return false;
+  const owner = source as { kind?: unknown; x?: unknown; source?: unknown; target?: unknown };
+  const isModelObject =
+    typeof owner.kind === 'string' &&
+    owner.kind.startsWith('istar.') &&
+    (typeof owner.x === 'number' || (owner.source !== undefined && owner.target !== undefined));
+  return !isModelObject;
 }
 
 function resolveCustomProperties(source: PropertySource): CustomProperties | undefined {
