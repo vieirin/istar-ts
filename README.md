@@ -23,6 +23,14 @@ pnpm build       # tsdown → packages/*/dist
 pnpm dev         # playground app (examples/playground)
 ```
 
+## Releasing
+
+Versions come from git tags; don't edit `version` in `package.json` (it stays
+`0.0.0-development`). To release, publish a GitHub release with a semver tag, e.g. `v0.2.0`
+(`gh release create v0.2.0 --generate-notes`). The [Release workflow](.github/workflows/release.yml)
+runs the full check, stamps that version on both packages and publishes them to npm with the
+`NPM_SECRET_KEY` secret. Pre-release tags like `v0.3.0-beta.1` go to the `next` dist-tag.
+
 ## Credits
 
 The metamodel, link constraints, element shapes and file format are derived from

@@ -46,3 +46,5 @@ pnpm dev          # playground
 - Where upstream behaviour is ambiguous, match what the piStar web tool does and leave a
   comment saying so.
 - Commit after each step with build + tests passing.
+- Never bump `version` in package.json: releases take the version from the GitHub release tag
+  (`.github/workflows/release.yml`, secret `NPM_SECRET_KEY`).

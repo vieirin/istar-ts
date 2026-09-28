@@ -1,6 +1,6 @@
 {
   "name": "@istar-ts/core",
-  "version": "0.1.0",
+  "version": "0.0.0-development",
   "description": "Framework-free iStar 2.0 goal-model core: metamodel, constraints, piStar-compatible serialization, undoable store.",
   "license": "MIT",
   "type": "module",

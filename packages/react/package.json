@@ -1,6 +1,6 @@
 {
   "name": "@istar-ts/react",
-  "version": "0.1.0",
+  "version": "0.0.0-development",
   "description": "React components for editing iStar 2.0 goal models, built on React Flow with a pluggable element registry.",
   "license": "MIT",
   "type": "module",

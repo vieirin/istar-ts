@@ -1,0 +1,77 @@
+# Publishes @istar-ts/core and @istar-ts/react to npm when a GitHub release is published.
+#
+# The release tag is the version: tag `v1.2.3` publishes 1.2.3 of both packages (the versions in
+# package.json are overwritten for the publish, so they don't need bumping in the repo).
+# Pre-release tags such as `v1.3.0-beta.1` are published under the `next` dist-tag.
+#
+# Requires the NPM_SECRET_KEY secret: an npm automation (or granular) token with publish rights
+# on the @istar-ts scope.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # pnpm version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # Lint, format, typecheck, tests and build, before touching package.json.
+      - run: pnpm check
+
+      - name: Set package versions from the release tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag '$TAG' is not a semver version (expected vX.Y.Z or vX.Y.Z-pre)"
+            exit 1
+          fi
+          for pkg in packages/*/; do
+            (cd "$pkg" && npm pkg set version="$VERSION")
+          done
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "DIST_TAG=next" >> "$GITHUB_ENV"
+          else
+            echo "DIST_TAG=latest" >> "$GITHUB_ENV"
+          fi
+
+      # pnpm publishes in dependency order (core, then react) and rewrites `workspace:^` to
+      # the published version. `prepack` copies the LICENSE and builds each package.
+      - name: Publish to npm
+        run: pnpm -r --filter "./packages/*" publish --access public --no-git-checks --tag "$DIST_TAG"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET_KEY }}
+          # Provenance attestations require a public repository.
+          NPM_CONFIG_PROVENANCE: ${{ !github.event.repository.private }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published $VERSION (dist-tag: $DIST_TAG)"
+            echo "- https://www.npmjs.com/package/@istar-ts/core/v/$VERSION"
+            echo "- https://www.npmjs.com/package/@istar-ts/react/v/$VERSION"
+          } >> "$GITHUB_STEP_SUMMARY"
