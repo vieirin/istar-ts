@@ -1,0 +1,290 @@
+/*
+ * @istar-ts/react styles. Every rule is scoped to the library's own classes; theme by
+ * overriding the custom properties on .istar-canvas (or any ancestor of it).
+ */
+:where(.istar-canvas, .istar-palette, .istar-inspector) {
+  --istar-font-family: Arial, Helvetica, sans-serif;
+  --istar-font-size: 12px;
+  --istar-text: #000;
+  --istar-stroke: #000;
+  --istar-stroke-width: 2px;
+  --istar-link-width: 1px;
+  --istar-node-fill: rgb(205, 254, 205);
+  --istar-actor-fill: rgb(242, 242, 242);
+  --istar-selection: #2f6fe4;
+  --istar-canvas-bg: #fff;
+  --istar-panel-bg: #fafafa;
+  --istar-panel-border: #d9d9d9;
+  --istar-button-bg: #fff;
+  --istar-button-active-bg: #dfe9fc;
+  --istar-error-bg: #fdecea;
+  --istar-error-text: #8a1c1c;
+  --istar-info-bg: #eef4fd;
+  --istar-info-text: #1d3f7a;
+  font-family: var(--istar-font-family);
+  font-size: var(--istar-font-size);
+  color: var(--istar-text);
+}
+
+.istar-canvas {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--istar-canvas-bg);
+}
+.istar-canvas-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.istar-canvas-flow {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.istar-diagram {
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+.istar-canvas-flow.is-adding .react-flow__pane,
+.istar-canvas-flow.is-adding .istar-node {
+  cursor: crosshair;
+}
+
+/* Palette */
+.istar-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 6px 8px;
+  background: var(--istar-panel-bg);
+  border-bottom: 1px solid var(--istar-panel-border);
+}
+.istar-palette-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.istar-palette-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--istar-button-bg);
+  border: 1px solid var(--istar-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.istar-palette-button.is-active {
+  background: var(--istar-button-active-bg);
+  border-color: var(--istar-selection);
+}
+.istar-palette-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Nodes */
+.istar-canvas .react-flow__node.istar-node {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.istar-element,
+.istar-actor {
+  position: relative;
+}
+.istar-element-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.istar-shape {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.istar-element.is-selected .istar-shape,
+.istar-actor.is-selected .istar-actor-symbol .istar-shape {
+  filter: drop-shadow(0 0 2px var(--istar-selection));
+}
+.istar-label,
+.istar-label-input {
+  position: relative;
+  max-width: calc(100% - 12px);
+  font-weight: bold;
+  line-height: 1.2;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.istar-label-input {
+  width: calc(100% - 12px);
+  height: calc(100% - 8px);
+  padding: 0;
+  font: inherit;
+  font-weight: bold;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--istar-selection);
+  resize: none;
+}
+.istar-node-dependum .istar-element {
+  z-index: 1;
+}
+
+.istar-actor-boundary {
+  position: absolute;
+  inset: 0;
+  background: var(--istar-actor-fill);
+  border: var(--istar-stroke-width) dashed var(--istar-stroke);
+  border-radius: 100px / 40px;
+}
+.istar-actor.is-selected .istar-actor-boundary {
+  border-color: var(--istar-selection);
+}
+.istar-actor-symbol {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.istar-actor-symbol-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.istar-actor-symbol-body .istar-shape {
+  inset: -2px;
+}
+.istar-actor-toggle {
+  position: absolute;
+  top: -22px;
+  left: 44px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font: inherit;
+  line-height: 14px;
+  color: inherit;
+  background: var(--istar-button-bg);
+  border: 1px solid var(--istar-panel-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Handles cover the whole node, and only take the pointer while a link tool is active. */
+.istar-canvas .react-flow__handle.istar-handle {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+.istar-canvas-flow.is-linking .react-flow__handle.istar-handle:not(.istar-handle-target) {
+  pointer-events: all;
+  cursor: crosshair;
+}
+.istar-actor-symbol .react-flow__handle.istar-handle {
+  border-radius: 50%;
+}
+
+/* Links */
+.istar-canvas .istar-link-line {
+  stroke: var(--istar-stroke);
+  stroke-width: var(--istar-link-width);
+  fill: none;
+}
+.istar-link.is-selected .istar-link-line,
+.istar-link.is-selected .istar-link-marker {
+  stroke: var(--istar-selection);
+}
+.istar-link-marker {
+  fill: none;
+  stroke: var(--istar-stroke);
+  stroke-width: 1.2;
+}
+.istar-link-marker.is-filled {
+  fill: var(--istar-stroke);
+}
+.istar-link-dependency {
+  fill: #fff;
+  stroke: var(--istar-stroke);
+  stroke-width: 2;
+}
+.istar-link-label {
+  font-size: 13px;
+  fill: var(--istar-text);
+  stroke: var(--istar-canvas-bg);
+  stroke-width: 0.35em;
+  paint-order: stroke;
+  pointer-events: none;
+}
+.istar-link-label.is-contribution {
+  font-weight: bold;
+  font-size: 12px;
+}
+.istar-canvas .react-flow__connectionline path {
+  stroke: var(--istar-stroke);
+  stroke-dasharray: 4 3;
+}
+
+/* Feedback */
+.istar-connection-hint {
+  position: absolute;
+  max-width: 280px;
+  padding: 4px 8px;
+  color: var(--istar-error-text);
+  background: var(--istar-error-bg);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+.istar-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  max-width: min(560px, 90%);
+  padding: 8px 12px;
+  border-radius: 4px;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.istar-notice.is-error {
+  color: var(--istar-error-text);
+  background: var(--istar-error-bg);
+}
+.istar-notice.is-info {
+  color: var(--istar-info-text);
+  background: var(--istar-info-bg);
+}
+.istar-notice button {
+  padding: 0 4px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}

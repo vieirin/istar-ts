@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     name: 'react',
-    environment: 'node',
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
   },
 });
