@@ -29,6 +29,7 @@ import {
 } from '@istar-ts/core';
 import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
+import type { ElementIssue } from './issues';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 
 // ---------------------------------------------------------------------------------------------
@@ -52,6 +53,11 @@ export interface ElementComponentProps {
   setEditing(editing: boolean): void;
   readonly actions: ElementActions;
   readonly readOnly: boolean;
+  /**
+   * Host-owned issues for this element (e.g. LSP diagnostics). Empty when the host did not
+   * pass an `issues` prop, or none apply to this id. Never written to the model.
+   */
+  readonly issues: readonly ElementIssue[];
 }
 
 export interface InspectorProps<T extends IstarElement | IstarLink = IstarElement> {
@@ -61,6 +67,8 @@ export interface InspectorProps<T extends IstarElement | IstarLink = IstarElemen
   readonly readOnly: boolean;
   /** The kind's property schema, if the registry declares one. */
   readonly schema?: PropertySchema;
+  /** Host-owned issues for this target (e.g. LSP diagnostics). */
+  readonly issues: readonly ElementIssue[];
 }
 
 export interface LinkActions {
@@ -110,6 +118,11 @@ export interface ElementKindConfig {
   readonly resizable?: boolean;
   /** Typed customProperties; the default inspector renders fields from it. */
   readonly properties?: PropertySchema;
+  /**
+   * Name assigned when the palette creates an element of this kind. Defaults to `label`
+   * (e.g. "Goal"). Use for modeller-specific numbering such as MutRoSe's `G1: …` / `AT1: …`.
+   */
+  readonly defaultName?: string | ((ctx: { model: IstarModel }) => string);
 }
 
 export interface LinkPaletteEntry extends PaletteEntry {
@@ -389,6 +402,19 @@ export function defaultPropertiesFor(
   const fromSchema = config.properties?.defaults();
   if (!fromPreset && !fromSchema) return undefined;
   return { ...fromSchema, ...fromPreset };
+}
+
+/** Resolves the name for a newly created element of `kind`. */
+export function defaultNameFor(
+  registry: IstarRegistry,
+  kind: ElementKind,
+  model: IstarModel,
+): string {
+  const config = registry.elements[kind];
+  const factory = config.defaultName;
+  if (typeof factory === 'function') return factory({ model });
+  if (typeof factory === 'string') return factory;
+  return config.label;
 }
 
 /** The rendered size of an element: its display override or the registry size. */

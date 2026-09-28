@@ -50,7 +50,8 @@ import { modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
 import type { IstarExtension, IstarRegistry } from './registry';
-import { defaultPropertiesFor } from './registry';
+import { defaultNameFor, defaultPropertiesFor } from './registry';
+import type { ElementIssue } from './issues';
 
 export interface IstarCanvasProps {
   /** Controlled model; pair with `onChange`. Ignored when `store` is given. */
@@ -62,6 +63,13 @@ export interface IstarCanvasProps {
   /** Extensions adapting the editor to another modeller (see `IstarExtension`). */
   readonly extensions?: readonly IstarExtension[];
   readonly readOnly?: boolean;
+  /**
+   * Host-owned issues (e.g. LSP diagnostics). Forwarded to {@link IstarProvider} when this
+   * canvas creates its own provider.
+   */
+  readonly issues?: readonly ElementIssue[];
+  /** Called whenever the editor selection changes. */
+  readonly onSelectionChange?: (selection: Selection) => void;
   /**
    * Where to show the add-element / add-link toolbar: `'left'` (default) docks a vertical bar
    * beside the diagram, `'top'` / `'bottom'` show a piStar-style bar above / below it, `false`
@@ -107,6 +115,8 @@ export interface IstarCanvasHandle {
   centerOn(elementId: string, options?: { zoom?: number; duration?: number }): Promise<boolean>;
   zoomIn(options?: { duration?: number }): Promise<boolean>;
   zoomOut(options?: { duration?: number }): Promise<boolean>;
+  /** Set the editor selection (e.g. from a tree view outside the canvas). */
+  select(selection: Selection): void;
 }
 
 /**
@@ -136,6 +146,8 @@ export const IstarCanvas: ForwardRefExoticComponent<
       registry={props.registry}
       extensions={props.extensions}
       readOnly={props.readOnly}
+      issues={props.issues}
+      onSelectionChange={props.onSelectionChange}
     >
       {content}
     </IstarProvider>
@@ -145,6 +157,7 @@ export const IstarCanvas: ForwardRefExoticComponent<
 /** Exposes the canvas's React Flow viewport through the `IstarCanvas` ref. */
 const CanvasHandle = forwardRef<IstarCanvasHandle>(function CanvasHandle(_props, ref) {
   const flow = useReactFlow<IstarFlowNode, IstarFlowEdge>();
+  const { select } = useIstarEditor();
   useImperativeHandle(
     ref,
     () => ({
@@ -163,8 +176,9 @@ const CanvasHandle = forwardRef<IstarCanvasHandle>(function CanvasHandle(_props,
       },
       zoomIn: (options) => flow.zoomIn(options),
       zoomOut: (options) => flow.zoomOut(options),
+      select,
     }),
-    [flow],
+    [flow, select],
   );
   return null;
 });
@@ -355,7 +369,7 @@ function Diagram({
         x: Math.round(x),
         y: Math.round(y),
         parent,
-        name: config.label,
+        name: defaultNameFor(registry, kind, store.getModel()),
         customProperties: defaultPropertiesFor(registry, kind, store.getModel()),
       });
       editor.select({ type: 'element', id: element.id });

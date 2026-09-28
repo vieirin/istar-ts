@@ -14,6 +14,7 @@ export type { IstarEditor, IstarProviderProps, Notice, Selection, Tool } from '.
 export {
   applyExtensions,
   createRegistry,
+  defaultNameFor,
   defaultPropertiesFor,
   defaultRegistry,
   elementSize,
@@ -40,6 +41,10 @@ export {
   EditableLabel,
 } from './default-components';
 export type { EditableLabelProps } from './default-components';
+export { ElementIssuesBadge } from './ElementIssuesBadge';
+export type { ElementIssuesBadgeProps } from './ElementIssuesBadge';
+export { groupIssuesById, worstSeverity } from './issues';
+export type { ElementIssue, IssueSeverity } from './issues';
 export {
   ACTOR_RADIUS,
   ActorSymbol,

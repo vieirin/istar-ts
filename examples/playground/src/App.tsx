@@ -1,9 +1,11 @@
+import type { PropertySchema } from '@istar-ts/core';
 import { createEmptyModel, parsePistar, PistarParseError, toPistar } from '@istar-ts/core';
 import type { IstarExtension } from '@istar-ts/react';
 import { IstarCanvas, useIstarStore } from '@istar-ts/react';
 import type { ChangeEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
+import { demoIssuesFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
 import { Sidebar } from './Sidebar';
 
 const fixtureModules = import.meta.glob('../../../fixtures/**/*.txt', {
@@ -27,12 +29,10 @@ const initialFixturePath = defaultFixturePath() ?? fixturePaths[0] ?? '';
  * Optional extensions. The default is a plain piStar editor; an extension adapts it to another
  * modeller without changing the libraries.
  */
-const EXTENSIONS: Record<
-  string,
-  { extensions: IstarExtension[]; schemas: typeof goalControllerSchemas }
-> = {
+const EXTENSIONS: Record<string, { extensions: IstarExtension[]; schemas: PropertySchema[] }> = {
   none: { extensions: [], schemas: [] },
   'goal-controller': { extensions: [goalControllerExtension], schemas: goalControllerSchemas },
+  mutrose: { extensions: [mutroseExtension], schemas: mutroseSchemas },
 };
 
 export default function App(): ReactElement {
@@ -170,6 +170,7 @@ export default function App(): ReactElement {
               <select value={extensionId} onChange={(e) => setExtensionId(e.target.value)}>
                 <option value="none">None (piStar)</option>
                 <option value="goal-controller">goal-controller</option>
+                <option value="mutrose">MutRoSe-shaped</option>
               </select>
             </label>
             <label>
@@ -206,6 +207,7 @@ export default function App(): ReactElement {
           store={store}
           extensions={active.extensions}
           palette={bar}
+          issues={extensionId === 'mutrose' ? demoIssuesFor(model) : undefined}
           aside={<Sidebar model={model} schemas={active.schemas} />}
         />
       </div>

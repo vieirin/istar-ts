@@ -44,6 +44,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         actions={editor.elementActions(element.id)}
         readOnly={readOnly}
         schema={config.properties}
+        issues={editor.issuesById.get(element.id) ?? []}
       />
     ) : null;
   } else if (link) {
@@ -57,6 +58,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         actions={editor.linkActions(link.id)}
         readOnly={readOnly}
         schema={config.properties}
+        issues={editor.issuesById.get(link.id) ?? []}
       />
     ) : null;
   }

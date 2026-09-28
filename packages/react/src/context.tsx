@@ -23,6 +23,8 @@ import {
 } from 'react';
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
 import { applyExtensions, defaultRegistry } from './registry';
+import type { ElementIssue } from './issues';
+import { groupIssuesById } from './issues';
 
 /** The active toolbar tool. */
 export type Tool =
@@ -56,6 +58,11 @@ export interface IstarEditor {
   checkConnection(source: string, target: string, tool?: Tool | null): LinkCheck;
   elementActions(id: string): ElementActions;
   linkActions(id: string): LinkActions;
+  /**
+   * Host-owned issues keyed by element/link id (e.g. LSP diagnostics). Empty map when the
+   * host did not pass `issues`.
+   */
+  readonly issuesById: ReadonlyMap<string, readonly ElementIssue[]>;
 }
 
 const EditorContext = createContext<IstarEditor | null>(null);
@@ -110,6 +117,13 @@ export interface IstarProviderProps {
    */
   readonly extensions?: readonly IstarExtension[];
   readonly readOnly?: boolean;
+  /**
+   * Host-owned issues (e.g. LSP diagnostics from a VS Code webview). Keyed by element/link id
+   * via {@link IstarEditor.issuesById}; never written to the model.
+   */
+  readonly issues?: readonly ElementIssue[];
+  /** Called whenever the editor selection changes (including clearing it). */
+  readonly onSelectionChange?: (selection: Selection) => void;
   readonly children?: ReactNode;
 }
 
@@ -152,6 +166,16 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
       : model.links.has(rawSelection.id))
       ? rawSelection
       : null;
+
+  const onSelectionChangeRef = useRef(props.onSelectionChange);
+  useLayoutEffect(() => {
+    onSelectionChangeRef.current = props.onSelectionChange;
+  });
+  useEffect(() => {
+    onSelectionChangeRef.current?.(selection);
+  }, [selection]);
+
+  const issuesById = useMemo(() => groupIssuesById(props.issues), [props.issues]);
 
   const notify = useCallback((message: string, tone: Notice['tone'] = 'error') => {
     setNotice({ id: ++noticeSeq.current, message, tone });
@@ -229,6 +253,7 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
       checkConnection,
       elementActions,
       linkActions,
+      issuesById,
     }),
     [
       store,
@@ -244,6 +269,7 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
       checkConnection,
       elementActions,
       linkActions,
+      issuesById,
     ],
   );
   return <EditorContext.Provider value={editor}>{props.children}</EditorContext.Provider>;
