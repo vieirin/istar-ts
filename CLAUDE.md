@@ -39,8 +39,10 @@ pnpm dev          # playground
   `@istar-ts/source` (tsconfig `customConditions`, vite/vitest aliases). Published consumers
   get `dist/`.
 - Don't add jQuery, Backbone or JointJS.
-- Core never hardcodes domain-specific custom properties; `customProperties` values stay
-  strings on disk; unknown JSON keys must survive a round trip.
+- This is a clean port of the piStar tool. Neither package hardcodes any modeller's properties
+  (goal-controller included); `customProperties` values stay strings on disk; unknown JSON keys
+  must survive a round trip. Modeller-specific behaviour goes in an `IstarExtension`
+  (`extensions` prop) — see `examples/playground/src/extensions/`.
 - Where upstream behaviour is ambiguous, match what the piStar web tool does and leave a
   comment saying so.
 - Commit after each step with build + tests passing.

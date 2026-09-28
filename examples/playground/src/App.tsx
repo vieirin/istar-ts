@@ -1,8 +1,9 @@
 import { createEmptyModel, parsePistar, PistarParseError, toPistar } from '@istar-ts/core';
+import type { IstarExtension } from '@istar-ts/react';
 import { IstarCanvas, useIstarStore } from '@istar-ts/react';
 import type { ChangeEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { registry } from './registry';
+import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
 import { Sidebar } from './Sidebar';
 
 const fixtureModules = import.meta.glob('../../../fixtures/**/*.txt', {
@@ -22,11 +23,25 @@ function defaultFixturePath(): string | undefined {
 
 const initialFixturePath = defaultFixturePath() ?? fixturePaths[0] ?? '';
 
+/**
+ * Optional extensions. The default is a plain piStar editor; an extension adapts it to another
+ * modeller without changing the libraries.
+ */
+const EXTENSIONS: Record<
+  string,
+  { extensions: IstarExtension[]; schemas: typeof goalControllerSchemas }
+> = {
+  none: { extensions: [], schemas: [] },
+  'goal-controller': { extensions: [goalControllerExtension], schemas: goalControllerSchemas },
+};
+
 export default function App(): ReactElement {
   const topChromeRef = useRef<HTMLDivElement>(null);
   const { store, model } = useIstarStore(createEmptyModel);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [extensionId, setExtensionId] = useState('none');
+  const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
 
   const loadFixture = useCallback(
     async (path: string): Promise<void> => {
@@ -149,6 +164,13 @@ export default function App(): ReactElement {
                 ))}
               </select>
             </label>
+            <label>
+              Extension
+              <select value={extensionId} onChange={(e) => setExtensionId(e.target.value)}>
+                <option value="none">None (piStar)</option>
+                <option value="goal-controller">goal-controller</option>
+              </select>
+            </label>
             <label className="pg-file-label">
               Open…
               <input type="file" accept=".txt,.pistar,application/json" onChange={onOpenFile} />
@@ -171,7 +193,11 @@ export default function App(): ReactElement {
         )}
       </div>
       <div className="pg-canvas-wrap">
-        <IstarCanvas store={store} registry={registry} aside={<Sidebar model={model} />} />
+        <IstarCanvas
+          store={store}
+          extensions={active.extensions}
+          aside={<Sidebar model={model} schemas={active.schemas} />}
+        />
       </div>
     </div>
   );

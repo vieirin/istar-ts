@@ -21,8 +21,8 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import type { ElementActions, IstarRegistry, LinkActions } from './registry';
-import { defaultRegistry } from './registry';
+import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
+import { applyExtensions, defaultRegistry } from './registry';
 
 /** The active toolbar tool. */
 export type Tool =
@@ -102,7 +102,13 @@ export interface IstarProviderProps {
   readonly onChange?: (model: IstarModel) => void;
   /** Use an existing store (for undo/redo and change events). Takes precedence over `model`. */
   readonly store?: ModelStore;
+  /** Base registry; the piStar-like `defaultRegistry` when omitted. */
   readonly registry?: IstarRegistry;
+  /**
+   * Extensions applied on top of `registry`, in order, to adapt the editor to another modeller.
+   * Keep the array stable (memoize it) to avoid rebuilding the registry on every render.
+   */
+  readonly extensions?: readonly IstarExtension[];
   readonly readOnly?: boolean;
   readonly children?: ReactNode;
 }
@@ -116,7 +122,12 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
   const storeModel = useStoreModel(store);
   // In controlled mode render exactly what the parent passed.
   const model = props.store ? storeModel : (props.model ?? storeModel);
-  const registry = props.registry ?? defaultRegistry;
+  const baseRegistry = props.registry ?? defaultRegistry;
+  const registry = useMemo(
+    () =>
+      props.extensions?.length ? applyExtensions(baseRegistry, props.extensions) : baseRegistry,
+    [baseRegistry, props.extensions],
+  );
   const readOnly = props.readOnly ?? false;
   const [tool, setTool] = useState<Tool | null>(null);
   const [rawSelection, setRawSelection] = useState<Selection>(null);

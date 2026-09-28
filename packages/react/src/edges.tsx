@@ -93,7 +93,7 @@ export function pointAlong(points: readonly Point[], ratio: number): Point & { a
  * Target markers in JointJS convention: (0,0) is the link end and +x points back along the
  * link towards the source.
  */
-const TARGET_MARKERS: Partial<Record<IstarLink['kind'], { d: string; filled: boolean }>> = {
+export const TARGET_MARKERS: Partial<Record<IstarLink['kind'], { d: string; filled: boolean }>> = {
   'istar.AndRefinementLink': { d: 'm 10,-6 l 0,12', filled: false },
   'istar.OrRefinementLink': { d: 'm 12,-6 l -12,6 12,6 z', filled: true },
   'istar.NeededByLink': { d: 'm 1,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0', filled: true },
@@ -103,7 +103,7 @@ const TARGET_MARKERS: Partial<Record<IstarLink['kind'], { d: string; filled: boo
 };
 
 /** The dependency "D", drawn at the middle of each half and facing the dependee. */
-const DEPENDENCY_D = 'm 0,-10 l 0,20 4,0 c 10,0, 10 -20, 0,-20 l -4,0';
+export const DEPENDENCY_D = 'm 0,-10 l 0,20 4,0 c 10,0, 10 -20, 0,-20 l -4,0';
 
 export function linkPoints(
   source: InternalNode,

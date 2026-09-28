@@ -3,7 +3,13 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, test } from 'vitest';
 import type { ElementComponentProps } from '../src';
-import { IstarCanvas, createRegistry, defaultPropertiesFor, defaultRegistry } from '../src';
+import {
+  IstarCanvas,
+  applyExtensions,
+  createRegistry,
+  defaultPropertiesFor,
+  defaultRegistry,
+} from '../src';
 
 function Chip({ element }: ElementComponentProps): ReactElement {
   return <span data-testid="chip">{`[${element.customProperties?.type}] ${element.name}`}</span>;
@@ -79,5 +85,39 @@ describe('registry', () => {
     );
     expect(screen.getByTestId('chip').textContent).toBe('[int] battery');
     expect(screen.queryByRole('button', { name: 'Resource' })).toBeTruthy();
+  });
+
+  test('extensions apply in order on top of the base registry', () => {
+    const registry = applyExtensions(defaultRegistry, [
+      {
+        elements: {
+          'istar.Resource': { palette: { label: 'First' }, defaultProperties: { a: '1' } },
+        },
+      },
+      { elements: { 'istar.Resource': { palette: { label: 'Second' } } } },
+    ]);
+    expect(registry.elements['istar.Resource'].palette).toMatchObject({ label: 'Second' });
+    expect(registry.elements['istar.Resource'].defaultProperties).toEqual({ a: '1' });
+    expect(defaultRegistry.elements['istar.Resource'].palette).toMatchObject({ label: 'Resource' });
+  });
+
+  test('the extensions prop adapts the canvas', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    store.addElement({
+      kind: 'istar.Resource',
+      x: 20,
+      y: 60,
+      parent: actor.id,
+      name: 'battery',
+      customProperties: { type: 'int' },
+    });
+    const extensions = [{ name: 'chips', elements: { 'istar.Resource': { component: Chip } } }];
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={store} extensions={extensions} />
+      </div>,
+    );
+    expect(screen.getByTestId('chip').textContent).toBe('[int] battery');
   });
 });

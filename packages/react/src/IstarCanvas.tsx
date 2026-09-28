@@ -31,8 +31,8 @@ import { edgeTypes } from './edges';
 import type { IstarFlowNode } from './layout';
 import { modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
-import { IstarPalette } from './Palette';
-import type { IstarRegistry } from './registry';
+import { IstarPalette, paletteEntryFor } from './Palette';
+import type { IstarExtension, IstarRegistry } from './registry';
 import { defaultPropertiesFor } from './registry';
 
 export interface IstarCanvasProps {
@@ -42,9 +42,14 @@ export interface IstarCanvasProps {
   /** An existing store, for undo/redo and change events. */
   readonly store?: ModelStore;
   readonly registry?: IstarRegistry;
+  /** Extensions adapting the editor to another modeller (see `IstarExtension`). */
+  readonly extensions?: readonly IstarExtension[];
   readonly readOnly?: boolean;
-  /** Show the add-element / add-link toolbar. Default true. */
-  readonly palette?: boolean;
+  /**
+   * Where to show the add-element / add-link toolbar: `'left'` (default) docks a vertical icon
+   * bar beside the diagram, `'top'` shows a piStar-style bar above it, `false` hides it.
+   */
+  readonly palette?: 'left' | 'top' | boolean;
   /** Content rendered beside the diagram (e.g. `<IstarInspector />`). */
   readonly aside?: ReactNode;
   readonly className?: string;
@@ -72,6 +77,7 @@ export function IstarCanvas(props: IstarCanvasProps): ReactElement {
       onChange={props.onChange}
       store={props.store}
       registry={props.registry}
+      extensions={props.extensions}
       readOnly={props.readOnly}
     >
       {content}
@@ -81,12 +87,19 @@ export function IstarCanvas(props: IstarCanvasProps): ReactElement {
 
 function CanvasLayout(props: IstarCanvasProps): ReactElement {
   const editor = useIstarEditor();
+  const placement =
+    props.palette === false || editor.readOnly ? null : props.palette === 'top' ? 'top' : 'left';
   return (
-    <div className={`istar-canvas${props.className ? ` ${props.className}` : ''}`}>
-      {(props.palette ?? true) && !editor.readOnly && <IstarPalette />}
+    <div
+      className={`istar-canvas${placement ? ` has-palette-${placement}` : ''}${
+        props.className ? ` ${props.className}` : ''
+      }`}
+    >
+      {placement && <IstarPalette orientation={placement === 'top' ? 'horizontal' : 'vertical'} />}
       <div className="istar-canvas-body">
         <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
           <Diagram controls={props.controls ?? true} fitView={props.fitView ?? true} />
+          <ToolHint />
           <NoticeBar />
         </div>
         {props.aside}
@@ -359,6 +372,23 @@ function ConnectionHint(): ReactElement | null {
         {check.reason}
       </div>
     </ViewportPortal>
+  );
+}
+
+/** Like piStar's status bar: says what to do with the active tool, and how to cancel it. */
+function ToolHint(): ReactElement | null {
+  const { tool, registry, setTool } = useIstarEditor();
+  if (!tool) return null;
+  const entry = paletteEntryFor(registry, tool);
+  return (
+    <div className="istar-tool-hint" role="status">
+      <span>
+        <strong>{entry?.label ?? 'Tool'}:</strong> {entry?.title ?? 'click on the diagram'}
+      </span>
+      <button type="button" onClick={() => setTool(null)}>
+        Cancel (Esc)
+      </button>
+    </div>
   );
 }
 

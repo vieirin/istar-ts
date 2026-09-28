@@ -1,6 +1,8 @@
 export { IstarCanvas } from './IstarCanvas';
 export type { IstarCanvasProps } from './IstarCanvas';
-export { IstarPalette } from './Palette';
+export { IstarPalette, paletteEntryFor, paletteSections } from './Palette';
+export type { IstarPaletteProps, PaletteOrientation } from './Palette';
+export { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 export {
   IstarProvider,
   useIstarEditor,
@@ -9,19 +11,27 @@ export {
   useStoreModel,
 } from './context';
 export type { IstarEditor, IstarProviderProps, Notice, Selection, Tool } from './context';
-export { createRegistry, defaultPropertiesFor, defaultRegistry, elementSize } from './registry';
+export {
+  applyExtensions,
+  createRegistry,
+  defaultPropertiesFor,
+  defaultRegistry,
+  elementSize,
+} from './registry';
 export type {
   ElementActions,
   ElementComponentProps,
   ElementKindConfig,
   ElementKindOverride,
   InspectorProps,
+  IstarExtension,
   IstarRegistry,
   LinkActions,
   LinkKindConfig,
   LinkKindOverride,
   LinkToolEntry,
   PaletteEntry,
+  PaletteGroup,
   RegistryOverrides,
 } from './registry';
 export {

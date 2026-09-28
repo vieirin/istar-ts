@@ -36,8 +36,16 @@ describe('IstarCanvas', () => {
     for (const element of model.elements.values()) {
       expect(screen.getAllByText(element.name).length).toBeGreaterThan(0);
     }
-    expect(screen.getByRole('toolbar')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Help (+)' })).toBeTruthy();
+    const toolbar = screen.getByRole('toolbar');
+    expect(toolbar.getAttribute('aria-orientation')).toBe('vertical');
+    // Contributions are grouped in a dropdown, like piStar.
+    expect(screen.queryByRole('menuitemradio', { name: 'Help (+)' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More: Contribution' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Help (+)' }));
+    expect(screen.queryByRole('menu')).toBeNull();
+    // The group button now shows (and toggles) the last choice.
+    const help = screen.getByRole('button', { name: 'Help (+)' });
+    expect(help.getAttribute('aria-pressed')).toBe('true');
   });
 
   test('palette toggles the active tool; clicking the pane adds an actor', () => {
@@ -50,6 +58,8 @@ describe('IstarCanvas', () => {
     const button = screen.getByRole('button', { name: 'Actor' });
     fireEvent.click(button);
     expect(button.getAttribute('aria-pressed')).toBe('true');
+    // A status hint says what to do next, like piStar's status bar.
+    expect(screen.getByRole('status').textContent).toContain('click on an empty spot');
     const pane = container.querySelector('.react-flow__pane')!;
     fireEvent.click(pane, { clientX: 100, clientY: 100 });
     expect([...store.getModel().elements.values()].map((e) => e.kind)).toEqual(['istar.Actor']);
@@ -139,5 +149,19 @@ describe('inline name editing', () => {
     expect(input.value).toBe('G1: Collect');
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(store.getModel().elements.get(goal.id)?.name).toBe('G1: Collect');
+  });
+});
+
+describe('palette placement', () => {
+  test('palette="top" renders a horizontal bar with labels; false hides it', () => {
+    const { unmount } = render(<IstarCanvas store={createModelStore()} palette="top" />);
+    const toolbar = screen.getByRole('toolbar');
+    expect(toolbar.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(toolbar.textContent).toContain('Actor links');
+    expect(toolbar.textContent).not.toContain('…');
+    expect(toolbar.textContent).toContain('Goal');
+    unmount();
+    render(<IstarCanvas store={createModelStore()} palette={false} />);
+    expect(screen.queryByRole('toolbar')).toBeNull();
   });
 });

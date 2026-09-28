@@ -1,12 +1,18 @@
-import type { IstarModel } from '@istar-ts/core';
+import type { IstarModel, PropertySchema } from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector } from '@istar-ts/react';
 import type { ReactElement } from 'react';
-import { resourceProperties } from './registry';
 
-export function Sidebar({ model }: { readonly model: IstarModel }): ReactElement {
+export function Sidebar({
+  model,
+  schemas,
+}: {
+  readonly model: IstarModel;
+  /** Property schemas contributed by the active extension, if any. */
+  readonly schemas: readonly PropertySchema[];
+}): ReactElement {
   const issues = validateModel(model);
-  const propertyIssues = validateModelProperties(model, [resourceProperties]);
+  const propertyIssues = validateModelProperties(model, schemas);
   const nameOf = (id: string): string => model.elements.get(id)?.name ?? id;
 
   return (

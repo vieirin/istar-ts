@@ -1,20 +1,23 @@
 import type { IstarElement } from '@istar-ts/core';
 import { defineProperties, prop } from '@istar-ts/core';
-import type { ElementComponentProps, InspectorProps } from '@istar-ts/react';
+import type { ElementComponentProps, InspectorProps, IstarExtension } from '@istar-ts/react';
 import {
   CommitText,
   CustomPropertiesEditor,
   DefaultElementComponent,
   InspectorField,
-  createRegistry,
   useTypedProperties,
 } from '@istar-ts/react';
 import type { ReactElement } from 'react';
 import { useId } from 'react';
 
 /**
- * Resources in goal-controller models are variables: `type` is "bool" or "int" and
- * `initialValue` must match it. Values stay strings on disk, as piStar stores them.
+ * Example extension for goal-controller (https://github.com/vieirin/goal-controller) models,
+ * where resources are variables: `type` is "bool" or "int" and `initialValue` must match it.
+ * Values stay strings on disk, as piStar stores them.
+ *
+ * Nothing here is part of @istar-ts/*: it only uses the public extension API, the same way an
+ * extension for any other modeller would.
  */
 export const resourceProperties = defineProperties(
   'istar.Resource',
@@ -129,13 +132,20 @@ function ResourceInspector({
   );
 }
 
-export const registry = createRegistry({
+export const goalControllerExtension: IstarExtension = {
+  name: 'goal-controller',
   elements: {
     'istar.Resource': {
       properties: resourceProperties,
       component: ResourceNode,
       inspector: ResourceInspector,
-      palette: { label: 'Resource (variable)' },
+      palette: {
+        label: 'Variable',
+        title: 'Adding Variable: click on an actor to add a bool/int resource',
+      },
     },
   },
-});
+};
+
+/** Property schemas this extension validates, for the sidebar's issue list. */
+export const goalControllerSchemas = [resourceProperties];

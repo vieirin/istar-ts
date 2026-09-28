@@ -29,6 +29,7 @@ import {
 } from '@istar-ts/core';
 import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
+import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 
 // ---------------------------------------------------------------------------------------------
 // Props passed to registry components
@@ -75,9 +76,20 @@ export interface LinkActions {
 export interface PaletteEntry {
   readonly label: string;
   readonly title?: string;
+  /** Small preview of the element or link (the default registry draws piStar-like icons). */
   readonly icon?: ReactNode;
   /** Lower comes first. */
   readonly order?: number;
+  /** Entries sharing a group collapse into one dropdown button (e.g. Actor / Agent / Role). */
+  readonly group?: string;
+  /** Sections are separated by a divider. Default registry: "actors" and "elements". */
+  readonly section?: string;
+}
+
+export interface PaletteGroup {
+  /** Label of the dropdown button, e.g. "Actor links". */
+  readonly label: string;
+  readonly title?: string;
 }
 
 export interface ElementKindConfig {
@@ -122,6 +134,8 @@ export interface LinkToolEntry extends PaletteEntry {
 export interface IstarRegistry {
   readonly elements: Readonly<Record<ElementKind, ElementKindConfig>>;
   readonly links: Readonly<Record<LinkKind, LinkKindConfig>>;
+  /** Labels for palette groups, keyed by `PaletteEntry.group`. */
+  readonly paletteGroups: Readonly<Record<string, PaletteGroup>>;
 }
 
 export type ElementKindOverride = Partial<Omit<ElementKindConfig, 'kind' | 'palette'>> & {
@@ -132,6 +146,7 @@ export type LinkKindOverride = Partial<Omit<LinkKindConfig, 'kind'>>;
 export interface RegistryOverrides {
   readonly elements?: Partial<Record<ElementKind, ElementKindOverride>>;
   readonly links?: Partial<Record<LinkKind, LinkKindOverride>>;
+  readonly paletteGroups?: Readonly<Record<string, PaletteGroup>>;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -148,14 +163,23 @@ const ELEMENT_TITLES: Partial<Record<ElementKind, string>> = {
   'istar.Resource': 'Adding Resource: click on an actor/role/agent to add a Resource',
 };
 
-function defaultElementConfig(kind: ElementKind, order: number): ElementKindConfig {
+function defaultElementConfig(kind: ElementKind, index: number): ElementKindConfig {
   const label = shortKindName(kind);
+  const actor = isActorKind(kind);
   return {
     kind,
     label,
     size: DEFAULT_ELEMENT_SIZE[kind],
-    component: isActorKind(kind) ? DefaultActorComponent : DefaultElementComponent,
-    palette: { label, title: ELEMENT_TITLES[kind], order },
+    component: actor ? DefaultActorComponent : DefaultElementComponent,
+    palette: {
+      label,
+      title: ELEMENT_TITLES[kind],
+      icon: elementIcon(kind),
+      // piStar order: Actor… | Actor links… | Dependency… ‖ Goal Quality Resource Task | links
+      order: actor ? index : 30 + index,
+      section: actor ? 'actors' : 'elements',
+      ...(actor ? { group: 'actors' } : {}),
+    },
   };
 }
 
@@ -166,7 +190,10 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'Is A',
-        order: 100,
+        order: 10,
+        group: 'actor-links',
+        section: 'actors',
+        icon: linkIcon('istar.IsALink', 'is a'),
         title:
           'Add an Is-A link between an Actor and another Actor, or between a Role and another Role: drag from the sub-actor to the super-actor',
       },
@@ -177,7 +204,10 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'Participates-In',
-        order: 110,
+        order: 11,
+        group: 'actor-links',
+        section: 'actors',
+        icon: linkIcon('istar.ParticipatesInLink', 'part. in'),
         title: 'Add a Participates-In link between any Actors, Roles, or Agents',
       },
     ],
@@ -187,7 +217,10 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: NODE_KINDS.map((dependum, i) => ({
       label: `${shortKindName(dependum)} dependency`,
       dependum,
-      order: 120 + i,
+      order: 20 + i,
+      group: 'dependencies',
+      section: 'actors',
+      icon: dependencyIcon(dependum),
       title: `Add a dependency with a ${shortKindName(dependum)} dependum: drag from the depender to the dependee`,
     })),
   },
@@ -196,7 +229,9 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'And',
-        order: 200,
+        order: 40,
+        section: 'elements',
+        icon: linkIcon('istar.AndRefinementLink'),
         title:
           'Add And-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
       },
@@ -207,7 +242,9 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'Or',
-        order: 210,
+        order: 41,
+        section: 'elements',
+        icon: linkIcon('istar.OrRefinementLink'),
         title:
           'Add Or-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
       },
@@ -218,7 +255,9 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'Needed-By',
-        order: 220,
+        order: 42,
+        section: 'elements',
+        icon: linkIcon('istar.NeededByLink'),
         title:
           'Add Needed-By link: drag from the Resource that is needed to the Task that needs it.',
       },
@@ -229,7 +268,9 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: [
       {
         label: 'Qualification',
-        order: 230,
+        order: 43,
+        section: 'elements',
+        icon: linkIcon('istar.QualificationLink'),
         title:
           'Add Qualification link: drag from the Quality to the element it qualifies (Goal, Task or Resource).',
       },
@@ -240,7 +281,10 @@ const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
     palette: CONTRIBUTION_LABELS.map((value, i) => ({
       label: { make: 'Make (++)', help: 'Help (+)', hurt: 'Hurt (-)', break: 'Break (--)' }[value],
       value,
-      order: 240 + i,
+      order: 50 + i,
+      group: 'contributions',
+      section: 'elements',
+      icon: linkIcon('istar.ContributionLink', value),
       title: `Add a ${value} contribution: drag from an element to the Quality it contributes to`,
     })),
   },
@@ -253,8 +297,16 @@ function buildDefaultRegistry(): IstarRegistry {
   });
   const links = {} as Record<LinkKind, LinkKindConfig>;
   for (const kind of LINK_KINDS) links[kind] = { kind, ...LINK_DEFAULTS[kind] };
-  return { elements, links };
+  return { elements, links, paletteGroups: DEFAULT_PALETTE_GROUPS };
 }
+
+/** piStar's dropdown buttons. */
+const DEFAULT_PALETTE_GROUPS: Readonly<Record<string, PaletteGroup>> = {
+  actors: { label: 'Actor', title: 'Add an Actor, Agent or Role' },
+  'actor-links': { label: 'Actor links', title: 'Add an Is-A or Participates-In link' },
+  dependencies: { label: 'Dependency', title: 'Add a dependency' },
+  contributions: { label: 'Contribution', title: 'Add a Make, Help, Hurt or Break contribution' },
+};
 
 /** A registry that looks and behaves like the piStar tool. */
 export const defaultRegistry: IstarRegistry = buildDefaultRegistry();
@@ -292,7 +344,31 @@ export function createRegistry(
   ][]) {
     links[kind] = { ...links[kind], ...override };
   }
-  return { elements, links };
+  return { elements, links, paletteGroups: { ...base.paletteGroups, ...overrides.paletteGroups } };
+}
+
+/**
+ * Adapts the piStar defaults to another modeller: per-kind element and link overrides
+ * (`component`, `defaultProperties`, `inspector`, `palette`, `properties`, …) and palette groups.
+ * The editor itself knows nothing about any particular modeller; extensions carry that.
+ *
+ * @example
+ * const variables: IstarExtension = {
+ *   name: 'typed-resources',
+ *   elements: { 'istar.Resource': { properties: resourceSchema, inspector: ResourceInspector } },
+ * };
+ * <IstarCanvas store={store} extensions={[variables]} />
+ */
+export interface IstarExtension extends RegistryOverrides {
+  readonly name: string;
+}
+
+/** Applies extensions in order on top of `base` (later extensions win). */
+export function applyExtensions(
+  base: IstarRegistry,
+  extensions: readonly RegistryOverrides[],
+): IstarRegistry {
+  return extensions.reduce<IstarRegistry>((registry, ext) => createRegistry(ext, registry), base);
 }
 
 /** Resolves `defaultProperties` for a new element of `kind`. */

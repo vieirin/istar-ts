@@ -59,7 +59,7 @@ export function Controlled() {
 }
 ```
 
-`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (default `true`), `aside`, `controls`,
+`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` for a piStar-style bar, or `false`), `aside`, `controls`,
 and `fitView`.
 
 ## Editing behaviour
@@ -84,10 +84,19 @@ and `fitView`.
 
 Press **Escape** to clear the active palette tool.
 
-## Element registry
+## Extensions and the element registry
 
-`createRegistry(overrides, base?)` starts from `defaultRegistry` (piStar-like defaults) and merges
-per-kind overrides. For each **element** kind you can set:
+Out of the box the editor is a plain piStar: `defaultRegistry` knows the iStar 2.0 elements and
+links and nothing else. To adapt it to another modeller (one that annotates tasks with costs,
+treats resources as variables, adds its own inspectors, …) write an **extension** and pass it
+to the canvas. The libraries never hardcode any modeller's properties.
+
+```tsx
+<IstarCanvas store={store} extensions={[myExtension]} />
+```
+
+An `IstarExtension` is a name plus per-kind overrides; several extensions apply in order
+(`applyExtensions(base, extensions)` does the same outside React). For each **element** kind:
 
 | Field               | Role                                                             |
 | ------------------- | ---------------------------------------------------------------- |
@@ -99,93 +108,68 @@ per-kind overrides. For each **element** kind you can set:
 | `size`              | Default width/height (actors: initial boundary)                  |
 
 For each **link** kind: `palette` (array of tool entries or `false`), `inspector`, `properties`.
+`paletteGroups` relabels the palette's dropdown groups.
 
-`defaultPropertiesFor(registry, kind, model)` merges schema defaults with `defaultProperties`
-(preset wins on key clashes).
-
-Example: typed Resource properties, custom canvas rendering, and a tailored inspector:
+Example: an extension that gives tasks a cost and a priority, shows the cost on the node, and
+hides Role from the palette.
 
 ```tsx
 import {
-  CommitText,
-  createRegistry,
   DefaultElementComponent,
   IstarCanvas,
-  InspectorField,
-  PropertyField,
-  useTypedProperties,
   type ElementComponentProps,
-  type InspectorProps,
+  type IstarExtension,
 } from '@istar-ts/react';
-import { defineProperties, prop, type IstarElement } from '@istar-ts/core';
+import { defineProperties, prop } from '@istar-ts/core';
 import type { ReactElement } from 'react';
 
-const resourceSchema = defineProperties('istar.Resource', {
-  type: prop.enum(['bool', 'int'] as const),
-  initialValue: prop.string(),
+const taskProperties = defineProperties('istar.Task', {
+  cost: prop.number({ min: 0, default: 0, label: 'Cost' }),
+  priority: prop.enum(['low', 'medium', 'high'] as const, { optional: true, label: 'Priority' }),
 });
 
-function ResourceNode(props: ElementComponentProps): ReactElement {
-  const badge = props.element.customProperties?.type ?? '?';
+function CostTask(props: ElementComponentProps): ReactElement {
+  const { values } = taskProperties.read(props.element);
   return (
-    <div className="istar-element-body" style={{ width: props.width, height: props.height }}>
+    <div style={{ position: 'relative' }}>
       <DefaultElementComponent {...props} />
-      <span style={{ position: 'absolute', top: 2, right: 4, fontSize: 10 }}>{badge}</span>
+      <span style={{ position: 'absolute', right: 4, bottom: -8, fontSize: 10 }}>
+        {`cost ${values.cost ?? 0}`}
+      </span>
     </div>
   );
 }
 
-function ResourceInspector({
-  target,
-  actions,
-  readOnly,
-  schema,
-}: InspectorProps<IstarElement>): ReactElement {
-  const typed = useTypedProperties(schema, target, actions);
-  const nameId = 'resource-name';
-  return (
-    <div className="istar-inspector-body">
-      <InspectorField label="Name" htmlFor={nameId}>
-        <CommitText id={nameId} value={target.name} readOnly={readOnly} onCommit={actions.rename} />
-      </InspectorField>
-      <PropertyField
-        name="type"
-        type={resourceSchema.shape.type}
-        value={target.customProperties?.type}
-        issue={typed.issueFor('type')}
-        readOnly={readOnly}
-        onChange={(raw) => typed.setRaw('type', raw)}
-      />
-      <PropertyField
-        name="initialValue"
-        type={resourceSchema.shape.initialValue}
-        value={target.customProperties?.initialValue}
-        issue={typed.issueFor('initialValue')}
-        readOnly={readOnly}
-        onChange={(raw) => typed.setRaw('initialValue', raw)}
-      />
-    </div>
-  );
-}
-
-const registry = createRegistry({
+export const costs: IstarExtension = {
+  name: 'costs',
   elements: {
-    'istar.Resource': {
-      properties: resourceSchema,
-      component: ResourceNode,
-      inspector: ResourceInspector,
-      palette: { label: 'Variable' },
-      defaultProperties: { type: 'bool', initialValue: 'false' },
-    },
+    // The default inspector renders typed fields from `properties`, so no custom form is needed.
+    'istar.Task': { properties: taskProperties, component: CostTask },
     'istar.Role': { palette: false },
   },
-  links: {
-    'istar.IsALink': { palette: false },
-  },
-});
+};
 
-// <IstarCanvas store={store} registry={registry} />
+// <IstarCanvas store={store} extensions={[costs]} />
 ```
+
+For a fully custom form set `inspector`, built from `InspectorField`, `PropertyField`,
+`CommitText`, `CustomPropertiesEditor` and `useTypedProperties`. The playground
+(`examples/playground/src/extensions/`) has a complete extension with its own inspector.
+
+`createRegistry(overrides, base?)` builds a standalone registry from the same overrides, for the
+`registry` prop. `defaultPropertiesFor(registry, kind, model)` merges schema defaults with
+`defaultProperties` (preset wins on key clashes).
+
+### Palette
+
+Palette entries carry an `icon` (the default registry draws piStar-like previews, exported as
+`elementIcon`, `linkIcon` and `dependencyIcon`), an `order`, a `section` (sections are separated by
+a divider) and an optional `group`: entries sharing a group collapse into one button with a ▾ menu,
+as piStar does for Actor, Actor links, Dependency and Contribution. While a tool is active a
+status hint (the entry's `title`) says what to do next.
+
+`<IstarPalette orientation="vertical" | "horizontal" showLabels history />` can also be placed
+yourself inside an `<IstarProvider>` (use `<IstarCanvas palette={false}>` then).
 
 Reusable pieces: `DefaultElementComponent`, `DefaultActorComponent`, `EditableLabel`, and shape
 primitives (`GoalShape`, `ResourceShape`, `TaskShape`, `QualityShape`, `ActorSymbol`). Export helpers:
@@ -237,26 +221,29 @@ function Layout() {
 
 Override CSS custom properties on `.istar-canvas` or any ancestor of the editor:
 
-| Variable                   | Default              | Used for                |
-| -------------------------- | -------------------- | ----------------------- |
-| `--istar-font-family`      | Arial, Helvetica…    | UI type                 |
-| `--istar-font-size`        | `12px`               | Base size               |
-| `--istar-text`             | `#000`               | Text                    |
-| `--istar-stroke`           | `#000`               | Shapes and links        |
-| `--istar-stroke-width`     | `2px`                | Node outlines           |
-| `--istar-link-width`       | `1px`                | Link lines              |
-| `--istar-node-fill`        | `rgb(205, 254, 205)` | Inner elements          |
-| `--istar-actor-fill`       | `rgb(242, 242, 242)` | Actor boundary          |
-| `--istar-selection`        | `#2f6fe4`            | Selection, focus        |
-| `--istar-canvas-bg`        | `#fff`               | Diagram background      |
-| `--istar-panel-bg`         | `#fafafa`            | Palette and inspector   |
-| `--istar-panel-border`     | `#d9d9d9`            | Panel borders           |
-| `--istar-button-bg`        | `#fff`               | Buttons                 |
-| `--istar-button-active-bg` | `#dfe9fc`            | Active palette tool     |
-| `--istar-error-bg`         | `#fdecea`            | Errors, connection hint |
-| `--istar-error-text`       | `#8a1c1c`            | Error text              |
-| `--istar-info-bg`          | `#eef4fd`            | Info notices            |
-| `--istar-info-text`        | `#1d3f7a`            | Info text               |
+| Variable                   | Default                 | Used for                |
+| -------------------------- | ----------------------- | ----------------------- |
+| `--istar-font-family`      | Arial, Helvetica…       | UI type                 |
+| `--istar-font-size`        | `12px`                  | Base size               |
+| `--istar-text`             | `#000`                  | Text                    |
+| `--istar-stroke`           | `#000`                  | Shapes and links        |
+| `--istar-stroke-width`     | `2px`                   | Node outlines           |
+| `--istar-link-width`       | `1px`                   | Link lines              |
+| `--istar-node-fill`        | `rgb(205, 254, 205)`    | Inner elements          |
+| `--istar-actor-fill`       | `rgb(242, 242, 242)`    | Actor boundary          |
+| `--istar-selection`        | `#2f6fe4`               | Selection, focus        |
+| `--istar-canvas-bg`        | `#fff`                  | Diagram background      |
+| `--istar-panel-bg`         | `#fafafa`               | Palette and inspector   |
+| `--istar-panel-border`     | `#d9d9d9`               | Panel borders           |
+| `--istar-button-bg`        | `#fff`                  | Buttons                 |
+| `--istar-button-active-bg` | `#dfe9fc`               | Active palette tool     |
+| `--istar-button-hover-bg`  | `rgba(0, 0, 0, 0.06)`   | Hovered palette tool    |
+| `--istar-palette-bg`       | `var(--istar-panel-bg)` | Palette background      |
+| `--istar-palette-divider`  | `#dcdcdc`               | Palette section divider |
+| `--istar-error-bg`         | `#fdecea`               | Errors, connection hint |
+| `--istar-error-text`       | `#8a1c1c`               | Error text              |
+| `--istar-info-bg`          | `#eef4fd`               | Info notices            |
+| `--istar-info-text`        | `#1d3f7a`               | Info text               |
 
 ```css
 .my-app .istar-canvas {
