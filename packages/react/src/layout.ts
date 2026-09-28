@@ -49,8 +49,11 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
 }
 
 /**
- * The actor's boundary: its own default-size rectangle grown to include all inner elements,
- * like piStar's `updateBoundary`.
+ * The actor's boundary: the kind's default-size rectangle grown to include all inner elements,
+ * like piStar's `updateBoundary` (which floors on `originalSize`, not the last expanded size).
+ *
+ * Actor `display.width`/`height` are the last saved expanded size in piStar files — using them
+ * as the floor would leave empty space after children move inward.
  */
 export function actorBoundary(
   model: IstarModel,
@@ -58,7 +61,7 @@ export function actorBoundary(
   actor: IstarElement,
   children: readonly IstarElement[],
 ): Box {
-  const size = elementSize(registry, actor);
+  const size = registry.elements[actor.kind].size;
   let minX = actor.x;
   let minY = actor.y;
   let maxX = actor.x + size.width;

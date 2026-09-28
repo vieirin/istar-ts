@@ -95,6 +95,27 @@ describe('modelToFlow', () => {
     )!;
     expect([shrunk.width, shrunk.height]).toEqual([resting.width, resting.height]);
   });
+
+  test('saved actor display width/height do not keep the boundary expanded', () => {
+    // piStar persists the last expanded size in display; updateBoundary still floors on the
+    // default (originalSize), so moving children inward must shrink past that saved size.
+    const store = createModelStore();
+    const actor = store.addElement({
+      kind: 'istar.Actor',
+      x: 0,
+      y: 0,
+      display: { width: 800, height: 600 },
+    });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    const box = actorBoundary(
+      store.getModel(),
+      defaultRegistry,
+      store.getModel().elements.get(actor.id)!,
+      [store.getModel().elements.get(goal.id)!],
+    );
+    expect(box.width).toBe(200);
+    expect(box.height).toBe(120);
+  });
 });
 
 describe('adoptFlowNode', () => {
