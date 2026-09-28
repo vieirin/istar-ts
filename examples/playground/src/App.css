@@ -1,0 +1,172 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #f4f4f5;
+}
+
+.pg-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.pg-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #d4d4d8;
+  flex-shrink: 0;
+}
+
+.pg-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.pg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.pg-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pg-toolbar select {
+  max-width: min(28rem, 50vw);
+}
+
+.pg-toolbar button,
+.pg-toolbar .pg-file-label {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid #a1a1aa;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.pg-toolbar button:hover,
+.pg-toolbar .pg-file-label:hover {
+  background: #f4f4f5;
+}
+
+.pg-file-label input {
+  display: none;
+}
+
+.pg-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #991b1b;
+  flex-shrink: 0;
+}
+
+.pg-banner-dismiss {
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  padding: 0 0.25rem;
+}
+
+.pg-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - var(--pg-header-height, 3rem));
+}
+
+.pg-canvas-wrap .istar-canvas {
+  height: 100%;
+}
+
+.pg-aside {
+  width: 16rem;
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  border-left: 1px solid #d4d4d8;
+  background: #fafafa;
+  overflow: auto;
+}
+
+.pg-aside-section + .pg-aside-section {
+  margin-top: 1rem;
+}
+
+.pg-aside-heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #52525b;
+}
+
+.pg-aside-empty {
+  margin: 0;
+  color: #71717a;
+}
+
+.pg-issue-list {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.pg-issue-list li + li {
+  margin-top: 0.35rem;
+}
+
+.pg-stats {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pg-stats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pg-stats dt {
+  margin: 0;
+  color: #71717a;
+}
+
+.pg-stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
