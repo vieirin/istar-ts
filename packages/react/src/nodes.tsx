@@ -116,6 +116,7 @@ export const ElementNode: ComponentType<NodeProps<ElementFlowNode>> = memo(funct
         setEditing={setEditing}
         actions={editor.elementActions(element.id)}
         readOnly={editor.readOnly}
+        issues={editor.issuesById.get(element.id) ?? []}
       />
       <ConnectionHandles connectable={linking && !editor.readOnly} />
     </div>
@@ -175,6 +176,7 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
           setEditing={setEditing}
           actions={editor.elementActions(element.id)}
           readOnly={editor.readOnly}
+          issues={editor.issuesById.get(element.id) ?? []}
         />
         <ConnectionHandles connectable={linking && !editor.readOnly} />
       </div>

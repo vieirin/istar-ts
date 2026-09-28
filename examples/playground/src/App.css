@@ -200,6 +200,17 @@ body {
   border-color: #b91c1c;
 }
 
+.pg-mutrose-goal,
+.pg-mutrose-task {
+  position: relative;
+}
+.pg-mutrose-goal[data-goal-type='Achieve'] .istar-shape rect {
+  fill: #86efac;
+}
+.pg-mutrose-goal[data-goal-type='Query'] .istar-shape rect {
+  fill: #fdba74;
+}
+
 .pg-checkbox {
   display: inline-flex;
   gap: 6px;

@@ -60,16 +60,17 @@ export function Controlled() {
 ```
 
 `<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` or `'bottom'` for a piStar-style bar, or `false`), `aside`, `extensions`,
-`controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain) and
+`controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain),
 `fitView` (on by default; waits until the container has a usable size, so a canvas mounted in a
-panel that is still opening is fitted once it has room).
+panel that is still opening is fitted once it has room), `issues` (host-owned annotations such as
+LSP diagnostics — see below), and `onSelectionChange`.
 
-### Controlling the viewport
+### Controlling the viewport and selection
 
 The canvas owns its React Flow instance, so `useReactFlow()` isn't available to your app. Pass a
-`ref` instead to fit, zoom, or reveal elements, e.g. after resizing the container or when an element
-is selected elsewhere. Each method resolves to `true` once the viewport has moved (after any
-animation), or `false` if it couldn't (for example, an unknown element id).
+`ref` instead to fit, zoom, reveal, or select elements, e.g. after resizing the container or when an
+element is selected elsewhere. Viewport methods resolve to `true` once the viewport has moved
+(after any animation), or `false` if they couldn't (for example, an unknown element id).
 
 ```tsx
 import { useRef } from 'react';
@@ -77,13 +78,39 @@ import type { IstarCanvasHandle } from '@istar-ts/react';
 
 const canvas = useRef<IstarCanvasHandle>(null);
 
-<IstarCanvas ref={canvas} store={store} />;
+<IstarCanvas
+  ref={canvas}
+  store={store}
+  onSelectionChange={(sel) => {
+    /* mirror to a tree view / VS Code host */
+  }}
+/>;
 
 canvas.current?.fitView({ padding: 0.1, duration: 200 }); // or { nodes: [elementId] }
 canvas.current?.centerOn(elementId, { zoom: 1.5, duration: 200 }); // keeps the zoom if omitted
+canvas.current?.select({ type: 'element', id: elementId });
 canvas.current?.zoomIn();
 canvas.current?.zoomOut();
 ```
+
+### Host-owned issues (LSP / external diagnostics)
+
+Pass `issues` to show annotations that are **not** part of the saved model (for example diagnostics
+from an LSP in a VS Code webview). Each item is `{ id, severity, message }` where `id` is an
+element or link id. They are exposed on `ElementComponentProps.issues` / `InspectorProps.issues`
+and via `useIstarEditor().issuesById`. Use `<ElementIssuesBadge issues={…} />` for a small severity
+marker with a hover tooltip.
+
+```tsx
+<IstarCanvas
+  store={store}
+  issues={[{ id: goalId, severity: 'error', message: 'Missing QueriedProperty' }]}
+  extensions={[mutroseExtension]}
+/>
+```
+
+Property schemas (`defineProperties`) remain for inspector UX only; they do not replace an external
+validator such as an LSP.
 
 ## Editing behaviour
 
@@ -128,6 +155,7 @@ An `IstarExtension` is a name plus per-kind overrides; several extensions apply 
 | ------------------- | ---------------------------------------------------------------- |
 | `component`         | React node view (`ElementComponentProps`)                        |
 | `defaultProperties` | `customProperties` preset, or `({ model }) => …` when creating   |
+| `defaultName`       | Name when creating (`string` or `({ model }) => string`)         |
 | `inspector`         | Side-panel form, or `false` to hide                              |
 | `palette`           | Toolbar entry (`Partial<PaletteEntry>`), or `false` to hide      |
 | `properties`        | `PropertySchema` from `@istar-ts/core` — typed fields + defaults |
