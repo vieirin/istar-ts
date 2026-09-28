@@ -1,0 +1,44 @@
+{
+  "name": "@istar-ts/core",
+  "version": "0.1.0",
+  "description": "Framework-free iStar 2.0 goal-model core: metamodel, constraints, piStar-compatible serialization, undoable store.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "istar",
+    "istar2",
+    "goal-model",
+    "requirements",
+    "pistar",
+    "modelling"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieirin/istar-ts.git",
+    "directory": "packages/core"
+  },
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepack": "cp ../../LICENSE . && pnpm build"
+  }
+}
