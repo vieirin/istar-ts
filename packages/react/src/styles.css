@@ -265,8 +265,7 @@
 .istar-element.is-selected .istar-shape,
 .istar-actor.is-selected .istar-actor-symbol .istar-shape {
   /* Layered halo so the selection reads clearly on pale node fills. */
-  filter:
-    drop-shadow(0 0 1px var(--istar-selection)) drop-shadow(0 0 3px var(--istar-selection))
+  filter: drop-shadow(0 0 1px var(--istar-selection)) drop-shadow(0 0 3px var(--istar-selection))
     drop-shadow(0 0 6px color-mix(in srgb, var(--istar-selection) 70%, transparent));
 }
 /*
