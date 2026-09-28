@@ -2,7 +2,8 @@ import { createModelStore, parsePistar } from '@istar-ts/core';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { defaultRegistry, modelToFlow } from '../src';
+import { actorBoundary, defaultRegistry, modelToFlow } from '../src';
+import { adoptFlowNode } from '../src/layout';
 
 const fixture = readFileSync(
   join(
@@ -67,5 +68,55 @@ describe('modelToFlow', () => {
     });
     const node = modelToFlow(store.getModel(), defaultRegistry).nodes.find((n) => n.id === g.id);
     expect([node?.width, node?.height]).toEqual([150, 60]);
+  });
+
+  test('actor boundary grows with children and shrinks back toward the default size', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    const resting = actorBoundary(
+      store.getModel(),
+      defaultRegistry,
+      store.getModel().elements.get(actor.id)!,
+      [store.getModel().elements.get(goal.id)!],
+    );
+    expect(resting.width).toBe(200);
+    expect(resting.height).toBe(120);
+
+    store.moveElement(goal.id, 300, 60);
+    const grown = modelToFlow(store.getModel(), defaultRegistry).nodes.find(
+      (n) => n.id === actor.id,
+    )!;
+    expect(grown.width!).toBeGreaterThan(200);
+
+    store.moveElement(goal.id, 20, 60);
+    const shrunk = modelToFlow(store.getModel(), defaultRegistry).nodes.find(
+      (n) => n.id === actor.id,
+    )!;
+    expect([shrunk.width, shrunk.height]).toEqual([resting.width, resting.height]);
+  });
+});
+
+describe('adoptFlowNode', () => {
+  test('replaces a stale larger measured size so the boundary can shrink', () => {
+    const next = {
+      id: 'a',
+      type: 'istarActor' as const,
+      position: { x: 0, y: 0 },
+      width: 200,
+      height: 120,
+      data: { elementId: 'a', collapsed: false },
+    };
+    const prev = {
+      ...next,
+      width: 400,
+      height: 120,
+      measured: { width: 400, height: 120 },
+      selected: true,
+    };
+    const adopted = adoptFlowNode(next, prev);
+    expect(adopted.selected).toBe(true);
+    expect(adopted.measured).toEqual({ width: 200, height: 120 });
+    expect([adopted.width, adopted.height]).toEqual([200, 120]);
   });
 });

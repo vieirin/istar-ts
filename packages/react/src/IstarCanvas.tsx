@@ -46,7 +46,7 @@ import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
-import { modelToFlow } from './layout';
+import { adoptFlowNode, modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
 import type { IstarExtension, IstarRegistry } from './registry';
@@ -299,17 +299,12 @@ function Diagram({
     // the selection often change at once (e.g. adding an element selects it).
     let next = { nodes, edges };
     if (syncedGraph !== graph) {
-      // Keep React Flow's measurements and selection for nodes that still exist.
+      // Keep selection; align measured with the model size (see adoptFlowNode).
       setSyncedGraph(graph);
       const byId = new Map(nodes.map((n) => [n.id, n]));
       const selectedEdges = new Set(edges.filter((e) => e.selected).map((e) => e.id));
       next = {
-        nodes: graph.nodes.map((n) => {
-          const old = byId.get(n.id);
-          return old
-            ? ({ ...n, measured: old.measured, selected: old.selected } as IstarFlowNode)
-            : n;
-        }),
+        nodes: graph.nodes.map((n) => adoptFlowNode(n, byId.get(n.id))),
         edges: graph.edges.map((e) => (selectedEdges.has(e.id) ? { ...e, selected: true } : e)),
       };
     }
