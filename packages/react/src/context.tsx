@@ -119,7 +119,16 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
   const registry = props.registry ?? defaultRegistry;
   const readOnly = props.readOnly ?? false;
   const [tool, setTool] = useState<Tool | null>(null);
-  const [rawSelection, select] = useState<Selection>(null);
+  const [rawSelection, setRawSelection] = useState<Selection>(null);
+  // Stable and idempotent: re-selecting the same target keeps the same state object, so
+  // listeners that report selection (like React Flow's) can't loop.
+  const select = useCallback((next: Selection) => {
+    setRawSelection((prev) =>
+      prev === next || (prev && next && prev.type === next.type && prev.id === next.id)
+        ? prev
+        : next,
+    );
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeSeq = useRef(0);
@@ -220,6 +229,7 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
       editingId,
       notice,
       notify,
+      select,
       checkConnection,
       elementActions,
       linkActions,

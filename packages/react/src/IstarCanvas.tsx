@@ -256,15 +256,16 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
     [editor],
   );
 
+  const { select } = editor;
   const onSelectionChange = useCallback(
     ({ nodes: selNodes, edges: selEdges }: OnSelectionChangeParams) => {
       const node = selNodes[0];
       const edge = selEdges[0];
-      if (node) editor.select({ type: 'element', id: node.id });
-      else if (edge) editor.select({ type: 'link', id: edge.id });
-      else editor.select(null);
+      if (node) select({ type: 'element', id: node.id });
+      else if (edge) select({ type: 'link', id: edge.id });
+      else select(null);
     },
-    [editor],
+    [select],
   );
 
   const onDelete = useCallback(

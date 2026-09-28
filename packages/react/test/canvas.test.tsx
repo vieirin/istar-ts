@@ -7,7 +7,7 @@ import type { ReactElement } from 'react';
 import { useEffect } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import type { IstarEditor } from '../src';
-import { IstarCanvas, IstarProvider, useIstarEditor } from '../src';
+import { IstarCanvas, IstarInspector, IstarProvider, useIstarEditor } from '../src';
 
 const fixture = readFileSync(
   join(
@@ -101,5 +101,21 @@ describe('IstarCanvas', () => {
     expect(editor.current!.checkConnection(goal.id, quality.id)).toMatchObject({
       code: 'same-actor',
     });
+  });
+
+  test('selecting a node shows it in the inspector without update loops', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const model = parsePistar(fixture);
+    const goal = [...model.elements.values()].find((e) => e.kind === 'istar.Goal')!;
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={createModelStore(model)} aside={<IstarInspector />} />
+      </div>,
+    );
+    const node = container.querySelector(`.react-flow__node[data-id="${goal.id}"]`)!;
+    fireEvent.click(node);
+    expect((screen.getByLabelText('Name') as HTMLTextAreaElement).value).toBe(goal.name);
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/Maximum update depth/);
+    errors.mockRestore();
   });
 });
