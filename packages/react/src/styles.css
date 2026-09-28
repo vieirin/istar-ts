@@ -77,6 +77,10 @@
   overflow-x: auto;
   border-bottom: 1px solid var(--istar-panel-border);
 }
+.has-palette-bottom > .istar-palette.is-horizontal {
+  border-top: 1px solid var(--istar-panel-border);
+  border-bottom: 0;
+}
 .istar-palette.is-vertical {
   flex-direction: column;
   flex: none;

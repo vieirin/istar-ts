@@ -18,6 +18,11 @@ export interface IstarPaletteProps {
   readonly showLabels?: boolean;
   /** Show undo/redo buttons. Default true. */
   readonly history?: boolean;
+  /**
+   * Where group menus open: `right` of a vertical bar, `below` a horizontal one by default.
+   * Use `above` for a bar docked at the bottom.
+   */
+  readonly flyout?: 'below' | 'above' | 'right';
 }
 
 interface Item {
@@ -98,12 +103,18 @@ export function IstarPalette({
   orientation = 'vertical',
   showLabels = true,
   history = true,
+  flyout = orientation === 'vertical' ? 'right' : 'below',
 }: IstarPaletteProps): ReactElement {
   const editor = useIstarEditor();
   const { registry, tool, setTool, store } = editor;
   // Re-render when history changes so undo/redo enablement is current.
   useSyncExternalStore(store.subscribe, store.getModel, store.getModel);
-  const [menu, setMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [menu, setMenu] = useState<{
+    id: string;
+    left: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
   const openGroup = menu?.id ?? null;
   const [lastInGroup, setLastInGroup] = useState<Record<string, string>>({});
   const rootRef = useRef<HTMLDivElement>(null);
@@ -193,9 +204,11 @@ export function IstarPalette({
             // (the vertical bar scrolls).
             const rect = e.currentTarget.parentElement!.getBoundingClientRect();
             setMenu(
-              orientation === 'vertical'
+              flyout === 'right'
                 ? { id, top: rect.top, left: rect.right + 8 }
-                : { id, top: rect.bottom + 4, left: rect.left },
+                : flyout === 'above'
+                  ? { id, bottom: window.innerHeight - rect.top + 4, left: rect.left }
+                  : { id, top: rect.bottom + 4, left: rect.left },
             );
           }}
         >
@@ -206,7 +219,7 @@ export function IstarPalette({
             className="istar-palette-menu"
             role="menu"
             aria-label={group?.label ?? id}
-            style={{ top: menu?.top, left: menu?.left }}
+            style={{ top: menu?.top, bottom: menu?.bottom, left: menu?.left }}
           >
             {items.map((item) => (
               <button
@@ -232,7 +245,7 @@ export function IstarPalette({
   return (
     <div
       ref={rootRef}
-      className={`istar-palette is-${orientation}${showLabels ? ' has-labels' : ''}${
+      className={`istar-palette is-${orientation} flyout-${flyout}${showLabels ? ' has-labels' : ''}${
         className ? ` ${className}` : ''
       }`}
       role="toolbar"

@@ -153,7 +153,7 @@ describe('inline name editing', () => {
 });
 
 describe('palette placement', () => {
-  test('palette="top" renders a horizontal bar with labels; false hides it', () => {
+  test('palette="top" / "bottom" render a horizontal bar; false hides it', () => {
     const { unmount } = render(<IstarCanvas store={createModelStore()} palette="top" />);
     const toolbar = screen.getByRole('toolbar');
     expect(toolbar.getAttribute('aria-orientation')).toBe('horizontal');
@@ -161,6 +161,14 @@ describe('palette placement', () => {
     expect(toolbar.textContent).not.toContain('…');
     expect(toolbar.textContent).toContain('Goal');
     unmount();
+    const bottom = render(<IstarCanvas store={createModelStore()} palette="bottom" />);
+    const bar = screen.getByRole('toolbar');
+    expect(bar.getAttribute('aria-orientation')).toBe('horizontal');
+    // Docked after the diagram, with menus opening upwards.
+    expect(bar.parentElement!.lastElementChild).toBe(bar);
+    fireEvent.click(screen.getByRole('button', { name: 'More: Contribution' }));
+    expect((screen.getByRole('menu') as HTMLElement).style.bottom).not.toBe('');
+    bottom.unmount();
     render(<IstarCanvas store={createModelStore()} palette={false} />);
     expect(screen.queryByRole('toolbar')).toBeNull();
   });

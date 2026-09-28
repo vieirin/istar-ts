@@ -41,6 +41,7 @@ export default function App(): ReactElement {
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
   const [parseError, setParseError] = useState<string | null>(null);
   const [extensionId, setExtensionId] = useState('none');
+  const [bar, setBar] = useState<'left' | 'top' | 'bottom'>('left');
   const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
 
   const loadFixture = useCallback(
@@ -171,6 +172,14 @@ export default function App(): ReactElement {
                 <option value="goal-controller">goal-controller</option>
               </select>
             </label>
+            <label>
+              Bar
+              <select value={bar} onChange={(e) => setBar(e.target.value as typeof bar)}>
+                <option value="left">Left</option>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </label>
             <label className="pg-file-label">
               Open…
               <input type="file" accept=".txt,.pistar,application/json" onChange={onOpenFile} />
@@ -196,6 +205,7 @@ export default function App(): ReactElement {
         <IstarCanvas
           store={store}
           extensions={active.extensions}
+          palette={bar}
           aside={<Sidebar model={model} schemas={active.schemas} />}
         />
       </div>

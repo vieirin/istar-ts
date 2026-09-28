@@ -48,10 +48,11 @@ export interface IstarCanvasProps {
   readonly extensions?: readonly IstarExtension[];
   readonly readOnly?: boolean;
   /**
-   * Where to show the add-element / add-link toolbar: `'left'` (default) docks a vertical icon
-   * bar beside the diagram, `'top'` shows a piStar-style bar above it, `false` hides it.
+   * Where to show the add-element / add-link toolbar: `'left'` (default) docks a vertical bar
+   * beside the diagram, `'top'` / `'bottom'` show a piStar-style bar above / below it, `false`
+   * hides it.
    */
-  readonly palette?: 'left' | 'top' | boolean;
+  readonly palette?: 'left' | 'top' | 'bottom' | boolean;
   /** Content rendered beside the diagram (e.g. `<IstarInspector />`). */
   readonly aside?: ReactNode;
   readonly className?: string;
@@ -92,14 +93,24 @@ export function IstarCanvas(props: IstarCanvasProps): ReactElement {
 function CanvasLayout(props: IstarCanvasProps): ReactElement {
   const editor = useIstarEditor();
   const placement =
-    props.palette === false || editor.readOnly ? null : props.palette === 'top' ? 'top' : 'left';
+    props.palette === false || editor.readOnly
+      ? null
+      : props.palette === 'top' || props.palette === 'bottom'
+        ? props.palette
+        : 'left';
+  const palette = placement && (
+    <IstarPalette
+      orientation={placement === 'left' ? 'vertical' : 'horizontal'}
+      flyout={placement === 'left' ? 'right' : placement === 'top' ? 'below' : 'above'}
+    />
+  );
   return (
     <div
       className={`istar-canvas${placement ? ` has-palette-${placement}` : ''}${
         props.className ? ` ${props.className}` : ''
       }`}
     >
-      {placement && <IstarPalette orientation={placement === 'top' ? 'horizontal' : 'vertical'} />}
+      {placement !== 'bottom' && palette}
       <div className="istar-canvas-body">
         <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
           <Diagram
@@ -112,6 +123,7 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
         </div>
         {props.aside}
       </div>
+      {placement === 'bottom' && palette}
     </div>
   );
 }

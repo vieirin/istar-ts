@@ -59,7 +59,7 @@ export function Controlled() {
 }
 ```
 
-`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` for a piStar-style bar, or `false`), `aside`, `extensions`,
+`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` or `'bottom'` for a piStar-style bar, or `false`), `aside`, `extensions`,
 `controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain) and
 `fitView`.
 
@@ -172,7 +172,7 @@ a divider) and an optional `group`: entries sharing a group collapse into one bu
 as piStar does for Actor, Actor links, Dependency and Contribution. While a tool is active a
 status hint (the entry's `title`) says what to do next.
 
-`<IstarPalette orientation="vertical" | "horizontal" showLabels history />` can also be placed
+`<IstarPalette orientation="vertical" | "horizontal" flyout="right" | "below" | "above" showLabels history />` can also be placed
 yourself inside an `<IstarProvider>` (use `<IstarCanvas palette={false}>` then).
 
 Reusable pieces: `DefaultElementComponent`, `DefaultActorComponent`, `EditableLabel`, and shape
