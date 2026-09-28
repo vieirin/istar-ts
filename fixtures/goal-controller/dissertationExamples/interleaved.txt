@@ -1,0 +1,73 @@
+{
+  "actors": [
+    {
+      "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b",
+      "text": "SampleRobot",
+      "type": "istar.Actor",
+      "x": 308,
+      "y": 106,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "d201ecf8-634a-425e-8e6e-f59885442511",
+          "text": "G0: Collect sample [T0#T1]",
+          "type": "istar.Goal",
+          "x": 375,
+          "y": 153,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+          "text": "T0: Move to lab",
+          "type": "istar.Task",
+          "x": 320,
+          "y": 221,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "497d49d4-47e1-4079-beb5-968d657c1998",
+          "text": "T1: Notify nurse about arrival",
+          "type": "istar.Task",
+          "x": 432,
+          "y": 219,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "97b84d3e-a874-4e9e-9d61-375192419012",
+      "type": "istar.AndRefinementLink",
+      "source": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+      "target": "d201ecf8-634a-425e-8e6e-f59885442511"
+    },
+    {
+      "id": "0bef56d2-addc-45c8-bc37-3408afeae132",
+      "type": "istar.AndRefinementLink",
+      "source": "497d49d4-47e1-4079-beb5-968d657c1998",
+      "target": "d201ecf8-634a-425e-8e6e-f59885442511"
+    }
+  ],
+  "display": {},
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sun, 27 Apr 2025 21:23:54 GMT",
+  "diagram": {
+    "width": 1000,
+    "height": 700,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

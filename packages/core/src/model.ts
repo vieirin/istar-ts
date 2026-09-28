@@ -94,10 +94,20 @@ export interface IstarModel {
   readonly extra?: Extra;
 }
 
+/** Tool identifier written by piStar 2.1.0, whose file format this library emulates. */
+export const PISTAR_TOOL = 'pistar.2.1.0';
+export const ISTAR_VERSION = '2.0';
+
 export const DEFAULT_DIAGRAM: Diagram = { width: 2000, height: 1300 };
 
 export function createEmptyModel(diagram: Diagram = DEFAULT_DIAGRAM): IstarModel {
-  return { elements: new Map(), links: new Map(), diagram };
+  return {
+    elements: new Map(),
+    links: new Map(),
+    diagram,
+    tool: PISTAR_TOOL,
+    istar: ISTAR_VERSION,
+  };
 }
 
 export function isActor(element: IstarElement | undefined): element is IstarActor {

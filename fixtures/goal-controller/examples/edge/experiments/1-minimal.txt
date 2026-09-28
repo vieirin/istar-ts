@@ -1,0 +1,126 @@
+{
+  "actors": [
+    {
+      "id": "cbea66da-54a6-43dd-934c-1fe43829640d",
+      "text": "Drone",
+      "type": "istar.Actor",
+      "x": 424,
+      "y": 177,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "d06b4e46-f840-46a5-8a94-7909beeddf16",
+          "text": "G0: Perform Autonomous Package Delivery [G1;G2]",
+          "type": "istar.Goal",
+          "x": 552,
+          "y": 191,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "12397ca7-3beb-47a6-b46d-d4fb7957ebc4",
+          "text": "G1: Navigate [T1;T2]",
+          "type": "istar.Goal",
+          "x": 488,
+          "y": 283,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "912c8be2-1e4d-4b6a-b45c-9169f9fba033",
+          "text": "G2: Deliver Package",
+          "type": "istar.Goal",
+          "x": 665,
+          "y": 280,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "f9603623-30c5-401e-b864-a034ac721fb3",
+          "text": "T1: Acquire GPS",
+          "type": "istar.Task",
+          "x": 424,
+          "y": 348,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "b76163c5-e970-4fe6-882d-0a8ea79dad81",
+          "text": "T2: Follow waypoint",
+          "type": "istar.Task",
+          "x": 549,
+          "y": 343,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "e42bd875-5e2b-41f4-af86-8f2ed90065a3",
+          "text": "T3: Drop package",
+          "type": "istar.Task",
+          "x": 669,
+          "y": 345,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "9c730f6c-a265-4c29-9c19-e9c462a4b83a",
+      "type": "istar.AndRefinementLink",
+      "source": "12397ca7-3beb-47a6-b46d-d4fb7957ebc4",
+      "target": "d06b4e46-f840-46a5-8a94-7909beeddf16"
+    },
+    {
+      "id": "e3674c58-1f52-4f0f-ae52-509a2e279e64",
+      "type": "istar.AndRefinementLink",
+      "source": "912c8be2-1e4d-4b6a-b45c-9169f9fba033",
+      "target": "d06b4e46-f840-46a5-8a94-7909beeddf16"
+    },
+    {
+      "id": "8af78972-93c1-49a2-affc-9a6ccffa1706",
+      "type": "istar.AndRefinementLink",
+      "source": "f9603623-30c5-401e-b864-a034ac721fb3",
+      "target": "12397ca7-3beb-47a6-b46d-d4fb7957ebc4"
+    },
+    {
+      "id": "2a466a69-deef-4cdb-bd7f-b8917971a137",
+      "type": "istar.AndRefinementLink",
+      "source": "b76163c5-e970-4fe6-882d-0a8ea79dad81",
+      "target": "12397ca7-3beb-47a6-b46d-d4fb7957ebc4"
+    },
+    {
+      "id": "165edaab-afc0-464c-8632-b5824cce2044",
+      "type": "istar.AndRefinementLink",
+      "source": "e42bd875-5e2b-41f4-af86-8f2ed90065a3",
+      "target": "912c8be2-1e4d-4b6a-b45c-9169f9fba033"
+    }
+  ],
+  "display": {
+    "d06b4e46-f840-46a5-8a94-7909beeddf16": {
+      "width": 131.958984375,
+      "height": 49.470703125
+    }
+  },
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sun, 16 Nov 2025 20:19:23 GMT",
+  "diagram": {
+    "width": 1436,
+    "height": 743,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

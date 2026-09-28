@@ -1,0 +1,57 @@
+{
+  "actors": [
+    {
+      "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b",
+      "text": "SampleRobot",
+      "type": "istar.Actor",
+      "x": 308,
+      "y": 105,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "d201ecf8-634a-425e-8e6e-f59885442511",
+          "text": "G0: Collect sample",
+          "type": "istar.Goal",
+          "x": 375,
+          "y": 152,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+          "text": "T0: Move to lab",
+          "type": "istar.Task",
+          "x": 373,
+          "y": 233,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "fc14e533-6237-4d6a-9128-3c56d70852ef",
+      "type": "istar.AndRefinementLink",
+      "source": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+      "target": "d201ecf8-634a-425e-8e6e-f59885442511"
+    }
+  ],
+  "display": {},
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sun, 27 Apr 2025 19:19:41 GMT",
+  "diagram": {
+    "width": 1000,
+    "height": 700,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

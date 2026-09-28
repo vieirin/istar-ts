@@ -1,0 +1,798 @@
+{
+  "actors": [
+    {
+      "id": "01b561fb-9088-411d-afb9-a164c73815d7",
+      "text": "TAS",
+      "type": "istar.Actor",
+      "x": 59,
+      "y": 63,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "4073434e-8443-4ede-bf9d-dd3ece650e9a",
+          "text": "G0: Provide Health Support [G1#G2]",
+          "type": "istar.Goal",
+          "x": 417,
+          "y": 92,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "7d48e691-88de-4506-9094-5953dac940c6",
+          "text": "G3: Self-diagnosed emergency support service",
+          "type": "istar.Goal",
+          "x": 97,
+          "y": 236,
+          "customProperties": {
+            "Description": "",
+            "assertion": "privacyEnabled",
+            "qosPrivacy": "true"
+          }
+        },
+        {
+          "id": "f8826bf5-5d1a-4659-9779-3330c41fa795",
+          "text": "G4: Automated life support service [G8;G9]",
+          "type": "istar.Goal",
+          "x": 429,
+          "y": 226,
+          "customProperties": {
+            "Description": "",
+            "assertion": "enoughBattery & highReliability",
+            "maintain": "inEmergency",
+            "type": "maintain",
+            "maxRetries": "10"
+          }
+        },
+        {
+          "id": "9d7cc2b0-b8f5-4da0-add6-b0e105d84160",
+          "text": "G7: Allow push button",
+          "type": "istar.Goal",
+          "x": 98,
+          "y": 311,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "7f74803d-cd1f-4989-ac1a-a28a706c2acb",
+          "text": "T1: Trigger alarm by pushing emergency button ",
+          "type": "istar.Task",
+          "x": 81,
+          "y": 387,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "7c41ae22-a6a0-43cc-9b39-286de9f42930",
+          "text": "G8: Detect patient's health status [G10;G11]",
+          "type": "istar.Goal",
+          "x": 288,
+          "y": 299,
+          "customProperties": {
+            "Description": "",
+            "assertion": "sensorAvailable",
+            "maintain": "enoughBattery & highReliability",
+            "type": "maintain",
+            "qosReliability": "high"
+          }
+        },
+        {
+          "id": "e40ac95e-4b64-4f9c-81c2-db3baa5d378d",
+          "text": "G9: Enact treatment [G12;G13]",
+          "type": "istar.Goal",
+          "x": 617,
+          "y": 298,
+          "customProperties": {
+            "Description": "",
+            "assertion": ""
+          }
+        },
+        {
+          "id": "5d2fa8e1-c678-4ae7-b3cd-d0c7fb99d2db",
+          "text": "G10: Read vital signs",
+          "type": "istar.Goal",
+          "x": 267,
+          "y": 363,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "1300f48c-890f-41f9-9d53-faf08becfcce",
+          "text": "G11: Analyse data [G14?G15]",
+          "type": "istar.Goal",
+          "x": 411,
+          "y": 355,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "ef565838-6961-4f79-87eb-b9db1e57c409",
+          "text": "G12: Administer medicine [G16?G17]",
+          "type": "istar.Goal",
+          "x": 605,
+          "y": 355,
+          "customProperties": {
+            "Description": "",
+            "assertion": "pharmacyAvailable&atHome"
+          }
+        },
+        {
+          "id": "d7f34d7b-545a-457a-b5af-cc44a5651f32",
+          "text": "G16: Change drug",
+          "type": "istar.Goal",
+          "x": 592,
+          "y": 418,
+          "customProperties": {
+            "Description": "",
+            "assertion": ""
+          }
+        },
+        {
+          "id": "df4a265e-1cd5-46a0-ae4f-353e46b4cf42",
+          "text": "G17: Change dose",
+          "type": "istar.Goal",
+          "x": 707,
+          "y": 414,
+          "customProperties": {
+            "Description": "",
+            "assertion": ""
+          }
+        },
+        {
+          "id": "82e36ceb-7452-4a7e-8079-0adbab49fc07",
+          "text": "T4: Send sensed data",
+          "type": "istar.Task",
+          "x": 260,
+          "y": 428,
+          "customProperties": {
+            "Description": "",
+            "update": "again the task updates the resource with an unpredicted value (one that's returned by the system) seems that we need to support this case?",
+            "assertion": "R0=true"
+          }
+        },
+        {
+          "id": "e2fccc8c-79b0-4a25-8e17-eab5cb40a476",
+          "text": "T6: Perform local analysis",
+          "type": "istar.Task",
+          "x": 490,
+          "y": 485,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "d09c0850-2bca-48af-a4a4-241c03525723",
+          "text": "T5: Perform remote analysis",
+          "type": "istar.Task",
+          "x": 374,
+          "y": 485,
+          "customProperties": {
+            "Description": "",
+            "maxRetries": "8"
+          }
+        },
+        {
+          "id": "4a1d8121-4f43-4755-a871-bc08962e4a65",
+          "text": "T7: Apply drug change",
+          "type": "istar.Task",
+          "x": 588,
+          "y": 484,
+          "customProperties": {
+            "Description": "",
+            "update": "how to describe the resource update in this case? since it is not numeric"
+          }
+        },
+        {
+          "id": "f5224531-e4f8-447c-93ae-ac641fc8579e",
+          "text": "T8: Apply dose change",
+          "type": "istar.Task",
+          "x": 703,
+          "y": 483,
+          "customProperties": {
+            "Description": "",
+            "update": "the update here is a variable that is ideally received from the system, and not something we write in the model, as in T5"
+          }
+        },
+        {
+          "id": "c6de8c50-a3a9-4dbd-b9c1-e2c8315ae1f6",
+          "text": "G19: Trigger Alarm Service [G20?G21]",
+          "type": "istar.Goal",
+          "x": 1037,
+          "y": 345,
+          "customProperties": {
+            "Description": "",
+            "assertion": "inEmergency"
+          }
+        },
+        {
+          "id": "cd383e03-eab4-45c5-b811-51c634f76c08",
+          "text": "G18: Monitor side effects",
+          "type": "istar.Goal",
+          "x": 845,
+          "y": 387,
+          "customProperties": {
+            "Description": "",
+            "type": "maintain",
+            "maintain": "inSideEffectWindow",
+            "assertion": "medicationApplied"
+          }
+        },
+        {
+          "id": "a6141063-52a5-4ee4-be46-3cab425b44b6",
+          "text": "T9: Apply side effect monitor",
+          "type": "istar.Task",
+          "x": 843,
+          "y": 459,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R3=true"
+          }
+        },
+        {
+          "id": "a0167c35-4093-4056-8d80-790f0676f0e4",
+          "text": "T2: Perform Manual Tracking",
+          "type": "istar.Task",
+          "x": 625,
+          "y": 243,
+          "customProperties": {
+            "Description": "",
+            "assertion": "privacyEnabled"
+          }
+        },
+        {
+          "id": "08a484f7-1ed9-4c7e-8082-aab809944daf",
+          "text": "T3: Perform Automatic Tracking",
+          "type": "istar.Task",
+          "x": 748,
+          "y": 250,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>50"
+          }
+        },
+        {
+          "id": "4c85283a-4e6a-43c4-af97-937dbffb3db6",
+          "text": "G1: Support in emergency [G4@2->G3]",
+          "type": "istar.Goal",
+          "x": 248,
+          "y": 169,
+          "customProperties": {}
+        },
+        {
+          "id": "97a04342-d763-48da-a41f-d5e0e66f6dba",
+          "text": "G13: Analyse side effect [G18;G19]",
+          "type": "istar.Goal",
+          "x": 881,
+          "y": 318,
+          "customProperties": {
+            "Description": "",
+            "maintain": "",
+            "assertion": ""
+          }
+        },
+        {
+          "id": "e4c0141f-71b5-44f4-948c-fb1b614a27cb",
+          "text": "T10: Enact SMS Service",
+          "type": "istar.Task",
+          "x": 982,
+          "y": 470,
+          "customProperties": {
+            "Description": "this one would be the same case as T3, maybe a link condition?",
+            "assertion": "R4>35"
+          }
+        },
+        {
+          "id": "6b86c89c-b60f-40ed-bfb0-1f5789acd19a",
+          "text": "T11: Enact alarm service",
+          "type": "istar.Task",
+          "x": 1101,
+          "y": 467,
+          "customProperties": {
+            "Description": "assertion",
+            "assertion": "networkAvailable"
+          }
+        },
+        {
+          "id": "5e08b16e-6a3a-4df1-b070-275378fe3f2e",
+          "text": "R1: Location service",
+          "type": "istar.Resource",
+          "x": 881,
+          "y": 253,
+          "customProperties": {
+            "type": "int",
+            "initialValue": "3",
+            "lowerBound": "0",
+            "upperBound": "5",
+            "Description": "instead of it being a resource here, since it is not updated maybe it can become a link condition? locationService > 0, for example"
+          }
+        },
+        {
+          "id": "d3cebdca-502b-4338-baef-56c8254c4032",
+          "text": "R0: Patient data",
+          "type": "istar.Resource",
+          "x": 262,
+          "y": 500,
+          "customProperties": {
+            "type": "bool",
+            "initialValue": "true",
+            "Description": ""
+          }
+        },
+        {
+          "id": "bcfe846e-8f10-424e-a7b5-0c4ca411e448",
+          "text": "R3: Patient data",
+          "type": "istar.Resource",
+          "x": 850,
+          "y": 538,
+          "customProperties": {
+            "type": "bool",
+            "initialValue": "true",
+            "Description": ""
+          }
+        },
+        {
+          "id": "e420b39e-1e89-4111-9bdf-f398072175b0",
+          "text": "R2: Mobile data service",
+          "type": "istar.Resource",
+          "x": 981,
+          "y": 546,
+          "customProperties": {
+            "type": "int",
+            "initialValue": "4",
+            "lowerBound": "0",
+            "upperBound": "5",
+            "Description": "",
+            "condMobileData": "available"
+          }
+        },
+        {
+          "id": "67c420f7-9c2d-4911-bdc5-bae573c73eb6",
+          "text": "G2: Track patient location [G5|G6]",
+          "type": "istar.Goal",
+          "x": 666,
+          "y": 114,
+          "customProperties": {
+            "variables": "t:9, loc:3",
+            "Description": "",
+            "assertion": "patientTracking",
+            "maintain": "highPrecision",
+            "type": "maintain"
+          }
+        },
+        {
+          "id": "16bf102c-3ad1-4d1c-a6d5-c209faaa30c5",
+          "text": "G5: Manual Tracking",
+          "type": "istar.Goal",
+          "x": 628,
+          "y": 188,
+          "customProperties": {
+            "Description": "",
+            "assertion": "privacyEnabled"
+          }
+        },
+        {
+          "id": "028a939d-bb4b-4afb-93e2-af1a738a2543",
+          "text": "G6: Automatic Tracking",
+          "type": "istar.Goal",
+          "x": 746,
+          "y": 187,
+          "customProperties": {
+            "Description": "",
+            "assertion": "privacyEnabled=false"
+          }
+        },
+        {
+          "id": "891ddc22-95ae-4ec9-8470-3598bd2e6ab2",
+          "text": "G20: Trigger SMS Service",
+          "type": "istar.Goal",
+          "x": 984,
+          "y": 410,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "239d37e2-0afa-4c72-b82b-122a19bedcf1",
+          "text": "G21: Trigger alarm service",
+          "type": "istar.Goal",
+          "x": 1099,
+          "y": 406,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "9f6df9ae-9e20-4705-96c7-6256a8b6f7f1",
+          "text": "G14: Remote analysis",
+          "type": "istar.Goal",
+          "x": 380,
+          "y": 424,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "a061305b-20bb-4732-b0ce-85f70fe7b76c",
+          "text": "G15: Local analysis",
+          "type": "istar.Goal",
+          "x": 490,
+          "y": 427,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "474bd29f-54b4-4f05-a8b8-5f45eef23245",
+          "text": "R4: Drug",
+          "type": "istar.Resource",
+          "x": 580,
+          "y": 558,
+          "customProperties": {
+            "Description": "",
+            "type": "int",
+            "initialValue": "1",
+            "lowerBound": "1",
+            "upperBound": "4"
+          }
+        },
+        {
+          "id": "5cb7e3f1-14cb-4747-8b21-fe203c9be1a3",
+          "text": "R5: Drug dosage",
+          "type": "istar.Resource",
+          "x": 710,
+          "y": 560,
+          "customProperties": {
+            "Description": "",
+            "type": "int",
+            "initialValue": "0",
+            "lowerBound": "0",
+            "upperBound": "10"
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "69c87e83-28f0-4f0b-bb2e-de17637654ee",
+      "type": "istar.AndRefinementLink",
+      "source": "9d7cc2b0-b8f5-4da0-add6-b0e105d84160",
+      "target": "7d48e691-88de-4506-9094-5953dac940c6"
+    },
+    {
+      "id": "24f6e12c-154d-491a-9055-dc34f0217b25",
+      "type": "istar.AndRefinementLink",
+      "source": "7f74803d-cd1f-4989-ac1a-a28a706c2acb",
+      "target": "9d7cc2b0-b8f5-4da0-add6-b0e105d84160"
+    },
+    {
+      "id": "4aa16134-a081-457c-aa76-1dfc9a458693",
+      "type": "istar.AndRefinementLink",
+      "source": "7c41ae22-a6a0-43cc-9b39-286de9f42930",
+      "target": "f8826bf5-5d1a-4659-9779-3330c41fa795"
+    },
+    {
+      "id": "e163da9d-f0b7-421e-800a-adffc3cf08c5",
+      "type": "istar.AndRefinementLink",
+      "source": "5d2fa8e1-c678-4ae7-b3cd-d0c7fb99d2db",
+      "target": "7c41ae22-a6a0-43cc-9b39-286de9f42930"
+    },
+    {
+      "id": "9fe2396d-feee-4bce-ae6a-822aa72ac229",
+      "type": "istar.AndRefinementLink",
+      "source": "1300f48c-890f-41f9-9d53-faf08becfcce",
+      "target": "7c41ae22-a6a0-43cc-9b39-286de9f42930"
+    },
+    {
+      "id": "d42a8dc7-6366-4fdb-a9f5-024c0c05a563",
+      "type": "istar.OrRefinementLink",
+      "source": "d7f34d7b-545a-457a-b5af-cc44a5651f32",
+      "target": "ef565838-6961-4f79-87eb-b9db1e57c409"
+    },
+    {
+      "id": "afc168f9-80a3-4187-95d3-6f493c05c214",
+      "type": "istar.OrRefinementLink",
+      "source": "df4a265e-1cd5-46a0-ae4f-353e46b4cf42",
+      "target": "ef565838-6961-4f79-87eb-b9db1e57c409"
+    },
+    {
+      "id": "83e6a665-d615-498c-af14-d8020653f990",
+      "type": "istar.AndRefinementLink",
+      "source": "82e36ceb-7452-4a7e-8079-0adbab49fc07",
+      "target": "5d2fa8e1-c678-4ae7-b3cd-d0c7fb99d2db"
+    },
+    {
+      "id": "dbafe8af-da4a-4d47-ba86-bdc8358f8546",
+      "type": "istar.AndRefinementLink",
+      "source": "4a1d8121-4f43-4755-a871-bc08962e4a65",
+      "target": "d7f34d7b-545a-457a-b5af-cc44a5651f32"
+    },
+    {
+      "id": "16261598-ca2b-4452-87fb-fd414311e747",
+      "type": "istar.AndRefinementLink",
+      "source": "f5224531-e4f8-447c-93ae-ac641fc8579e",
+      "target": "df4a265e-1cd5-46a0-ae4f-353e46b4cf42"
+    },
+    {
+      "id": "894aeb1e-261b-4d53-870a-ecb8314a977c",
+      "type": "istar.AndRefinementLink",
+      "source": "e40ac95e-4b64-4f9c-81c2-db3baa5d378d",
+      "target": "f8826bf5-5d1a-4659-9779-3330c41fa795",
+      "customProperties": {
+        "condLocation": "home"
+      }
+    },
+    {
+      "id": "08e76fb6-2c5b-48d3-b679-3c83ca0b378e",
+      "type": "istar.AndRefinementLink",
+      "source": "a6141063-52a5-4ee4-be46-3cab425b44b6",
+      "target": "cd383e03-eab4-45c5-b811-51c634f76c08"
+    },
+    {
+      "id": "e02c5932-68e8-4ef7-9462-e78b80ecc699",
+      "type": "istar.OrRefinementLink",
+      "source": "7d48e691-88de-4506-9094-5953dac940c6",
+      "target": "4c85283a-4e6a-43c4-af97-937dbffb3db6"
+    },
+    {
+      "id": "5aa228e4-7eab-46f7-b790-c6e753268e60",
+      "type": "istar.OrRefinementLink",
+      "source": "f8826bf5-5d1a-4659-9779-3330c41fa795",
+      "target": "4c85283a-4e6a-43c4-af97-937dbffb3db6"
+    },
+    {
+      "id": "f3189a4c-f0c8-4549-b9f0-433a5a7a72c3",
+      "type": "istar.AndRefinementLink",
+      "source": "cd383e03-eab4-45c5-b811-51c634f76c08",
+      "target": "97a04342-d763-48da-a41f-d5e0e66f6dba"
+    },
+    {
+      "id": "959b0f45-bc29-4088-a5e1-d28232f215f3",
+      "type": "istar.AndRefinementLink",
+      "source": "c6de8c50-a3a9-4dbd-b9c1-e2c8315ae1f6",
+      "target": "97a04342-d763-48da-a41f-d5e0e66f6dba"
+    },
+    {
+      "id": "d2e15bbc-9701-4442-b40c-943cfe126b4f",
+      "type": "istar.AndRefinementLink",
+      "source": "97a04342-d763-48da-a41f-d5e0e66f6dba",
+      "target": "e40ac95e-4b64-4f9c-81c2-db3baa5d378d"
+    },
+    {
+      "id": "f6f2ce13-c85d-4cb2-b28b-d19727c85a83",
+      "type": "istar.NeededByLink",
+      "source": "d3cebdca-502b-4338-baef-56c8254c4032",
+      "target": "82e36ceb-7452-4a7e-8079-0adbab49fc07"
+    },
+    {
+      "id": "59b8e161-030d-44dc-85ef-1cdd45610a1a",
+      "type": "istar.NeededByLink",
+      "source": "bcfe846e-8f10-424e-a7b5-0c4ca411e448",
+      "target": "a6141063-52a5-4ee4-be46-3cab425b44b6"
+    },
+    {
+      "id": "c3ec44ad-1e32-4844-8282-1424972de2a9",
+      "type": "istar.NeededByLink",
+      "source": "e420b39e-1e89-4111-9bdf-f398072175b0",
+      "target": "e4c0141f-71b5-44f4-948c-fb1b614a27cb"
+    },
+    {
+      "id": "fd00f3b0-c664-4253-b5aa-46de7cfaceb7",
+      "type": "istar.AndRefinementLink",
+      "source": "4c85283a-4e6a-43c4-af97-937dbffb3db6",
+      "target": "4073434e-8443-4ede-bf9d-dd3ece650e9a"
+    },
+    {
+      "id": "b0dc675f-a1a8-43cc-84b0-ccdec96607ba",
+      "type": "istar.AndRefinementLink",
+      "source": "67c420f7-9c2d-4911-bdc5-bae573c73eb6",
+      "target": "4073434e-8443-4ede-bf9d-dd3ece650e9a"
+    },
+    {
+      "id": "b9c1af29-1aeb-42d3-9c38-3cfec2d3173e",
+      "type": "istar.OrRefinementLink",
+      "source": "16bf102c-3ad1-4d1c-a6d5-c209faaa30c5",
+      "target": "67c420f7-9c2d-4911-bdc5-bae573c73eb6"
+    },
+    {
+      "id": "8845f385-46cc-403d-9353-908723e303f9",
+      "type": "istar.AndRefinementLink",
+      "source": "a0167c35-4093-4056-8d80-790f0676f0e4",
+      "target": "16bf102c-3ad1-4d1c-a6d5-c209faaa30c5"
+    },
+    {
+      "id": "8978fe3e-4327-4bf5-9b43-d70256567aca",
+      "type": "istar.OrRefinementLink",
+      "source": "028a939d-bb4b-4afb-93e2-af1a738a2543",
+      "target": "67c420f7-9c2d-4911-bdc5-bae573c73eb6"
+    },
+    {
+      "id": "184e2265-9c43-4c8c-93a7-0e30199fd967",
+      "type": "istar.AndRefinementLink",
+      "source": "08a484f7-1ed9-4c7e-8082-aab809944daf",
+      "target": "028a939d-bb4b-4afb-93e2-af1a738a2543"
+    },
+    {
+      "id": "bad60b41-408d-49e6-b85d-5d18a0e2b4a1",
+      "type": "istar.NeededByLink",
+      "source": "5e08b16e-6a3a-4df1-b070-275378fe3f2e",
+      "target": "08a484f7-1ed9-4c7e-8082-aab809944daf"
+    },
+    {
+      "id": "c9182ac7-0af5-47ab-be37-d24900cf9635",
+      "type": "istar.AndRefinementLink",
+      "source": "ef565838-6961-4f79-87eb-b9db1e57c409",
+      "target": "e40ac95e-4b64-4f9c-81c2-db3baa5d378d"
+    },
+    {
+      "id": "56f56f4d-c6c9-44c0-a3f6-e9b91e3692fb",
+      "type": "istar.OrRefinementLink",
+      "source": "891ddc22-95ae-4ec9-8470-3598bd2e6ab2",
+      "target": "c6de8c50-a3a9-4dbd-b9c1-e2c8315ae1f6"
+    },
+    {
+      "id": "1673d811-b03e-4d9b-8871-77b02b4083f0",
+      "type": "istar.OrRefinementLink",
+      "source": "239d37e2-0afa-4c72-b82b-122a19bedcf1",
+      "target": "c6de8c50-a3a9-4dbd-b9c1-e2c8315ae1f6"
+    },
+    {
+      "id": "a5999bc7-cf4c-4bc1-87c3-5ddc09c2975e",
+      "type": "istar.AndRefinementLink",
+      "source": "e4c0141f-71b5-44f4-948c-fb1b614a27cb",
+      "target": "891ddc22-95ae-4ec9-8470-3598bd2e6ab2"
+    },
+    {
+      "id": "80cb29fd-bae6-481a-877b-c0ab5e26a0c6",
+      "type": "istar.AndRefinementLink",
+      "source": "6b86c89c-b60f-40ed-bfb0-1f5789acd19a",
+      "target": "239d37e2-0afa-4c72-b82b-122a19bedcf1"
+    },
+    {
+      "id": "3546292a-fab9-4ba3-bc25-d78ce307aad1",
+      "type": "istar.OrRefinementLink",
+      "source": "9f6df9ae-9e20-4705-96c7-6256a8b6f7f1",
+      "target": "1300f48c-890f-41f9-9d53-faf08becfcce"
+    },
+    {
+      "id": "74ccf164-d865-469a-966d-42652e47f9e7",
+      "type": "istar.OrRefinementLink",
+      "source": "a061305b-20bb-4732-b0ce-85f70fe7b76c",
+      "target": "1300f48c-890f-41f9-9d53-faf08becfcce"
+    },
+    {
+      "id": "336d3d57-2e83-45e8-9fa5-ee4257645a46",
+      "type": "istar.AndRefinementLink",
+      "source": "d09c0850-2bca-48af-a4a4-241c03525723",
+      "target": "9f6df9ae-9e20-4705-96c7-6256a8b6f7f1"
+    },
+    {
+      "id": "0ce2a8e3-840b-4855-8860-c0bdefc8b8a1",
+      "type": "istar.AndRefinementLink",
+      "source": "e2fccc8c-79b0-4a25-8e17-eab5cb40a476",
+      "target": "a061305b-20bb-4732-b0ce-85f70fe7b76c"
+    },
+    {
+      "id": "c2cc185f-521a-4ae7-959b-070ef2a9aea3",
+      "type": "istar.NeededByLink",
+      "source": "474bd29f-54b4-4f05-a8b8-5f45eef23245",
+      "target": "4a1d8121-4f43-4755-a871-bc08962e4a65"
+    },
+    {
+      "id": "03bdac93-9509-4ebc-bf53-4d16b04db102",
+      "type": "istar.NeededByLink",
+      "source": "474bd29f-54b4-4f05-a8b8-5f45eef23245",
+      "target": "f5224531-e4f8-447c-93ae-ac641fc8579e"
+    },
+    {
+      "id": "0376c0e0-429f-46b5-83ea-c5bedc5194d4",
+      "type": "istar.NeededByLink",
+      "source": "5cb7e3f1-14cb-4747-8b21-fe203c9be1a3",
+      "target": "f5224531-e4f8-447c-93ae-ac641fc8579e"
+    }
+  ],
+  "display": {
+    "4073434e-8443-4ede-bf9d-dd3ece650e9a": {
+      "width": 167.421875,
+      "height": 42.53125
+    },
+    "7d48e691-88de-4506-9094-5953dac940c6": {
+      "backgroundColor": "#FAF2B2",
+      "width": 153.9609375,
+      "height": 41.421875
+    },
+    "f8826bf5-5d1a-4659-9779-3330c41fa795": {
+      "backgroundColor": "#5AEEFA",
+      "width": 140.9609375,
+      "height": 40.5078125
+    },
+    "7f74803d-cd1f-4989-ac1a-a28a706c2acb": {
+      "width": 126.9609375,
+      "height": 66.5078125
+    },
+    "7c41ae22-a6a0-43cc-9b39-286de9f42930": {
+      "backgroundColor": "#5AEEFA",
+      "width": 135.421875,
+      "height": 37.03125
+    },
+    "1300f48c-890f-41f9-9d53-faf08becfcce": {
+      "width": 96.86666870117188,
+      "height": 39.43333435058594
+    },
+    "ef565838-6961-4f79-87eb-b9db1e57c409": {
+      "backgroundColor": "#FAF2B2",
+      "width": 117.390625,
+      "height": 40.53125
+    },
+    "82e36ceb-7452-4a7e-8079-0adbab49fc07": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "4a1d8121-4f43-4755-a871-bc08962e4a65": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "f5224531-e4f8-447c-93ae-ac641fc8579e": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "cd383e03-eab4-45c5-b811-51c634f76c08": {
+      "backgroundColor": "#5AEEFA"
+    },
+    "a6141063-52a5-4ee4-be46-3cab425b44b6": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "08a484f7-1ed9-4c7e-8082-aab809944daf": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "4c85283a-4e6a-43c4-af97-937dbffb3db6": {
+      "width": 139.421875,
+      "height": 35.53125
+    },
+    "e4c0141f-71b5-44f4-948c-fb1b614a27cb": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "5e08b16e-6a3a-4df1-b070-275378fe3f2e": {
+      "backgroundColor": "#FAF383"
+    },
+    "d3cebdca-502b-4338-baef-56c8254c4032": {
+      "backgroundColor": "#FAF383"
+    },
+    "bcfe846e-8f10-424e-a7b5-0c4ca411e448": {
+      "backgroundColor": "#FAF383"
+    },
+    "e420b39e-1e89-4111-9bdf-f398072175b0": {
+      "backgroundColor": "#FAF383"
+    },
+    "67c420f7-9c2d-4911-bdc5-bae573c73eb6": {
+      "backgroundColor": "#5AEEFA",
+      "width": 111.703125,
+      "height": 46.53125
+    },
+    "028a939d-bb4b-4afb-93e2-af1a738a2543": {
+      "width": 98.86666870117188,
+      "height": 35.43333435058594
+    },
+    "474bd29f-54b4-4f05-a8b8-5f45eef23245": {
+      "backgroundColor": "#FAF383"
+    },
+    "5cb7e3f1-14cb-4747-8b21-fe203c9be1a3": {
+      "backgroundColor": "#FAF383"
+    }
+  },
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sat, 15 Nov 2025 15:43:11 GMT",
+  "diagram": {
+    "width": 1436,
+    "height": 743,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

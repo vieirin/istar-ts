@@ -1,0 +1,138 @@
+{
+ "actors": [
+  {
+   "id": "707a978e-64ad-fc19-6f8b-4ae12958b95b",
+   "text": "freeform_018",
+   "type": "istar.Actor",
+   "x": 0,
+   "y": 0,
+   "customProperties": {
+    "Description": ""
+   },
+   "nodes": [
+    {
+     "id": "781c16ce-7195-9845-1c2f-00b132f5129a",
+     "text": "G0: goal [G1+G4]",
+     "type": "istar.Goal",
+     "x": 100,
+     "y": 100,
+     "customProperties": {
+      "Description": "",
+      "root": "true"
+     }
+    },
+    {
+     "id": "30fe860d-d112-398e-97ac-d54126e19a1d",
+     "text": "G1: goal [T2@3->T3]",
+     "type": "istar.Goal",
+     "x": 160,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "82ca7a1c-39ef-9887-33e5-e4e62977d018",
+     "text": "T2: task",
+     "type": "istar.Task",
+     "x": 220,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "ac2b01ce-c304-4ed0-65e3-0cc4e940beb6",
+     "text": "T3: task",
+     "type": "istar.Task",
+     "x": 280,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "60d19aee-8d1c-d304-97e3-4b7f7c36c88e",
+     "text": "G4: goal [T5#T6]",
+     "type": "istar.Goal",
+     "x": 340,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "801f0a13-c963-6bb1-82a8-a4b008cd64bf",
+     "text": "T5: task",
+     "type": "istar.Task",
+     "x": 400,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "6084794d-d2b4-3568-0bd7-e3ed91f2024f",
+     "text": "T6: task",
+     "type": "istar.Task",
+     "x": 460,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    }
+   ]
+  }
+ ],
+ "orphans": [],
+ "dependencies": [],
+ "links": [
+  {
+   "id": "878a6d0c-86ec-380c-605b-90de59bd8238",
+   "type": "istar.AndRefinementLink",
+   "source": "30fe860d-d112-398e-97ac-d54126e19a1d",
+   "target": "781c16ce-7195-9845-1c2f-00b132f5129a"
+  },
+  {
+   "id": "4172ec39-24a8-59ce-16e6-51e380da57fe",
+   "type": "istar.AndRefinementLink",
+   "source": "60d19aee-8d1c-d304-97e3-4b7f7c36c88e",
+   "target": "781c16ce-7195-9845-1c2f-00b132f5129a"
+  },
+  {
+   "id": "712effcf-e12e-8c90-d85e-706761ea4665",
+   "type": "istar.OrRefinementLink",
+   "source": "82ca7a1c-39ef-9887-33e5-e4e62977d018",
+   "target": "30fe860d-d112-398e-97ac-d54126e19a1d"
+  },
+  {
+   "id": "4978588c-90d8-c5e7-8661-c9f0afe633e1",
+   "type": "istar.OrRefinementLink",
+   "source": "ac2b01ce-c304-4ed0-65e3-0cc4e940beb6",
+   "target": "30fe860d-d112-398e-97ac-d54126e19a1d"
+  },
+  {
+   "id": "61dc2fda-435b-8827-a786-e6aadbfe0bea",
+   "type": "istar.AndRefinementLink",
+   "source": "801f0a13-c963-6bb1-82a8-a4b008cd64bf",
+   "target": "60d19aee-8d1c-d304-97e3-4b7f7c36c88e"
+  },
+  {
+   "id": "0596b246-aad3-c1ba-5f38-365802e07cd1",
+   "type": "istar.AndRefinementLink",
+   "source": "6084794d-d2b4-3568-0bd7-e3ed91f2024f",
+   "target": "60d19aee-8d1c-d304-97e3-4b7f7c36c88e"
+  }
+ ],
+ "display": {},
+ "tool": "pistar.2.1.0",
+ "istar": "2.0",
+ "saveDate": "",
+ "diagram": {
+  "width": 2000,
+  "height": 1000,
+  "customProperties": {
+   "Description": ""
+  }
+ }
+}

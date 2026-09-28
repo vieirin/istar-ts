@@ -1,0 +1,624 @@
+{
+  "actors": [
+    {
+      "id": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "text": "Lab Sample Logistics",
+      "type": "istar.Actor",
+      "x": 58,
+      "y": 52,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+          "text": "G0: Provide Sample Delivery [G1#G2]",
+          "type": "istar.Goal",
+          "x": 254,
+          "y": 79,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+          "text": "G3: Pickup Sample [G5;G6]",
+          "type": "istar.Goal",
+          "x": 229,
+          "y": 365,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "13643c2b-981b-406a-88a0-4882b115d534",
+          "text": "G1: Monitor Sample Track System",
+          "type": "istar.Goal",
+          "x": 78,
+          "y": 219,
+          "customProperties": {
+            "Description": "",
+            "monitor": "true",
+            "type": "maintain",
+            "assertion": "sampleLoaded",
+            "maintain": "!sampleLoaded"
+          }
+        },
+        {
+          "id": "957b91c5-107f-43e9-a930-5bc310a468fd",
+          "text": "T1: Process Lab Sample Delivery Request",
+          "type": "istar.Task",
+          "x": 70,
+          "y": 325,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R0=true"
+          }
+        },
+        {
+          "id": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+          "text": "R0: Hospital Delivery Service",
+          "type": "istar.Resource",
+          "x": 78,
+          "y": 427,
+          "customProperties": {
+            "Description": "",
+            "type": "bool",
+            "initialValue": "true"
+          }
+        },
+        {
+          "id": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+          "text": "G4: Load sample to deliver",
+          "type": "istar.Goal",
+          "x": 460,
+          "y": 364,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+          "text": "G2: Deliver Sample and Pickup Sample if Needed [G13;G6]",
+          "type": "istar.Goal",
+          "x": 444,
+          "y": 208,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+          "text": "T4: Pickup Task",
+          "type": "istar.Task",
+          "x": 350,
+          "y": 634,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=2&R2=true"
+          }
+        },
+        {
+          "id": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+          "text": "T9: Delivery Task",
+          "type": "istar.Task",
+          "x": 966,
+          "y": 635,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=2"
+          }
+        },
+        {
+          "id": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+          "text": "R1: Battery",
+          "type": "istar.Resource",
+          "x": 215,
+          "y": 740,
+          "customProperties": {
+            "Description": "",
+            "type": "int",
+            "lowerBound": "0",
+            "upperBound": "5",
+            "initial": "5",
+            "initialValue": "5"
+          }
+        },
+        {
+          "id": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+          "text": "G5: Approach Nurse and Pickup Sample [G7;G8;G9]",
+          "type": "istar.Goal",
+          "x": 213,
+          "y": 435,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+          "text": "G7: Approach the Nurse",
+          "type": "istar.Goal",
+          "x": 71,
+          "y": 525,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "bd829b59-9477-4034-8c71-6388e7ec002b",
+          "text": "G9: Pickup Sample",
+          "type": "istar.Goal",
+          "x": 338,
+          "y": 522,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+          "text": "G8: Scan Sample Barcode",
+          "type": "istar.Goal",
+          "x": 199,
+          "y": 526,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+          "text": "T2: Navigate to Nurse Position",
+          "type": "istar.Task",
+          "x": 58,
+          "y": 627,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=2"
+          }
+        },
+        {
+          "id": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+          "text": "T3: Barcode Scanner Service",
+          "type": "istar.Task",
+          "x": 204,
+          "y": 631,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=1"
+          }
+        },
+        {
+          "id": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+          "text": "G6: Deliver Sample to Lab [G10;G11;G12]",
+          "type": "istar.Goal",
+          "x": 756,
+          "y": 294,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+          "text": "T5: Load Sample Manually",
+          "type": "istar.Task",
+          "x": 469,
+          "y": 436,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R2=true"
+          }
+        },
+        {
+          "id": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+          "text": "R2: Sample",
+          "type": "istar.Resource",
+          "x": 479,
+          "y": 815,
+          "customProperties": {
+            "Description": "",
+            "type": "bool",
+            "initialValue": "true"
+          }
+        },
+        {
+          "id": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+          "text": "G10: Approach the Lab",
+          "type": "istar.Goal",
+          "x": 601,
+          "y": 521,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "66324349-e871-4e05-8e37-57385305a601",
+          "text": "G12: Give sample to Robotic Arm",
+          "type": "istar.Goal",
+          "x": 1010,
+          "y": 563,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+          "text": "G11: Monitor Sample Data [T7;T8]",
+          "type": "istar.Goal",
+          "x": 772,
+          "y": 539,
+          "customProperties": {
+            "Description": "",
+            "monitor": "true",
+            "type": "maintain",
+            "assertion": "sampleLoaded",
+            "maintain": "analysisEnded"
+          }
+        },
+        {
+          "id": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+          "text": "T6: Navigate to Lab Position",
+          "type": "istar.Task",
+          "x": 563,
+          "y": 623,
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=2"
+          }
+        },
+        {
+          "id": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+          "text": "T7: Track Sample Location",
+          "type": "istar.Task",
+          "x": 678,
+          "y": 629,
+          "customProperties": {
+            "Description": "",
+            "assertion": "sampleLoaded"
+          }
+        },
+        {
+          "id": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+          "text": "T8: Monitor Sample Temperature",
+          "type": "istar.Task",
+          "x": 864,
+          "y": 624,
+          "customProperties": {
+            "Description": "",
+            "assertion": ""
+          }
+        },
+        {
+          "id": "9036eb53-fda4-4e42-968f-9865107e6927",
+          "text": "R1: Battery",
+          "type": "istar.Resource",
+          "x": 786,
+          "y": 807,
+          "customProperties": {
+            "Description": "",
+            "type": "int",
+            "lowerBound": "0",
+            "upperBound": "5",
+            "initial": "5",
+            "initialValue": "5"
+          }
+        },
+        {
+          "id": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+          "text": "G13: Prepare sample [+]",
+          "type": "istar.Goal",
+          "x": 470,
+          "y": 302,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "c418c120-8fd3-4c22-9cef-a3446a15f23c",
+      "type": "istar.AndRefinementLink",
+      "source": "957b91c5-107f-43e9-a930-5bc310a468fd",
+      "target": "13643c2b-981b-406a-88a0-4882b115d534"
+    },
+    {
+      "id": "e5454525-09f9-40c7-b0ff-830a257ba456",
+      "type": "istar.NeededByLink",
+      "source": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+      "target": "957b91c5-107f-43e9-a930-5bc310a468fd"
+    },
+    {
+      "id": "7f198ff0-a28a-48c7-934a-d245ce2dcf5a",
+      "type": "istar.AndRefinementLink",
+      "source": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "target": "9cf43e0a-fd72-4fb4-a748-1fe34d434279"
+    },
+    {
+      "id": "ba1b4605-872b-47d0-9e56-42186182e31d",
+      "type": "istar.AndRefinementLink",
+      "source": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55"
+    },
+    {
+      "id": "e9f34dea-af8a-4f3c-8176-3d377b9e3d06",
+      "type": "istar.AndRefinementLink",
+      "source": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55"
+    },
+    {
+      "id": "a032c8c0-ff56-43e3-854c-215be7731f6a",
+      "type": "istar.AndRefinementLink",
+      "source": "bd829b59-9477-4034-8c71-6388e7ec002b",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55"
+    },
+    {
+      "id": "de3ea0f6-e785-43f3-8bf9-e6b36a771c6a",
+      "type": "istar.AndRefinementLink",
+      "source": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      "target": "bd829b59-9477-4034-8c71-6388e7ec002b"
+    },
+    {
+      "id": "2bf5b86f-d622-4072-b990-582624748f3e",
+      "type": "istar.AndRefinementLink",
+      "source": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      "target": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9"
+    },
+    {
+      "id": "f446d60c-1a72-4aca-b7a8-235f175f2fd5",
+      "type": "istar.AndRefinementLink",
+      "source": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      "target": "96ef10d1-d155-498f-91dd-b1dfb35cee7f"
+    },
+    {
+      "id": "20b9e7ef-f006-4702-b809-386e75f146a4",
+      "type": "istar.NeededByLink",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b"
+    },
+    {
+      "id": "16089b53-ee8c-49ad-8690-c11c49055876",
+      "type": "istar.NeededByLink",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "e2dc9033-4edf-4cdf-961a-1de17647e463"
+    },
+    {
+      "id": "03612ae6-ea75-4b43-8601-b89e73841878",
+      "type": "istar.NeededByLink",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "3e14f0c4-a941-404c-841c-7cb5c035ed43"
+    },
+    {
+      "id": "908d428e-9667-4d91-9590-4e9a391b60cc",
+      "type": "istar.AndRefinementLink",
+      "source": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      "target": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003"
+    },
+    {
+      "id": "bfc1a8e0-42ca-4178-a267-01810f715ed9",
+      "type": "istar.NeededByLink",
+      "source": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      "target": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf"
+    },
+    {
+      "id": "baa4a13b-892d-416a-8f4a-36c46f17a895",
+      "type": "istar.AndRefinementLink",
+      "source": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5"
+    },
+    {
+      "id": "fe70402a-69b6-481b-834c-a9f412445f44",
+      "type": "istar.AndRefinementLink",
+      "source": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5"
+    },
+    {
+      "id": "24155da7-b855-4d81-a0e5-2c72b7ea57a1",
+      "type": "istar.AndRefinementLink",
+      "source": "66324349-e871-4e05-8e37-57385305a601",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5"
+    },
+    {
+      "id": "e117cf7b-c857-4362-8c93-9317c9b63d3d",
+      "type": "istar.AndRefinementLink",
+      "source": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      "target": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d"
+    },
+    {
+      "id": "dcbf8123-3831-4c1b-9fd7-0524c0d0764e",
+      "type": "istar.AndRefinementLink",
+      "source": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd"
+    },
+    {
+      "id": "712cd81d-25fb-462d-bf43-781ac18f9a17",
+      "type": "istar.AndRefinementLink",
+      "source": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd"
+    },
+    {
+      "id": "32475bf3-075c-45bc-90fd-6ddd295013c8",
+      "type": "istar.AndRefinementLink",
+      "source": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      "target": "66324349-e871-4e05-8e37-57385305a601"
+    },
+    {
+      "id": "392d6138-b433-4692-bb10-c26a90646709",
+      "type": "istar.NeededByLink",
+      "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+      "target": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2"
+    },
+    {
+      "id": "72df8dfb-a9cb-48e2-9d61-dfd5957d063d",
+      "type": "istar.NeededByLink",
+      "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+      "target": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c"
+    },
+    {
+      "id": "0ebfa716-5ae4-478d-b3b3-220c0d874308",
+      "type": "istar.OrRefinementLink",
+      "source": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a"
+    },
+    {
+      "id": "5c9bfc0e-c846-4b6d-97a3-be81adec1952",
+      "type": "istar.OrRefinementLink",
+      "source": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a"
+    },
+    {
+      "id": "1b76aae7-ea0a-4631-93f6-0e0c23f5f67f",
+      "type": "istar.AndRefinementLink",
+      "source": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312"
+    },
+    {
+      "id": "e286004a-50e8-4fca-9927-1e2ffa53dae2",
+      "type": "istar.AndRefinementLink",
+      "source": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312"
+    },
+    {
+      "id": "82bd2ebd-86f1-4b4c-ba86-2adb44f58962",
+      "type": "istar.AndRefinementLink",
+      "source": "13643c2b-981b-406a-88a0-4882b115d534",
+      "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e"
+    },
+    {
+      "id": "9b8a85c8-85a3-465c-ab11-6b4891576988",
+      "type": "istar.AndRefinementLink",
+      "source": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e"
+    },
+    {
+      "id": "051f30ad-4017-49fc-9b93-59a2238d64bb",
+      "type": "istar.NeededByLink",
+      "source": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      "target": "e2dc9033-4edf-4cdf-961a-1de17647e463"
+    }
+  ],
+  "display": {
+    "faf8b81d-3cb3-486a-9e70-1e88dca62a4e": {
+      "width": 155.25,
+      "height": 51.53334045410156
+    },
+    "9cf43e0a-fd72-4fb4-a748-1fe34d434279": {
+      "width": 143.25,
+      "height": 51.53334045410156
+    },
+    "13643c2b-981b-406a-88a0-4882b115d534": {
+      "backgroundColor": "#5AEEFA",
+      "width": 108.25,
+      "height": 47.53334045410156
+    },
+    "957b91c5-107f-43e9-a930-5bc310a468fd": {
+      "backgroundColor": "#FAC0AF",
+      "width": 118,
+      "height": 52.80000305175781
+    },
+    "4ac2fd9b-1743-483e-8b58-67c14918b62c": {
+      "backgroundColor": "#FAF383",
+      "width": 101,
+      "height": 43.80000305175781
+    },
+    "d0ee4661-b198-41e7-8e62-0f3a6d9fb003": {
+      "width": 116,
+      "height": 50.80000305175781
+    },
+    "388d2239-d5f3-477b-ba42-b5dc79fdc312": {
+      "width": 140,
+      "height": 73.80000305175781
+    },
+    "e2dc9033-4edf-4cdf-961a-1de17647e463": {
+      "backgroundColor": "#FAC0AF"
+    },
+    "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c": {
+      "backgroundColor": "#FAC0AF",
+      "width": 116,
+      "height": 45.80000305175781
+    },
+    "f408e0ed-5b87-4e82-9465-08cc2e466e33": {
+      "backgroundColor": "#FAF383"
+    },
+    "b1915cd5-5cb0-4a81-860a-d2b4c047be55": {
+      "width": 144,
+      "height": 54.80000305175781
+    },
+    "9486cfdf-1823-4a44-bb83-fcaf2d382eb9": {
+      "width": 112,
+      "height": 51.80000305175781
+    },
+    "bd829b59-9477-4034-8c71-6388e7ec002b": {
+      "width": 124,
+      "height": 52.80000305175781
+    },
+    "96ef10d1-d155-498f-91dd-b1dfb35cee7f": {
+      "width": 126,
+      "height": 50.30000305175781
+    },
+    "f85b14f9-a321-4552-bcc3-3a0e8d907e7b": {
+      "backgroundColor": "#FAC0AF",
+      "width": 116,
+      "height": 47.80000305175781
+    },
+    "3e14f0c4-a941-404c-841c-7cb5c035ed43": {
+      "backgroundColor": "#FAC0AF",
+      "width": 111,
+      "height": 43.80000305175781
+    },
+    "42b3e936-7bd5-479f-8296-e69e33fe26b5": {
+      "width": 126,
+      "height": 54.30000305175781
+    },
+    "6e8641d3-a0cf-4b51-9a0e-15506838fcaf": {
+      "backgroundColor": "#FAC0AF",
+      "width": 109,
+      "height": 42.80000305175781
+    },
+    "ddc8ce6c-3945-4493-8ab5-36bccc4fe798": {
+      "backgroundColor": "#FAF383"
+    },
+    "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d": {
+      "width": 116,
+      "height": 52.80000305175781
+    },
+    "66324349-e871-4e05-8e37-57385305a601": {
+      "width": 111,
+      "height": 51.80000305175781
+    },
+    "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd": {
+      "backgroundColor": "#5AEEFA",
+      "width": 132,
+      "height": 51.80000305175781
+    },
+    "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2": {
+      "backgroundColor": "#FAC0AF",
+      "width": 105,
+      "height": 46.80000305175781
+    },
+    "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8": {
+      "backgroundColor": "#FAC0AF",
+      "width": 109,
+      "height": 48.80000305175781
+    },
+    "6f548fbb-378c-4dd8-8379-bfa6d4644704": {
+      "backgroundColor": "#FAC0AF",
+      "width": 104,
+      "height": 52.80000305175781
+    },
+    "9036eb53-fda4-4e42-968f-9865107e6927": {
+      "backgroundColor": "#FAF383"
+    }
+  },
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sat, 22 Nov 2025 22:30:26 GMT",
+  "diagram": {
+    "width": 2110,
+    "height": 1614,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

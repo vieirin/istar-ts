@@ -1,0 +1,83 @@
+{
+  "actors": [
+    {
+      "id": "d157b5c1-0039-44cb-b6d3-cb00f04e4c49",
+      "text": "Actor",
+      "type": "istar.Actor",
+      "x": 227,
+      "y": 103,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "77d3375d-27c3-407b-8ddb-bcca9a994aee",
+          "text": "G0: track patient location [T0;T1]",
+          "type": "istar.Goal",
+          "x": 303,
+          "y": 138,
+          "customProperties": {
+            "Description": "",
+            "type": "maintain",
+            "achieve": "",
+            "assertion": "patientTracking",
+            "maintain": "highPrecision"
+          }
+        },
+        {
+          "id": "641110b9-8eef-4aa4-856d-d0d128d7a507",
+          "text": "T0: Manual tracking",
+          "type": "istar.Task",
+          "x": 254,
+          "y": 206,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "5bbf9fd1-8eff-45e9-b8b3-15d56b3f1df5",
+          "text": "T1: Automatic Tracking",
+          "type": "istar.Task",
+          "x": 404,
+          "y": 208,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "68dcaf85-3c39-4003-a849-916c6bcd3d7a",
+      "type": "istar.AndRefinementLink",
+      "source": "641110b9-8eef-4aa4-856d-d0d128d7a507",
+      "target": "77d3375d-27c3-407b-8ddb-bcca9a994aee"
+    },
+    {
+      "id": "ed3569e4-3fe5-4bc5-a302-4d7031ab3230",
+      "type": "istar.AndRefinementLink",
+      "source": "5bbf9fd1-8eff-45e9-b8b3-15d56b3f1df5",
+      "target": "77d3375d-27c3-407b-8ddb-bcca9a994aee"
+    }
+  ],
+  "display": {
+    "77d3375d-27c3-407b-8ddb-bcca9a994aee": {
+      "backgroundColor": "#5AEEFA",
+      "width": 121,
+      "height": 36.5078125
+    }
+  },
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sun, 27 Apr 2025 20:32:15 GMT",
+  "diagram": {
+    "width": 1000,
+    "height": 700,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

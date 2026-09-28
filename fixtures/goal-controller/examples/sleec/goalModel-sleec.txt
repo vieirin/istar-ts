@@ -1,0 +1,375 @@
+{
+  "actors": [
+    {
+      "id": "1e1efc9b-9e95-442b-94f8-129165642de4",
+      "text": "SLEEC SA-BSN",
+      "type": "istar.Actor",
+      "x": 41,
+      "y": 51,
+      "nodes": [
+        {
+          "id": "f86f961e-3866-4eef-b220-00be273f4e28",
+          "text": "G1: Emergency Detected",
+          "type": "istar.Goal",
+          "x": 498,
+          "y": 62,
+          "customProperties": {
+            "selected": "true"
+          }
+        },
+        {
+          "id": "bc0563bd-1b58-41ac-adb1-0b49c76957e6",
+          "text": "G2: Patient status is Monitored",
+          "type": "istar.Goal",
+          "x": 485,
+          "y": 121
+        },
+        {
+          "id": "3700ada8-0515-48f8-8bee-6c3854a93f3f",
+          "text": "G4: Vital Signs Monitored",
+          "type": "istar.Goal",
+          "x": 582,
+          "y": 190
+        },
+        {
+          "id": "9f6700ae-c0d9-4389-8c52-e0210a91e241",
+          "text": "T5: Track Vital Signs",
+          "type": "istar.Task",
+          "x": 531,
+          "y": 254,
+          "customProperties": {
+            "Description": "When the patient is sleeping, the BSN must keep track of the patient vital signs, despite potential patient’s discomfort while sleeping",
+            "PreCond": "((({patientDiscomfort} = low) or ({patientDiscomfort} = moderate) or ({patientDiscomfort} = high))",
+            "TriggeringEvent": "PatientAsleep",
+            "TemporalConstraint": "300 seconds",
+            "PostCond": "{dataCollected}",
+            "FluentName": "TrackVitals"
+          }
+        },
+        {
+          "id": "f5337583-38cb-4378-b77a-22c25c00e3c2",
+          "text": "G5: Vital Signs Analyzed",
+          "type": "istar.Goal",
+          "x": 825,
+          "y": 191,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "209b2248-4041-4fe1-8ccc-876bcf028ad2",
+          "text": "T1: Inform System Purpose and Protocol",
+          "type": "istar.Task",
+          "x": 122,
+          "y": 299,
+          "customProperties": {
+            "Description": "In first interaction with the user, inform them of the purposes of using this technology.",
+            "PreCond": "(not {purposeProtocolInformed})",
+            "TriggeringEvent": "MeetingUser",
+            "TemporalConstraint": "120 seconds",
+            "PostCond": "{purposeProtocolInformed}",
+            "FluentName": "InformPurposeAndProtocol"
+          }
+        },
+        {
+          "id": "3f1fa994-903b-488f-81f2-a81f1bd99710",
+          "text": "T6: Track Patient Outdoors",
+          "type": "istar.Task",
+          "x": 657,
+          "y": 256,
+          "customProperties": {
+            "Description": "When the patient is outdoors, the vital signs should be monitored",
+            "PreCond": "(({userConsentsFullVitalsTracking} and (not {patientIsHome}))",
+            "TriggeringEvent": "PatientOutdoors",
+            "TemporalConstraint": "300 seconds",
+            "PostCond": "{dataCollected}",
+            "ObstacleEvent": "AchievedObtainConsentPartialTracking",
+            "FluentName": "TrackVitalsOutdoors"
+          }
+        },
+        {
+          "id": "ce17f8ca-e471-4a97-8ae7-6b2af3730b6e",
+          "text": "G3: Adjust Deployed Consent",
+          "type": "istar.Goal",
+          "x": 407,
+          "y": 185,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "f1161501-8729-4943-b7fb-a6378f48920d",
+          "text": "T4: Apply Consent Protocol",
+          "type": "istar.Task",
+          "x": 397,
+          "y": 253,
+          "customProperties": {
+            "Description": "Ask the user for their consent prior to fitting BSN",
+            "PreCond": "{userConsentsPartialVitalsTracking}",
+            "TriggeringEvent": "AchievedObtainConsentPartialTracking",
+            "TemporalConstraint": "240 seconds",
+            "PostCond": "{profileAdapted}",
+            "FluentName": "ApplyConsentProtocol"
+          }
+        },
+        {
+          "id": "b01cf2cc-1357-47e0-bdc4-d41ca5d126e8",
+          "text": "T2: Consent Full Vitals Tracking",
+          "type": "istar.Task",
+          "x": 204,
+          "y": 365,
+          "customProperties": {
+            "Description": "In first interaction with the user, get informed consent for collecting, recording, and sending their information to other parties.",
+            "PreCond": "{purposeProtocolInformed}",
+            "TriggeringEvent": "MeetingUser",
+            "TemporalConstraint": "180 seconds",
+            "PostCond": "{userConsentsFullVitalsTracking}",
+            "FluentName": "ObtainConsentFullTracking"
+          }
+        },
+        {
+          "id": "de5fe2b4-2f9f-46c3-bfff-0e7110b22acc",
+          "text": "T3: Consent Partial Vitals Tracking",
+          "type": "istar.Task",
+          "x": 360,
+          "y": 366,
+          "customProperties": {
+            "Description": "In first interaction with the user, get informed consent for collecting, recording, and sending their information to other parties.",
+            "PreCond": "({patientCanModifyOrRevokeAuthorizations} and ({riskLevel} = low))",
+            "TriggeringEvent": "UserWantsToUpdateConsent",
+            "TemporalConstraint": "180 seconds",
+            "PostCond": "{userConsentsPartialVitalsTracking}",
+            "FluentName": "ObtainConsentPartialTracking"
+          }
+        },
+        {
+          "id": "c3600bd1-6dd7-45d1-8c96-f7c70dbd6789",
+          "text": "T7: Process data",
+          "type": "istar.Task",
+          "x": 782,
+          "y": 254,
+          "customProperties": {
+            "Description": "If the data is collected, it should be processed",
+            "PreCond": "{dataSaved}",
+            "TriggeringEvent": "DataCollected",
+            "TemporalConstraint": "60 seconds",
+            "PostCond": "{dataProcessed}",
+            "FluentName": "ProcessData"
+          }
+        },
+        {
+          "id": "cf30acfa-557b-4a41-a5da-df0d771d9829",
+          "text": "T8: Detect patient health status",
+          "type": "istar.Task",
+          "x": 882,
+          "y": 254,
+          "customProperties": {
+            "Description": "If the data is processed, it should be analyzed",
+            "PreCond": "{dataProcessed}",
+            "TriggeringEvent": "ObtainRiskLevel",
+            "TemporalConstraint": "30 seconds",
+            "PostCond": "{dataAnalyzed}",
+            "FluentName": "DetectPatientHealthStatus"
+          }
+        },
+        {
+          "id": "ed00fbb4-8542-49ca-a9ae-cdc96bc5f4a8",
+          "text": "Autonomy",
+          "type": "istar.Quality",
+          "x": 250,
+          "y": 165,
+          "customProperties": {
+            "NormPrinciple": "Autonomy",
+            "Proxy": "Assent/Consent"
+          }
+        },
+        {
+          "id": "761fcd8c-ce84-49e7-b7df-e384688bb58e",
+          "text": "G4: Obtain Consent",
+          "type": "istar.Goal",
+          "x": 318,
+          "y": 302,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6",
+          "text": "G4: Request Consent",
+          "type": "istar.Goal",
+          "x": 264,
+          "y": 246,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "448f4637-bb73-470a-9a8b-45b2886456a1",
+      "type": "istar.AndRefinementLink",
+      "source": "bc0563bd-1b58-41ac-adb1-0b49c76957e6",
+      "target": "f86f961e-3866-4eef-b220-00be273f4e28"
+    },
+    {
+      "id": "0a8c88c3-be5e-4020-a5dd-b8507a8bd684",
+      "type": "istar.AndRefinementLink",
+      "source": "3700ada8-0515-48f8-8bee-6c3854a93f3f",
+      "target": "bc0563bd-1b58-41ac-adb1-0b49c76957e6"
+    },
+    {
+      "id": "6c4e3ab5-71ab-4c1d-af2d-4f85545a1f01",
+      "type": "istar.AndRefinementLink",
+      "source": "f5337583-38cb-4378-b77a-22c25c00e3c2",
+      "target": "bc0563bd-1b58-41ac-adb1-0b49c76957e6"
+    },
+    {
+      "id": "f7baa6fa-465a-4ff9-9e18-09007d21eaa5",
+      "type": "istar.AndRefinementLink",
+      "source": "f1161501-8729-4943-b7fb-a6378f48920d",
+      "target": "ce17f8ca-e471-4a97-8ae7-6b2af3730b6e"
+    },
+    {
+      "id": "0e620cb2-9dbd-417a-8edf-5ab7839b90e9",
+      "type": "istar.AndRefinementLink",
+      "source": "ce17f8ca-e471-4a97-8ae7-6b2af3730b6e",
+      "target": "bc0563bd-1b58-41ac-adb1-0b49c76957e6"
+    },
+    {
+      "id": "3ceab652-419c-4c99-b0b1-426dd17a0c66",
+      "type": "istar.OrRefinementLink",
+      "source": "b01cf2cc-1357-47e0-bdc4-d41ca5d126e8",
+      "target": "761fcd8c-ce84-49e7-b7df-e384688bb58e"
+    },
+    {
+      "id": "9176f3eb-a55f-42b4-aa01-c54d856e61c5",
+      "type": "istar.OrRefinementLink",
+      "source": "de5fe2b4-2f9f-46c3-bfff-0e7110b22acc",
+      "target": "761fcd8c-ce84-49e7-b7df-e384688bb58e"
+    },
+    {
+      "id": "64fae48e-e71b-473b-b5e1-6c67fe1e97fc",
+      "type": "istar.AndRefinementLink",
+      "source": "9f6700ae-c0d9-4389-8c52-e0210a91e241",
+      "target": "3700ada8-0515-48f8-8bee-6c3854a93f3f"
+    },
+    {
+      "id": "2d30e79b-64cb-446a-a831-b5b68e6aac1b",
+      "type": "istar.AndRefinementLink",
+      "source": "3f1fa994-903b-488f-81f2-a81f1bd99710",
+      "target": "3700ada8-0515-48f8-8bee-6c3854a93f3f"
+    },
+    {
+      "id": "924b8afb-ef7e-4a79-a302-c45f791af3a8",
+      "type": "istar.AndRefinementLink",
+      "source": "cf30acfa-557b-4a41-a5da-df0d771d9829",
+      "target": "f5337583-38cb-4378-b77a-22c25c00e3c2"
+    },
+    {
+      "id": "e288f44f-9436-484b-9e69-85281dd8e7d7",
+      "type": "istar.AndRefinementLink",
+      "source": "c3600bd1-6dd7-45d1-8c96-f7c70dbd6789",
+      "target": "f5337583-38cb-4378-b77a-22c25c00e3c2"
+    },
+    {
+      "id": "d6ac109a-954c-4fd2-a6bf-9ff811493b24",
+      "type": "istar.AndRefinementLink",
+      "source": "761fcd8c-ce84-49e7-b7df-e384688bb58e",
+      "target": "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6"
+    },
+    {
+      "id": "4a1210d2-36f5-4dbd-b992-cc602762295d",
+      "type": "istar.AndRefinementLink",
+      "source": "209b2248-4041-4fe1-8ccc-876bcf028ad2",
+      "target": "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6"
+    },
+    {
+      "id": "ed7ec6c9-c600-4f8d-b20a-bb947faf647d",
+      "type": "istar.QualificationLink",
+      "source": "ed00fbb4-8542-49ca-a9ae-cdc96bc5f4a8",
+      "target": "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6"
+    },
+    {
+      "id": "08f7d16e-c53c-4e8a-af31-5d1ef8906da6",
+      "type": "istar.AndRefinementLink",
+      "source": "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6",
+      "target": "ce17f8ca-e471-4a97-8ae7-6b2af3730b6e"
+    }
+  ],
+  "display": {
+    "bc0563bd-1b58-41ac-adb1-0b49c76957e6": {
+      "width": 115.38888549804688,
+      "height": 35.47222137451172
+    },
+    "3700ada8-0515-48f8-8bee-6c3854a93f3f": {
+      "width": 100.05000305175781,
+      "height": 34.025001525878906
+    },
+    "9f6700ae-c0d9-4389-8c52-e0210a91e241": {
+      "backgroundColor": "#E7E7E7",
+      "width": 112.640625,
+      "height": 34.140625
+    },
+    "209b2248-4041-4fe1-8ccc-876bcf028ad2": {
+      "backgroundColor": "#E7E7E7",
+      "width": 147.25,
+      "height": 38.61249542236328
+    },
+    "3f1fa994-903b-488f-81f2-a81f1bd99710": {
+      "backgroundColor": "#E7E7E7",
+      "width": 111.640625,
+      "height": 34.140625
+    },
+    "ce17f8ca-e471-4a97-8ae7-6b2af3730b6e": {
+      "backgroundColor": "#C8EEFF",
+      "width": 96.640625,
+      "height": 39.53125
+    },
+    "f1161501-8729-4943-b7fb-a6378f48920d": {
+      "backgroundColor": "#E7E7E7",
+      "width": 123.25,
+      "height": 35.025001525878906
+    },
+    "b01cf2cc-1357-47e0-bdc4-d41ca5d126e8": {
+      "backgroundColor": "#E7E7E7",
+      "width": 111.640625,
+      "height": 41.53125
+    },
+    "de5fe2b4-2f9f-46c3-bfff-0e7110b22acc": {
+      "backgroundColor": "#E7E7E7",
+      "width": 113.640625,
+      "height": 41.53125
+    },
+    "c3600bd1-6dd7-45d1-8c96-f7c70dbd6789": {
+      "backgroundColor": "#E7E7E7",
+      "width": 91.25,
+      "height": 34.61249542236328
+    },
+    "cf30acfa-557b-4a41-a5da-df0d771d9829": {
+      "backgroundColor": "#E7E7E7"
+    },
+    "ed00fbb4-8542-49ca-a9ae-cdc96bc5f4a8": {
+      "backgroundColor": "#FFE2D0"
+    },
+    "761fcd8c-ce84-49e7-b7df-e384688bb58e": {
+      "backgroundColor": "#FFE2D0"
+    },
+    "d7c6feb3-c7ee-471f-a0b8-8a5ab2190cf6": {
+      "backgroundColor": "#FFE2D0"
+    }
+  },
+  "tool": "dsm3-goals",
+  "metamodelVersion": "1.0",
+  "saveDate": "Fri, 23 Jan 2026 22:56:06 GMT",
+  "diagram": {
+    "width": 3669.5,
+    "height": 2272,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

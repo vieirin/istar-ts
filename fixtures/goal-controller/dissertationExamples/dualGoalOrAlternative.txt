@@ -1,0 +1,73 @@
+{
+  "actors": [
+    {
+      "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b",
+      "text": "SampleRobot",
+      "type": "istar.Actor",
+      "x": 308,
+      "y": 106,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "d201ecf8-634a-425e-8e6e-f59885442511",
+          "text": "G0: Collect sample [T0|T1]",
+          "type": "istar.Goal",
+          "x": 372,
+          "y": 152,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "5768ce63-de72-4547-b03b-f445b4bdc839",
+          "text": "T0: Grab sample",
+          "type": "istar.Task",
+          "x": 321,
+          "y": 224,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "444e6756-c402-444d-8c70-f630d415da2e",
+          "text": "T1: Request sample to human",
+          "type": "istar.Task",
+          "x": 428,
+          "y": 226,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [],
+  "links": [
+    {
+      "id": "8c10dc22-3d6f-4b3d-b81c-919ea6e09420",
+      "type": "istar.OrRefinementLink",
+      "source": "5768ce63-de72-4547-b03b-f445b4bdc839",
+      "target": "d201ecf8-634a-425e-8e6e-f59885442511"
+    },
+    {
+      "id": "a1c6f639-708b-4730-9bdf-52c963a10383",
+      "type": "istar.OrRefinementLink",
+      "source": "444e6756-c402-444d-8c70-f630d415da2e",
+      "target": "d201ecf8-634a-425e-8e6e-f59885442511"
+    }
+  ],
+  "display": {},
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Sun, 27 Apr 2025 19:36:12 GMT",
+  "diagram": {
+    "width": 1000,
+    "height": 700,
+    "customProperties": {
+      "Description": ""
+    }
+  }
+}

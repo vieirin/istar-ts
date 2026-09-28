@@ -1,0 +1,250 @@
+{
+ "actors": [
+  {
+   "id": "ba0aa4cc-5c01-98ab-4915-a6cad8bafd80",
+   "text": "freeform_022",
+   "type": "istar.Actor",
+   "x": 0,
+   "y": 0,
+   "customProperties": {
+    "Description": ""
+   },
+   "nodes": [
+    {
+     "id": "a53234d7-2d7a-aca6-aa66-a70ab6ae823e",
+     "text": "G0: goal [G1+G5]",
+     "type": "istar.Goal",
+     "x": 100,
+     "y": 100,
+     "customProperties": {
+      "Description": "",
+      "root": "true"
+     }
+    },
+    {
+     "id": "b8ec0843-12e7-086a-67d0-fc1c0a529e0e",
+     "text": "G1: goal",
+     "type": "istar.Goal",
+     "x": 160,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "4ae6bbc2-6bf5-66cf-2374-21743b78e7b7",
+     "text": "G2: goal [T3#T4]",
+     "type": "istar.Goal",
+     "x": 220,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "e636bf75-5a08-ae09-f3b5-c111b37a2b18",
+     "text": "T3: task",
+     "type": "istar.Task",
+     "x": 280,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "08943d1d-5429-1c9a-9309-40c7e7bdd53e",
+     "text": "T4: task",
+     "type": "istar.Task",
+     "x": 340,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "d820787d-52a6-db6f-789f-6ae82356eb8e",
+     "text": "G5: goal [G6;G10;T13]",
+     "type": "istar.Goal",
+     "x": 400,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "a98d7034-3dd6-66aa-0059-3b51090fffc9",
+     "text": "G6: goal [T7?T8?T9]",
+     "type": "istar.Goal",
+     "x": 460,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "dcb849a7-eec4-c5f3-6fd6-475f8c554c6e",
+     "text": "T7: task",
+     "type": "istar.Task",
+     "x": 520,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "29918d9b-3c9a-0609-df93-c765332271dc",
+     "text": "T8: task",
+     "type": "istar.Task",
+     "x": 580,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "9a2f0666-cd31-d7c2-a970-511fdad97123",
+     "text": "T9: task",
+     "type": "istar.Task",
+     "x": 640,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "d1eb5756-996a-5e5e-eaf7-645d2cf717f3",
+     "text": "G10: goal",
+     "type": "istar.Goal",
+     "x": 700,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "23a67b5f-eb48-1ea2-224c-5f78d6265be1",
+     "text": "T11: task",
+     "type": "istar.Task",
+     "x": 760,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "8c4ef69d-56ec-8daa-1a67-c2e94be9d2e1",
+     "text": "T12: task",
+     "type": "istar.Task",
+     "x": 820,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    },
+    {
+     "id": "f1938118-7f1b-d665-3216-df9b522a0185",
+     "text": "T13: task",
+     "type": "istar.Task",
+     "x": 880,
+     "y": 100,
+     "customProperties": {
+      "Description": ""
+     }
+    }
+   ]
+  }
+ ],
+ "orphans": [],
+ "dependencies": [],
+ "links": [
+  {
+   "id": "c01e5d5f-0f4a-d232-0f30-1f665c321aab",
+   "type": "istar.AndRefinementLink",
+   "source": "b8ec0843-12e7-086a-67d0-fc1c0a529e0e",
+   "target": "a53234d7-2d7a-aca6-aa66-a70ab6ae823e"
+  },
+  {
+   "id": "6ef764fe-e34c-caf6-f807-4d0e56b35b53",
+   "type": "istar.AndRefinementLink",
+   "source": "d820787d-52a6-db6f-789f-6ae82356eb8e",
+   "target": "a53234d7-2d7a-aca6-aa66-a70ab6ae823e"
+  },
+  {
+   "id": "ed4f1fba-9f23-03d2-aad9-c651dcde1e8c",
+   "type": "istar.OrRefinementLink",
+   "source": "4ae6bbc2-6bf5-66cf-2374-21743b78e7b7",
+   "target": "b8ec0843-12e7-086a-67d0-fc1c0a529e0e"
+  },
+  {
+   "id": "f272ceb3-efd9-9943-824e-d52e7069979f",
+   "type": "istar.AndRefinementLink",
+   "source": "e636bf75-5a08-ae09-f3b5-c111b37a2b18",
+   "target": "4ae6bbc2-6bf5-66cf-2374-21743b78e7b7"
+  },
+  {
+   "id": "2362a4d8-ba27-42a0-a133-3df2b0d805e8",
+   "type": "istar.AndRefinementLink",
+   "source": "08943d1d-5429-1c9a-9309-40c7e7bdd53e",
+   "target": "4ae6bbc2-6bf5-66cf-2374-21743b78e7b7"
+  },
+  {
+   "id": "0cfb1f25-5257-a021-5fe4-d830c8feba5a",
+   "type": "istar.AndRefinementLink",
+   "source": "a98d7034-3dd6-66aa-0059-3b51090fffc9",
+   "target": "d820787d-52a6-db6f-789f-6ae82356eb8e"
+  },
+  {
+   "id": "bf75d746-ed16-e8c6-a6c8-70cd0b235fd9",
+   "type": "istar.AndRefinementLink",
+   "source": "d1eb5756-996a-5e5e-eaf7-645d2cf717f3",
+   "target": "d820787d-52a6-db6f-789f-6ae82356eb8e"
+  },
+  {
+   "id": "4b4481cd-1a74-6bed-76c7-5eae9a9b641c",
+   "type": "istar.AndRefinementLink",
+   "source": "f1938118-7f1b-d665-3216-df9b522a0185",
+   "target": "d820787d-52a6-db6f-789f-6ae82356eb8e"
+  },
+  {
+   "id": "93aa26be-a250-93b3-f8e4-2a680afee13b",
+   "type": "istar.OrRefinementLink",
+   "source": "dcb849a7-eec4-c5f3-6fd6-475f8c554c6e",
+   "target": "a98d7034-3dd6-66aa-0059-3b51090fffc9"
+  },
+  {
+   "id": "e020ed52-9b3d-9575-ef52-33b87c6071d0",
+   "type": "istar.OrRefinementLink",
+   "source": "29918d9b-3c9a-0609-df93-c765332271dc",
+   "target": "a98d7034-3dd6-66aa-0059-3b51090fffc9"
+  },
+  {
+   "id": "37852e0c-23cd-3030-0cc4-918e0147ad28",
+   "type": "istar.OrRefinementLink",
+   "source": "9a2f0666-cd31-d7c2-a970-511fdad97123",
+   "target": "a98d7034-3dd6-66aa-0059-3b51090fffc9"
+  },
+  {
+   "id": "f08b7c1b-e392-6466-bc90-146da4637795",
+   "type": "istar.AndRefinementLink",
+   "source": "23a67b5f-eb48-1ea2-224c-5f78d6265be1",
+   "target": "d1eb5756-996a-5e5e-eaf7-645d2cf717f3"
+  },
+  {
+   "id": "d2d0c597-ec08-dc8d-e3be-270056dbcb9c",
+   "type": "istar.AndRefinementLink",
+   "source": "8c4ef69d-56ec-8daa-1a67-c2e94be9d2e1",
+   "target": "d1eb5756-996a-5e5e-eaf7-645d2cf717f3"
+  }
+ ],
+ "display": {},
+ "tool": "pistar.2.1.0",
+ "istar": "2.0",
+ "saveDate": "",
+ "diagram": {
+  "width": 2000,
+  "height": 1000,
+  "customProperties": {
+   "Description": ""
+  }
+ }
+}
