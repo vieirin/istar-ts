@@ -52,6 +52,18 @@ function setup(store: ModelStore, initial?: (editor: IstarEditor) => void) {
 }
 
 describe('the canvas highlights the editor selection', () => {
+  test('clicking a different element updates editor.selection (and thus the inspector)', () => {
+    const { store, g1, g2 } = twoGoals();
+    const { container, editor } = setup(store);
+    fireEvent.click(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(editor().selection).toEqual({ type: 'element', id: g1 });
+    expect(highlighted(container)).toEqual([g1]);
+
+    fireEvent.click(container.querySelector(`.react-flow__node[data-id="${g2}"]`)!);
+    expect(editor().selection).toEqual({ type: 'element', id: g2 });
+    expect(highlighted(container)).toEqual([g2]);
+  });
+
   test('select() from outside the canvas moves the highlight, and null clears it', () => {
     const { store, g1, g2 } = twoGoals();
     const { container, editor } = setup(store);
