@@ -290,6 +290,10 @@ function Diagram({
   const [edges, setEdges] = useState<IstarFlowEdge[]>(initial.edges);
   const [syncedGraph, setSyncedGraph] = useState(graph);
   const [syncedSelection, setSyncedSelection] = useState(selectionKey);
+  // What React Flow was last handed, for telling its selection reports apart from stale ones.
+  // Updated eagerly in onNodesChange/onEdgesChange (same turn as RF's onSelectionChange) and
+  // again in a layout effect after paint.
+  const rendered = useRef({ nodes, edges });
   if (syncedGraph !== graph || syncedSelection !== selectionKey) {
     // Adjust state while rendering; both updates are computed together, since the model and
     // the selection often change at once (e.g. adding an element selects it).
@@ -319,23 +323,30 @@ function Diagram({
 
   const onNodesChange = useCallback((changes: NodeChange<IstarFlowNode>[]) => {
     // Removals go through the store (see onDelete) so cascades and undo apply.
-    setNodes((ns) =>
-      applyNodeChanges(
+    setNodes((ns) => {
+      const next = applyNodeChanges(
         changes.filter((c) => c.type !== 'remove'),
         ns,
-      ),
-    );
+      );
+      // React Flow reports onSelectionChange in the same turn as select changes. Keep
+      // `rendered` in sync so that report isn't treated as stale (which would leave the
+      // inspector on the previous element).
+      rendered.current = { nodes: next, edges: rendered.current.edges };
+      return next;
+    });
   }, []);
 
   // Links are ordinary selectable objects, as in piStar: React Flow's select changes must be
   // applied for clicks, the inspector and Delete to see them.
   const onEdgesChange = useCallback((changes: EdgeChange<IstarFlowEdge>[]) => {
-    setEdges((es) =>
-      applyEdgeChanges(
+    setEdges((es) => {
+      const next = applyEdgeChanges(
         changes.filter((c) => c.type !== 'remove'),
         es,
-      ),
-    );
+      );
+      rendered.current = { nodes: rendered.current.nodes, edges: next };
+      return next;
+    });
   }, []);
 
   const onNodeDragStop = useCallback(
@@ -468,9 +479,7 @@ function Diagram({
   );
 
   const { select } = editor;
-  // What React Flow was last handed, for telling its selection reports apart from stale ones.
   // A layout effect runs before React Flow's passive effects adopt the new nodes and report.
-  const rendered = useRef({ nodes, edges });
   useLayoutEffect(() => {
     rendered.current = { nodes, edges };
   }, [nodes, edges]);
