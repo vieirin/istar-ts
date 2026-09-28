@@ -290,12 +290,16 @@
 .istar-actor-boundary {
   position: absolute;
   inset: 0;
-  background: var(--istar-actor-fill);
-  border: var(--istar-stroke-width) dashed var(--istar-stroke);
-  border-radius: 100px / 40px;
+  overflow: visible;
 }
-.istar-actor.is-selected .istar-actor-boundary {
-  border-color: var(--istar-selection);
+.istar-actor-boundary rect {
+  fill: var(--istar-actor-fill);
+  stroke: var(--istar-stroke);
+  stroke-width: var(--istar-stroke-width);
+  stroke-dasharray: 10 5 4 4;
+}
+.istar-actor.is-selected .istar-actor-boundary rect {
+  stroke: var(--istar-selection);
 }
 .istar-actor-symbol {
   position: absolute;
@@ -314,22 +318,10 @@
 .istar-actor-symbol-body .istar-shape {
   inset: -2px;
 }
-.istar-actor-toggle {
-  position: absolute;
-  top: -22px;
-  left: 44px;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  font: inherit;
-  line-height: 14px;
-  color: inherit;
-  background: var(--istar-button-bg);
-  border: 1px solid var(--istar-panel-border);
-  border-radius: 50%;
-  cursor: pointer;
+/* piStar draws actor names in regular weight; intentional elements in bold. */
+.istar-actor-symbol-body .istar-label {
+  font-weight: normal;
 }
-
 /* Handles cover the whole node, and only take the pointer while a link tool is active. */
 .istar-canvas .react-flow__handle.istar-handle {
   position: absolute;

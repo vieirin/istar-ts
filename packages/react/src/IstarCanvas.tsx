@@ -55,8 +55,10 @@ export interface IstarCanvasProps {
   /** Content rendered beside the diagram (e.g. `<IstarInspector />`). */
   readonly aside?: ReactNode;
   readonly className?: string;
-  /** Show React Flow's zoom controls and dotted background. Default true. */
+  /** Show zoom controls. Default true. */
   readonly controls?: boolean;
+  /** Show a dotted grid behind the diagram. Default false (piStar's paper is plain white). */
+  readonly background?: boolean;
   readonly fitView?: boolean;
 }
 
@@ -100,7 +102,11 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
       {placement && <IstarPalette orientation={placement === 'top' ? 'horizontal' : 'vertical'} />}
       <div className="istar-canvas-body">
         <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
-          <Diagram controls={props.controls ?? true} fitView={props.fitView ?? true} />
+          <Diagram
+            controls={props.controls ?? true}
+            background={props.background ?? false}
+            fitView={props.fitView ?? true}
+          />
           <ToolHint />
           <NoticeBar />
         </div>
@@ -115,7 +121,15 @@ function toolClass(tool: Tool | null): string {
   return tool.type === 'element' ? ' is-adding' : ' is-linking';
 }
 
-function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean }): ReactElement {
+function Diagram({
+  controls,
+  background,
+  fitView,
+}: {
+  controls: boolean;
+  background: boolean;
+  fitView: boolean;
+}): ReactElement {
   const editor = useIstarEditor();
   const { model, registry, store, tool, readOnly } = editor;
   const flow = useReactFlow();
@@ -222,6 +236,14 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
 
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: IstarFlowNode) => {
+      // Like piStar: Alt+click on an actor collapses or expands it.
+      if (event.altKey && !tool && !readOnly) {
+        const actor = store.getModel().elements.get(node.id);
+        if (actor && isActorKind(actor.kind)) {
+          store.setCollapsed(actor.id, actor.display?.collapsed !== true);
+          return;
+        }
+      }
       if (!tool || tool.type !== 'element') return;
       const clicked = store.getModel().elements.get(node.id);
       if (!clicked) return;
@@ -237,7 +259,7 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
       event.stopPropagation();
       addAt(tool.kind, event.clientX, event.clientY, actorId);
     },
-    [addAt, editor, store, tool],
+    [addAt, editor, readOnly, store, tool],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
@@ -362,7 +384,7 @@ function Diagram({ controls, fitView }: { controls: boolean; fitView: boolean })
         minZoom={0.1}
         proOptions={{ hideAttribution: true }}
       >
-        {controls && <Background gap={20} size={1} />}
+        {background && <Background gap={20} size={1} />}
         {controls && <Controls showInteractive={false} />}
         <ConnectionHint />
       </ReactFlow>

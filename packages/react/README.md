@@ -59,8 +59,9 @@ export function Controlled() {
 }
 ```
 
-`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` for a piStar-style bar, or `false`), `aside`, `controls`,
-and `fitView`.
+`<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` for a piStar-style bar, or `false`), `aside`, `extensions`,
+`controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain) and
+`fitView`.
 
 ## Editing behaviour
 
@@ -78,7 +79,10 @@ and `fitView`.
   for redo) when the diagram has focus; palette Undo/Redo buttons mirror the store.
 - **Rename:** double-click an element (or an actor) to edit its name inline; new elements start in
   edit mode. Enter commits, Shift+Enter adds a line break, Escape cancels.
-- **Actors:** use the **−** / **+** control on the actor symbol to collapse or expand. Collapsed actors
+- **Resize:** select an intentional element and drag its handles; the size is saved in `display`.
+- **Links:** click to select (the inspector shows them), Delete to remove. Links with vertices are
+  drawn as smooth curves, like piStar's.
+- **Actors:** **Alt+click** an actor to collapse or expand it, as in piStar. Collapsed actors
   hide inner elements; dependency links re-anchor on the actor; other links involving hidden nodes are
   hidden until expand.
 

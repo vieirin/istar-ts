@@ -197,6 +197,6 @@ describe('toPistar', () => {
       ],
       display: {},
     });
-    expect(toPistarObject(model).dependencies[0]).toMatchObject({ source: 'a', target: 'b' });
+    expect(toPistarObject(model).dependencies?.[0]).toMatchObject({ source: 'a', target: 'b' });
   });
 });

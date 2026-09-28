@@ -140,14 +140,18 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
       style={{ width, height }}
     >
       {!data.collapsed && (
-        <div
-          className="istar-actor-boundary"
-          style={
-            element.display?.backgroundColor
-              ? { background: element.display.backgroundColor }
-              : undefined
-          }
-        />
+        // piStar's boundary: a rect with rx 100 / ry 40 and a dash-dot stroke. A background
+        // colour applies to the actor symbol only, never to the boundary (ui.changeColorElement).
+        <svg className="istar-actor-boundary" width={width} height={height} aria-hidden>
+          <rect
+            x={1}
+            y={1}
+            width={Math.max(0, (width ?? 0) - 2)}
+            height={Math.max(0, (height ?? 0) - 2)}
+            rx={100}
+            ry={40}
+          />
+        </svg>
       )}
       <div
         className="istar-actor-symbol"
@@ -174,18 +178,6 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
         />
         <ConnectionHandles connectable={linking && !editor.readOnly} />
       </div>
-      <button
-        type="button"
-        className="istar-actor-toggle nodrag"
-        title={data.collapsed ? 'Expand' : 'Collapse'}
-        aria-label={data.collapsed ? 'Expand actor' : 'Collapse actor'}
-        onClick={(e) => {
-          e.stopPropagation();
-          editor.store.setCollapsed(element.id, !data.collapsed);
-        }}
-      >
-        {data.collapsed ? '+' : '−'}
-      </button>
     </div>
   );
 });

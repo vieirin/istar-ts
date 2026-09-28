@@ -60,12 +60,13 @@ export interface PistarDiagramJson {
   [key: string]: unknown;
 }
 
+/** A piStar save file. Older piStar versions may omit some sections (e.g. `orphans`). */
 export interface PistarFile {
   actors: PistarActorJson[];
-  orphans: PistarElementJson[];
-  dependencies: PistarDependencyJson[];
-  links: PistarLinkJson[];
-  display: Record<string, Record<string, unknown>>;
+  orphans?: PistarElementJson[];
+  dependencies?: PistarDependencyJson[];
+  links?: PistarLinkJson[];
+  display?: Record<string, Record<string, unknown>>;
   tool?: string;
   istar?: string;
   saveDate?: string;
@@ -424,6 +425,16 @@ export function toPistarObject(model: IstarModel, options: ToPistarOptions = {})
     saveDate,
     diagram,
   };
+
+  // Files written by older piStar versions lack some sections (e.g. `orphans`). Keep them
+  // absent while they are empty, so such files round-trip unchanged.
+  if (layout) {
+    for (const key of ['actors', 'orphans', 'dependencies', 'links', 'display'] as const) {
+      const value = values[key] as unknown[] | Record<string, unknown>;
+      const empty = Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0;
+      if (empty && !layout.keys.includes(key)) values[key] = undefined;
+    }
+  }
 
   // Emit keys in the order they had in the source file, then any new ones in piStar's order.
   const order = [...(layout?.keys ?? []), ...TOP_LEVEL_KEYS, ...Object.keys(model.extra ?? {})];

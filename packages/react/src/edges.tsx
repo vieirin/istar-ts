@@ -105,6 +105,79 @@ export const TARGET_MARKERS: Partial<Record<IstarLink['kind'], { d: string; fill
 /** The dependency "D", drawn at the middle of each half and facing the dependee. */
 export const DEPENDENCY_D = 'm 0,-10 l 0,20 4,0 c 10,0, 10 -20, 0,-20 l -4,0';
 
+/**
+ * Cubic Bézier spline through `knots`, as JointJS's `smooth` connector draws it
+ * (`g.Curve.throughPoints`: first control points from a tridiagonal system, second ones
+ * mirrored). piStar switches a link to this connector as soon as it has vertices.
+ */
+export function smoothCurve(knots: readonly Point[]): {
+  d: string;
+  segments: [Point, Point, Point, Point][];
+} {
+  const n = knots.length - 1;
+  if (n < 1) return { d: '', segments: [] };
+  if (n === 1) {
+    const [a, b] = [knots[0]!, knots[1]!];
+    const c1 = { x: (2 * a.x + b.x) / 3, y: (2 * a.y + b.y) / 3 };
+    const c2 = { x: 2 * c1.x - a.x, y: 2 * c1.y - a.y };
+    return {
+      d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`,
+      segments: [[a, c1, c2, b]],
+    };
+  }
+  const solve = (rhs: number[]): number[] => {
+    const x: number[] = [];
+    const tmp: number[] = [];
+    let b = 2;
+    x[0] = rhs[0]! / b;
+    for (let i = 1; i < n; i++) {
+      tmp[i] = 1 / b;
+      b = (i < n - 1 ? 4 : 3.5) - tmp[i]!;
+      x[i] = (rhs[i]! - x[i - 1]!) / b;
+    }
+    for (let i = 1; i < n; i++) x[n - i - 1]! -= tmp[n - i]! * x[n - i]!;
+    return x;
+  };
+  const rhs = (axis: 'x' | 'y'): number[] => {
+    const r: number[] = [];
+    for (let i = 1; i < n - 1; i++) r[i] = 4 * knots[i]![axis] + 2 * knots[i + 1]![axis];
+    r[0] = knots[0]![axis] + 2 * knots[1]![axis];
+    r[n - 1] = (8 * knots[n - 1]![axis] + knots[n]![axis]) / 2;
+    return r;
+  };
+  const fx = solve(rhs('x'));
+  const fy = solve(rhs('y'));
+  const segments: [Point, Point, Point, Point][] = [];
+  for (let i = 0; i < n; i++) {
+    const first = { x: fx[i]!, y: fy[i]! };
+    const second =
+      i < n - 1
+        ? { x: 2 * knots[i + 1]!.x - fx[i + 1]!, y: 2 * knots[i + 1]!.y - fy[i + 1]! }
+        : { x: (knots[n]!.x + fx[n - 1]!) / 2, y: (knots[n]!.y + fy[n - 1]!) / 2 };
+    segments.push([knots[i]!, first, second, knots[i + 1]!]);
+  }
+  const d =
+    `M ${knots[0]!.x} ${knots[0]!.y} ` +
+    segments.map(([, c1, c2, e]) => `C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${e.x} ${e.y}`).join(' ');
+  return { d, segments };
+}
+
+/** Points along the Bézier segments, for placing markers and labels on a curved link. */
+function sampleCurve(segments: readonly [Point, Point, Point, Point][], perSegment = 24): Point[] {
+  const out: Point[] = [];
+  segments.forEach(([p0, p1, p2, p3], s) => {
+    for (let i = s === 0 ? 0 : 1; i <= perSegment; i++) {
+      const t = i / perSegment;
+      const u = 1 - t;
+      out.push({
+        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+      });
+    }
+  });
+  return out;
+}
+
 export function linkPoints(
   source: InternalNode,
   target: InternalNode,
@@ -130,8 +203,15 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const link = data ? model.links.get(data.linkId) : undefined;
   if (!sourceNode || !targetNode || !link) return null;
 
-  const points = linkPoints(sourceNode, targetNode, link.display?.vertices);
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const vertices = link.display?.vertices ?? [];
+  const knots = linkPoints(sourceNode, targetNode, vertices);
+  // Straight when there are no vertices; smooth through them otherwise (piStar's
+  // `_toggleSmoothness`).
+  const curve = vertices.length > 0 ? smoothCurve(knots) : null;
+  const path = curve
+    ? curve.d
+    : knots.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const points = curve ? sampleCurve(curve.segments) : knots;
   const end = points[points.length - 1]!;
   const beforeEnd = points[points.length - 2]!;
   const backAngle = (Math.atan2(beforeEnd.y - end.y, beforeEnd.x - end.x) * 180) / Math.PI;
