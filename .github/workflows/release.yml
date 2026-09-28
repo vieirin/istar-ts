@@ -4,8 +4,8 @@
 # package.json are overwritten for the publish, so they don't need bumping in the repo).
 # Pre-release tags such as `v1.3.0-beta.1` are published under the `next` dist-tag.
 #
-# Requires the NPM_SECRET_KEY secret: an npm automation (or granular) token with publish rights
-# on the @istar-ts scope.
+# Requires the NPM_SECRET_KEY secret in the `publish` environment: an npm automation (or
+# granular) token with publish rights on the @istar-ts scope.
 name: Release
 
 on:
@@ -23,6 +23,8 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # NPM_SECRET_KEY is an environment secret of the `publish` environment.
+    environment: publish
     steps:
       - uses: actions/checkout@v7
 
