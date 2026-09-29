@@ -42,6 +42,8 @@ export default function App(): ReactElement {
   const [parseError, setParseError] = useState<string | null>(null);
   const [extensionId, setExtensionId] = useState('none');
   const [bar, setBar] = useState<'left' | 'top' | 'bottom'>('left');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [links, setLinks] = useState<'straight' | 'curved'>('straight');
   const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
 
   const loadFixture = useCallback(
@@ -181,6 +183,20 @@ export default function App(): ReactElement {
                 <option value="bottom">Bottom</option>
               </select>
             </label>
+            <label>
+              Theme
+              <select value={theme} onChange={(e) => setTheme(e.target.value as typeof theme)}>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label>
+              Links
+              <select value={links} onChange={(e) => setLinks(e.target.value as typeof links)}>
+                <option value="straight">Straight</option>
+                <option value="curved">Curved</option>
+              </select>
+            </label>
             <label className="pg-file-label">
               Open…
               <input type="file" accept=".txt,.pistar,application/json" onChange={onOpenFile} />
@@ -207,6 +223,8 @@ export default function App(): ReactElement {
           store={store}
           extensions={active.extensions}
           palette={bar}
+          colorMode={theme}
+          linkShape={links}
           issues={extensionId === 'mutrose' ? demoIssuesFor(model) : undefined}
           aside={<Sidebar model={model} schemas={active.schemas} />}
         />

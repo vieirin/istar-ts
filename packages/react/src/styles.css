@@ -8,6 +8,11 @@
   --istar-text: #000;
   --istar-stroke: #000;
   --istar-stroke-width: 2px;
+  /* Finer-grained colours, defaulting to the ones above; the dark theme sets them apart. */
+  --istar-node-stroke: var(--istar-stroke);
+  --istar-node-text: #000;
+  --istar-link-stroke: var(--istar-stroke);
+  --istar-boundary-stroke: var(--istar-stroke);
   --istar-link-width: 1px;
   --istar-node-fill: rgb(205, 254, 205);
   --istar-actor-fill: rgb(242, 242, 242);
@@ -28,6 +33,30 @@
   font-family: var(--istar-font-family);
   font-size: var(--istar-font-size);
   color: var(--istar-text);
+}
+
+/*
+ * Dark theme: `colorMode="dark"` on the canvas, or the `istar-dark` class on any ancestor of a
+ * standalone palette or inspector. Nodes keep their light fills and dark outlines and text.
+ */
+:where(.istar-dark, .istar-dark :is(.istar-canvas, .istar-palette, .istar-inspector)) {
+  --istar-text: #e4e4e7;
+  --istar-stroke: #e4e4e7;
+  --istar-node-stroke: #000;
+  --istar-node-text: #000;
+  --istar-actor-fill: #2a2a2e;
+  --istar-selection: #60a5fa;
+  --istar-canvas-bg: #1e1e1e;
+  --istar-panel-bg: #252526;
+  --istar-panel-border: #3f3f46;
+  --istar-button-bg: #2d2d30;
+  --istar-button-active-bg: #1e3a5f;
+  --istar-palette-divider: #3f3f46;
+  --istar-button-hover-bg: rgba(255, 255, 255, 0.08);
+  --istar-error-bg: #3b1d1d;
+  --istar-error-text: #fca5a5;
+  --istar-info-bg: #1e2a3b;
+  --istar-info-text: #93c5fd;
 }
 
 .istar-canvas {
@@ -275,6 +304,7 @@
 .istar-label,
 .istar-label-input {
   position: relative;
+  color: var(--istar-node-text);
   max-width: 100%;
   font-weight: bold;
   line-height: 1;
@@ -304,7 +334,7 @@
 }
 .istar-actor-boundary rect {
   fill: var(--istar-actor-fill);
-  stroke: var(--istar-stroke);
+  stroke: var(--istar-boundary-stroke);
   stroke-width: var(--istar-stroke-width);
   stroke-dasharray: 10 5 4 4;
 }
@@ -358,7 +388,7 @@
 
 /* Links */
 .istar-canvas .istar-link-line {
-  stroke: var(--istar-stroke);
+  stroke: var(--istar-link-stroke);
   stroke-width: var(--istar-link-width);
   fill: none;
 }
@@ -369,15 +399,15 @@
 }
 .istar-link-marker {
   fill: none;
-  stroke: var(--istar-stroke);
+  stroke: var(--istar-link-stroke);
   stroke-width: 1.2;
 }
 .istar-link-marker.is-filled {
-  fill: var(--istar-stroke);
+  fill: var(--istar-link-stroke);
 }
 .istar-link-dependency {
-  fill: #fff;
-  stroke: var(--istar-stroke);
+  fill: var(--istar-canvas-bg);
+  stroke: var(--istar-link-stroke);
   stroke-width: 2;
 }
 .istar-link-label {
@@ -393,7 +423,7 @@
   font-size: 12px;
 }
 .istar-canvas .react-flow__connectionline path {
-  stroke: var(--istar-stroke);
+  stroke: var(--istar-link-stroke);
   stroke-dasharray: 4 3;
 }
 

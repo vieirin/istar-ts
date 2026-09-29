@@ -24,7 +24,12 @@ export const ACTOR_PADDING = 10;
 /** Actor symbol circle: centred at (20, 20) from the boundary's top-left, radius 40. */
 export const ACTOR_SYMBOL_OFFSET = 20;
 
-export type ActorNodeData = { elementId: string; collapsed: boolean };
+export type ActorNodeData = {
+  elementId: string;
+  collapsed: boolean;
+  /** Drawn without a boundary: just the kind's component at its own size (see `boundary`). */
+  frameless?: boolean;
+};
 export type ElementNodeData = { elementId: string };
 export type ActorFlowNode = Node<ActorNodeData, 'istarActor'>;
 export type ElementFlowNode = Node<ElementNodeData, 'istarElement'>;
@@ -106,9 +111,13 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
     if (!isActorKind(actor.kind)) continue;
     const inner = children.get(actor.id) ?? [];
     const collapsed = actor.display?.collapsed === true;
-    const box = collapsed
-      ? { x: actor.x, y: actor.y, width: 60, height: 60 }
-      : actorBoundary(model, registry, actor, inner);
+    const frameless = registry.elements[actor.kind].boundary === false;
+    // Like framed actors, frameless ones ignore any saved `display` size: the kind's size wins.
+    const box = frameless
+      ? { x: actor.x, y: actor.y, ...registry.elements[actor.kind].size }
+      : collapsed
+        ? { x: actor.x, y: actor.y, width: 60, height: 60 }
+        : actorBoundary(model, registry, actor, inner);
     origins.set(actor.id, { x: box.x, y: box.y });
     nodes.push({
       id: actor.id,
@@ -116,7 +125,7 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
       position: { x: box.x, y: box.y },
       width: box.width,
       height: box.height,
-      data: { elementId: actor.id, collapsed },
+      data: { elementId: actor.id, collapsed, ...(frameless && { frameless }) },
       zIndex: 0,
       className: 'istar-node istar-node-actor',
       // Only the actor symbol (the circle) selects and drags the actor; clicks and drags on

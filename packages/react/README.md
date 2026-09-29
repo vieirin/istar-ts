@@ -63,7 +63,9 @@ export function Controlled() {
 `controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain),
 `fitView` (on by default; waits until the container has a usable size, so a canvas mounted in a
 panel that is still opening is fitted once it has room), `issues` (host-owned annotations such as
-LSP diagnostics — see below), and `onSelectionChange`.
+LSP diagnostics — see below), `onSelectionChange`, `linkShape` (`'straight'` by default, or
+`'curved'` for Bézier links that leave each node perpendicular to its side), `colorMode`
+(`'light'` or `'dark'`, see Theming) and `minimap`.
 
 ### Controlling the viewport and selection
 
@@ -228,6 +230,31 @@ status hint (the entry's `title`) says what to do next.
 `<IstarPalette orientation="vertical" | "horizontal" flyout="right" | "below" | "above" showLabels history />` can also be placed
 yourself inside an `<IstarProvider>` (use `<IstarCanvas palette={false}>` then).
 
+**Your own tool bar.** With `palette={false}`, render any controls you like (e.g. as the canvas
+`aside`) and drive the editor's tools yourself. `usePaletteControls()` returns the registry's
+entries as data (`label`, `icon`, `active`, `select()`, plus `undo`/`redo`), or build tools directly
+with `useIstarEditor().setTool(tool)`. An element tool can preset custom properties on what it
+creates:
+
+```tsx
+function MyBar() {
+  const { tool, setTool } = useIstarEditor();
+  const achieve = {
+    type: 'element',
+    kind: 'istar.Goal',
+    properties: { GoalType: 'Achieve' },
+  } as const;
+  return <button onClick={() => setTool(achieve)}>Achieve</button>;
+}
+
+<IstarCanvas store={store} palette={false} aside={<MyBar />} />;
+```
+
+**Actors without a boundary.** An actor kind with `boundary: false` (e.g. in an extension) is drawn
+as its `component` alone, at the kind's `size`, instead of a boundary around its elements. The
+elements stay nested in the model and move with the actor; nodes added on empty canvas space join
+the nearest such actor.
+
 Reusable pieces: `DefaultElementComponent`, `DefaultActorComponent`, `EditableLabel`, and shape
 primitives (`GoalShape`, `ResourceShape`, `TaskShape`, `QualityShape`, `ActorSymbol`). Export helpers:
 `defaultRegistry`, `elementSize`, `modelToFlow`, `actorBoundary`.
@@ -284,6 +311,10 @@ Override CSS custom properties on `.istar-canvas` or any ancestor of the editor:
 | `--istar-font-size`        | `12px`                  | Base size               |
 | `--istar-text`             | `#000`                  | Text                    |
 | `--istar-stroke`           | `#000`                  | Shapes and links        |
+| `--istar-node-stroke`      | `var(--istar-stroke)`   | Node outlines           |
+| `--istar-node-text`        | `#000`                  | Element names           |
+| `--istar-link-stroke`      | `var(--istar-stroke)`   | Links and markers       |
+| `--istar-boundary-stroke`  | `var(--istar-stroke)`   | Actor boundaries        |
 | `--istar-stroke-width`     | `2px`                   | Node outlines           |
 | `--istar-link-width`       | `1px`                   | Link lines              |
 | `--istar-node-fill`        | `rgb(205, 254, 205)`    | Inner elements          |
@@ -301,6 +332,10 @@ Override CSS custom properties on `.istar-canvas` or any ancestor of the editor:
 | `--istar-error-text`       | `#8a1c1c`               | Error text              |
 | `--istar-info-bg`          | `#eef4fd`               | Info notices            |
 | `--istar-info-text`        | `#1d3f7a`               | Info text               |
+
+`colorMode="dark"` applies a dark theme (the `istar-dark` class, which also works on an ancestor
+of a standalone palette or inspector) and React Flow's dark controls and minimap. Nodes keep their
+light fills with dark outlines and names; the same variables override it.
 
 ```css
 .my-app .istar-canvas {

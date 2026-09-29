@@ -112,6 +112,14 @@ export interface ElementKindConfig {
   readonly inspector?: ComponentType<InspectorProps<IstarElement>> | false;
   readonly palette: PaletteEntry | false;
   /**
+   * Actor kinds only: draw the actor as a boundary around its inner elements (default, as in
+   * piStar). With `false` the actor is just its `component`, drawn at the kind's `size` (a
+   * saved `display` size is ignored, as for framed actors); its
+   * elements stay nested in the model and move with it, but lie outside it on the canvas, and
+   * nodes added on empty canvas space join the nearest such actor.
+   */
+  readonly boundary?: boolean;
+  /**
    * Whether the element shows resize handles when selected. Default: true for intentional
    * elements; actors are sized by their contents, as in piStar.
    */

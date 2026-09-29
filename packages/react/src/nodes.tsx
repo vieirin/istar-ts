@@ -1,6 +1,6 @@
 import type { NodeProps, NodeTypes, ResizeParams } from '@xyflow/react';
 import { Handle, NodeResizer, Position } from '@xyflow/react';
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType, MouseEvent as ReactMouseEvent, ReactElement } from 'react';
 import { memo, useCallback, useRef } from 'react';
 import { useIstarEditor } from './context';
 import type { ActorFlowNode, ElementFlowNode } from './layout';
@@ -134,6 +134,38 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
   const Component = editor.registry.elements[element.kind].component;
   const linking = editor.tool !== null && editor.tool.type !== 'element';
   const symbolSize = ACTOR_RADIUS * 2;
+  const component = (w: number, h: number): ReactElement => (
+    <Component
+      element={element}
+      width={w}
+      height={h}
+      selected={selected}
+      editing={editing && !editor.readOnly}
+      setEditing={setEditing}
+      actions={editor.elementActions(element.id)}
+      readOnly={editor.readOnly}
+      issues={editor.issuesById.get(element.id) ?? []}
+    />
+  );
+  const rename = (e: ReactMouseEvent): void => {
+    e.stopPropagation();
+    if (!editor.readOnly) setEditing(true);
+  };
+  if (data.frameless) {
+    // No boundary: the whole node is the symbol, so it all selects, drags and renames.
+    return (
+      <div
+        className={`istar-actor is-frameless${selected ? ' is-selected' : ''}`}
+        data-kind={element.kind}
+        style={{ width, height }}
+      >
+        <div className={ACTOR_SYMBOL_CLASS} style={{ inset: 0 }} onDoubleClick={rename}>
+          {component(width ?? 0, height ?? 0)}
+          <ConnectionHandles connectable={linking && !editor.readOnly} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className={`istar-actor${selected ? ' is-selected' : ''}${data.collapsed ? ' is-collapsed' : ''}`}
@@ -162,22 +194,9 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
           width: symbolSize,
           height: symbolSize,
         }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          if (!editor.readOnly) setEditing(true);
-        }}
+        onDoubleClick={rename}
       >
-        <Component
-          element={element}
-          width={symbolSize}
-          height={symbolSize}
-          selected={selected}
-          editing={editing && !editor.readOnly}
-          setEditing={setEditing}
-          actions={editor.elementActions(element.id)}
-          readOnly={editor.readOnly}
-          issues={editor.issuesById.get(element.id) ?? []}
-        />
+        {component(symbolSize, symbolSize)}
         <ConnectionHandles connectable={linking && !editor.readOnly} />
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   Background,
   ConnectionMode,
   Controls,
+  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   applyEdgeChanges,
@@ -44,6 +45,8 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { LinkShape } from './canvas-options';
+import { CanvasOptionsProvider } from './canvas-options';
 import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
@@ -91,6 +94,19 @@ export interface IstarCanvasProps {
    * it has one.
    */
   readonly fitView?: boolean;
+  /**
+   * How links without saved vertices are drawn: `'straight'` (default, as in piStar) or
+   * `'curved'` (Bézier curves leaving each node perpendicular to its side, like React Flow's).
+   * Links with vertices always curve smoothly through them.
+   */
+  readonly linkShape?: LinkShape;
+  /**
+   * `'dark'` switches the canvas, palette, inspector and React Flow's controls to a dark theme
+   * (the `istar-dark` class; theme variables can still be overridden). Default `'light'`.
+   */
+  readonly colorMode?: 'light' | 'dark';
+  /** Show React Flow's minimap in the bottom-right corner. Default false. */
+  readonly minimap?: boolean;
 }
 
 /** Options for {@link IstarCanvasHandle.fitView}. */
@@ -238,27 +254,33 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
       flyout={placement === 'left' ? 'right' : placement === 'top' ? 'below' : 'above'}
     />
   );
+  const dark = props.colorMode === 'dark';
+  const options = useMemo(() => ({ linkShape: props.linkShape ?? 'straight' }), [props.linkShape]);
   return (
-    <div
-      className={`istar-canvas${placement ? ` has-palette-${placement}` : ''}${
-        props.className ? ` ${props.className}` : ''
-      }`}
-    >
-      {placement !== 'bottom' && palette}
-      <div className="istar-canvas-body">
-        <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
-          <Diagram
-            controls={props.controls ?? true}
-            background={props.background ?? false}
-            fitView={props.fitView ?? true}
-          />
-          <ToolHint />
-          <NoticeBar />
+    <CanvasOptionsProvider value={options}>
+      <div
+        className={`istar-canvas${dark ? ' istar-dark' : ''}${
+          placement ? ` has-palette-${placement}` : ''
+        }${props.className ? ` ${props.className}` : ''}`}
+      >
+        {placement !== 'bottom' && palette}
+        <div className="istar-canvas-body">
+          <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
+            <Diagram
+              controls={props.controls ?? true}
+              background={props.background ?? false}
+              fitView={props.fitView ?? true}
+              colorMode={dark ? 'dark' : 'light'}
+              minimap={props.minimap ?? false}
+            />
+            <ToolHint />
+            <NoticeBar />
+          </div>
+          {props.aside}
         </div>
-        {props.aside}
+        {placement === 'bottom' && palette}
       </div>
-      {placement === 'bottom' && palette}
-    </div>
+    </CanvasOptionsProvider>
   );
 }
 
@@ -271,10 +293,14 @@ function Diagram({
   controls,
   background,
   fitView,
+  colorMode,
+  minimap,
 }: {
   controls: boolean;
   background: boolean;
   fitView: boolean;
+  colorMode: 'light' | 'dark';
+  minimap: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
   const { model, registry, store, tool, readOnly } = editor;
@@ -365,7 +391,13 @@ function Diagram({
   );
 
   const addAt = useCallback(
-    (kind: ElementKind, clientX: number, clientY: number, parent?: string) => {
+    (
+      kind: ElementKind,
+      clientX: number,
+      clientY: number,
+      parent?: string,
+      properties?: Readonly<Record<string, string>>,
+    ) => {
       const point = flow.screenToFlowPosition({ x: clientX, y: clientY });
       const config = registry.elements[kind];
       const size = config.size;
@@ -378,7 +410,10 @@ function Diagram({
         y: Math.round(y),
         parent,
         name: defaultNameFor(registry, kind, store.getModel()),
-        customProperties: defaultPropertiesFor(registry, kind, store.getModel()),
+        customProperties: {
+          ...defaultPropertiesFor(registry, kind, store.getModel()),
+          ...properties,
+        },
       });
       editor.select({ type: 'element', id: element.id });
       editor.setEditingId(element.id);
@@ -391,7 +426,26 @@ function Diagram({
     (event: ReactMouseEvent) => {
       if (!tool || tool.type !== 'element') return;
       if (isActorKind(tool.kind)) {
-        addAt(tool.kind, event.clientX, event.clientY);
+        addAt(tool.kind, event.clientX, event.clientY, undefined, tool.properties);
+        return;
+      }
+      // Frameless actors (`boundary: false`) don't enclose their elements, so a node added on
+      // empty space joins the nearest one.
+      const point = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      let nearest: { id: string; distance: number } | undefined;
+      for (const element of store.getModel().elements.values()) {
+        if (!isActorKind(element.kind) || registry.elements[element.kind].boundary !== false) {
+          continue;
+        }
+        const size = registry.elements[element.kind].size;
+        const distance = Math.hypot(
+          element.x + size.width / 2 - point.x,
+          element.y + size.height / 2 - point.y,
+        );
+        if (!nearest || distance < nearest.distance) nearest = { id: element.id, distance };
+      }
+      if (nearest) {
+        addAt(tool.kind, event.clientX, event.clientY, nearest.id, tool.properties);
       } else {
         editor.notify(
           `Click on an actor, role or agent to add a ${registry.elements[tool.kind].label}`,
@@ -399,7 +453,7 @@ function Diagram({
         );
       }
     },
-    [addAt, editor, registry, tool],
+    [addAt, editor, flow, registry, store, tool],
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
@@ -413,7 +467,10 @@ function Diagram({
         if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
         // Like piStar: Alt+click on an actor collapses or expands it.
         if (event.altKey) {
-          if (!readOnly) store.setCollapsed(clicked.id, clicked.display?.collapsed !== true);
+          const framed = registry.elements[clicked.kind].boundary !== false;
+          if (!readOnly && framed) {
+            store.setCollapsed(clicked.id, clicked.display?.collapsed !== true);
+          }
           return;
         }
         // What React Flow does for selectable nodes, including ⌘ / Ctrl multi-selection.
@@ -437,9 +494,9 @@ function Diagram({
         return;
       }
       event.stopPropagation();
-      addAt(tool.kind, event.clientX, event.clientY, actorId);
+      addAt(tool.kind, event.clientX, event.clientY, actorId, tool.properties);
     },
-    [addAt, editor, flowStore, readOnly, store, tool],
+    [addAt, editor, flowStore, readOnly, registry, store, tool],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
@@ -600,10 +657,12 @@ function Diagram({
         elevateNodesOnSelect={false}
         deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
         minZoom={0.1}
+        colorMode={colorMode}
         proOptions={{ hideAttribution: true }}
       >
         {background && <Background gap={20} size={1} />}
         {controls && <Controls showInteractive={false} />}
+        {minimap && <MiniMap pannable zoomable />}
         <ConnectionHint />
       </ReactFlow>
     </div>

@@ -10,6 +10,7 @@ import type { EdgeProps, EdgeTypes, InternalNode } from '@xyflow/react';
 import { BaseEdge, useInternalNode } from '@xyflow/react';
 import type { ComponentType, ReactElement } from 'react';
 import { memo } from 'react';
+import { useCanvasOptions } from './canvas-options';
 import { useIstarEditor } from './context';
 import type { IstarFlowEdge } from './layout';
 import { ACTOR_SYMBOL_OFFSET } from './layout';
@@ -32,7 +33,7 @@ function anchorOf(node: InternalNode): Anchor {
   const pos = node.internals.positionAbsolute;
   const width = node.measured.width ?? node.width ?? 0;
   const height = node.measured.height ?? node.height ?? 0;
-  if (node.type === 'istarActor') {
+  if (node.type === 'istarActor' && !(node.data as { frameless?: boolean }).frameless) {
     return {
       center: { x: pos.x + ACTOR_SYMBOL_OFFSET, y: pos.y + ACTOR_SYMBOL_OFFSET },
       radius: ACTOR_RADIUS,
@@ -178,6 +179,50 @@ function sampleCurve(segments: readonly [Point, Point, Point, Point][], perSegme
   return out;
 }
 
+/** Unit vector out of the anchor's outline at `p`: radial for circles, the side's normal for boxes. */
+function outwardNormal(anchor: Anchor, p: Point): Point {
+  const dx = p.x - anchor.center.x;
+  const dy = p.y - anchor.center.y;
+  if (anchor.radius !== undefined) {
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  }
+  // Which side the point lies on: compare against the box's proportions.
+  return Math.abs(dx) * anchor.height >= Math.abs(dy) * anchor.width
+    ? { x: Math.sign(dx) || 1, y: 0 }
+    : { x: 0, y: Math.sign(dy) || 1 };
+}
+
+/** React Flow's Bézier control offset (`calculateControlOffset`, curvature 0.25). */
+function controlOffset(distance: number): number {
+  return distance >= 0 ? 0.5 * distance : 0.25 * 25 * Math.sqrt(-distance);
+}
+
+/**
+ * A curved link without vertices, like React Flow's Bézier edges: it leaves each node at the
+ * same border point as a straight link, perpendicular to that side (e.g. out of the bottom of a
+ * goal and into the top of its sub-goal), and bends in between.
+ */
+export function curvedLink(
+  source: InternalNode,
+  target: InternalNode,
+): { d: string; segments: [Point, Point, Point, Point][] } {
+  const a = anchorOf(source);
+  const b = anchorOf(target);
+  const p0 = borderPoint(a, b.center);
+  const p3 = borderPoint(b, a.center);
+  const n0 = outwardNormal(a, p0);
+  const n3 = outwardNormal(b, p3);
+  const k0 = controlOffset((p3.x - p0.x) * n0.x + (p3.y - p0.y) * n0.y);
+  const k3 = controlOffset((p0.x - p3.x) * n3.x + (p0.y - p3.y) * n3.y);
+  const c1 = { x: p0.x + n0.x * k0, y: p0.y + n0.y * k0 };
+  const c2 = { x: p3.x + n3.x * k3, y: p3.y + n3.y * k3 };
+  return {
+    d: `M ${p0.x} ${p0.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p3.x} ${p3.y}`,
+    segments: [[p0, c1, c2, p3]],
+  };
+}
+
 export function linkPoints(
   source: InternalNode,
   target: InternalNode,
@@ -198,6 +243,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   selected,
 }: EdgeProps<IstarFlowEdge>): ReactElement | null {
   const { model } = useIstarEditor();
+  const { linkShape } = useCanvasOptions();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   const link = data ? model.links.get(data.linkId) : undefined;
@@ -205,9 +251,14 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
 
   const vertices = link.display?.vertices ?? [];
   const knots = linkPoints(sourceNode, targetNode, vertices);
-  // Straight when there are no vertices; smooth through them otherwise (piStar's
-  // `_toggleSmoothness`).
-  const curve = vertices.length > 0 ? smoothCurve(knots) : null;
+  // Smooth through saved vertices (piStar's `_toggleSmoothness`); otherwise straight, or a
+  // Bézier curve with `linkShape="curved"`.
+  const curve =
+    vertices.length > 0
+      ? smoothCurve(knots)
+      : linkShape === 'curved'
+        ? curvedLink(sourceNode, targetNode)
+        : null;
   const path = curve
     ? curve.d
     : knots.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');

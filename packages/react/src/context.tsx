@@ -28,7 +28,12 @@ import { groupIssuesById } from './issues';
 
 /** The active toolbar tool. */
 export type Tool =
-  | { type: 'element'; kind: ElementKind }
+  | {
+      type: 'element';
+      kind: ElementKind;
+      /** customProperties preset on the new element, over the kind's defaults. */
+      properties?: Readonly<Record<string, string>>;
+    }
   | { type: 'link'; kind: Exclude<LinkKind, 'istar.DependencyLink'>; value?: string }
   | { type: 'dependency'; dependum: NodeKind };
 

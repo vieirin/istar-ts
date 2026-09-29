@@ -1,7 +1,13 @@
 export { IstarCanvas } from './IstarCanvas';
+export type { LinkShape } from './canvas-options';
 export type { IstarCanvasHandle, IstarCanvasProps, IstarFitViewOptions } from './IstarCanvas';
-export { IstarPalette, paletteEntryFor, paletteSections } from './Palette';
-export type { IstarPaletteProps, PaletteOrientation } from './Palette';
+export { IstarPalette, paletteEntryFor, paletteSections, usePaletteControls } from './Palette';
+export type {
+  IstarPaletteProps,
+  PaletteControl,
+  PaletteControls,
+  PaletteOrientation,
+} from './Palette';
 export { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 export {
   IstarProvider,

@@ -93,6 +93,78 @@ export function paletteSections(registry: IstarRegistry): Slot[][] {
   return [...sections.values()];
 }
 
+/** One toolbar control, as data, for rendering a custom palette (see `usePaletteControls`). */
+export interface PaletteControl {
+  readonly key: string;
+  readonly label: string;
+  readonly title?: string;
+  readonly icon?: ReactNode;
+  /** Registry section and group, for laying controls out like the built-in palette. */
+  readonly section?: string;
+  readonly group?: string;
+  /** The tool this control activates. */
+  readonly tool: Tool;
+  /** Whether this control's tool is the active one. */
+  readonly active: boolean;
+  /** Activates the tool, or clears it if it is already active (like the built-in palette). */
+  select(): void;
+}
+
+export interface PaletteControls {
+  /** Every toolbar entry of the registry, in order (groups flattened). */
+  readonly controls: readonly PaletteControl[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  undo(): void;
+  redo(): void;
+  /** The active tool, if any, and a way to clear it (the built-in palette's Escape). */
+  readonly tool: Tool | null;
+  clearTool(): void;
+  readonly readOnly: boolean;
+}
+
+/**
+ * The palette's controls as data, so an app can render its own tool bar (e.g. a side panel of
+ * big buttons) while the editor keeps doing the work. Use inside an `IstarProvider` or as a
+ * canvas `aside`, and pass `palette={false}` to the canvas to hide the built-in one. Controls
+ * come from the registry. For tools the registry doesn't list, build your own controls and call
+ * `useIstarEditor().setTool(...)`, e.g. an element tool with preset `properties`.
+ */
+export function usePaletteControls(): PaletteControls {
+  const { registry, tool, setTool, store, readOnly } = useIstarEditor();
+  // Re-render when history changes so undo/redo enablement is current.
+  useSyncExternalStore(store.subscribe, store.getModel, store.getModel);
+  const controls: PaletteControl[] = [];
+  for (const slots of paletteSections(registry)) {
+    for (const slot of slots) {
+      for (const item of slot.type === 'item' ? [slot.item] : slot.items) {
+        const active = sameTool(tool, item.tool);
+        controls.push({
+          key: item.key,
+          label: item.entry.label,
+          ...(item.entry.title !== undefined && { title: item.entry.title }),
+          ...(item.entry.icon !== undefined && { icon: item.entry.icon }),
+          ...(item.entry.section !== undefined && { section: item.entry.section }),
+          ...(item.entry.group !== undefined && { group: item.entry.group }),
+          tool: item.tool,
+          active,
+          select: () => setTool(active ? null : item.tool),
+        });
+      }
+    }
+  }
+  return {
+    controls,
+    canUndo: !readOnly && store.canUndo(),
+    canRedo: !readOnly && store.canRedo(),
+    undo: () => store.undo(),
+    redo: () => store.redo(),
+    tool,
+    clearTool: () => setTool(null),
+    readOnly,
+  };
+}
+
 /**
  * The add-element / add-link toolbar, modelled on piStar's: each entry shows a small preview,
  * and related entries (Actor/Agent/Role, actor links, dependencies, contributions) share a

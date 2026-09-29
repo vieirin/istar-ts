@@ -12,7 +12,7 @@ export interface ShapeProps {
 }
 
 const stroke = {
-  stroke: 'var(--istar-stroke)',
+  stroke: 'var(--istar-node-stroke)',
   strokeWidth: 'var(--istar-stroke-width)',
   vectorEffect: 'non-scaling-stroke',
 } as const;
@@ -124,7 +124,7 @@ export function ActorSymbol({ kind, fill }: { kind: ElementKind; fill?: string }
         style={stroke}
       />
       {decorator && (
-        <path d={decorator} fill="none" stroke="var(--istar-stroke)" strokeWidth={1.5} />
+        <path d={decorator} fill="none" stroke="var(--istar-node-stroke)" strokeWidth={1.5} />
       )}
     </svg>
   );
