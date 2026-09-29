@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Tool } from './context';
 import { useIstarEditor } from './context';
-import type { IstarRegistry, PaletteEntry } from './registry';
+import type { ElementToolEntry, IstarRegistry, PaletteEntry } from './registry';
 
 export type PaletteOrientation = 'vertical' | 'horizontal';
 
@@ -54,9 +54,19 @@ export function paletteSections(registry: IstarRegistry): Slot[][] {
   const items: Item[] = [];
   for (const config of Object.values(registry.elements)) {
     if (config.palette === false) continue;
+    if (Array.isArray(config.palette)) {
+      (config.palette as readonly ElementToolEntry[]).forEach(({ properties, ...entry }, i) => {
+        items.push({
+          key: `${config.kind}:${i}`,
+          entry,
+          tool: { type: 'element', kind: config.kind, ...(properties && { properties }) },
+        });
+      });
+      continue;
+    }
     items.push({
       key: config.kind,
-      entry: config.palette,
+      entry: config.palette as PaletteEntry,
       tool: { type: 'element', kind: config.kind },
     });
   }
@@ -127,8 +137,8 @@ export interface PaletteControls {
  * The palette's controls as data, so an app can render its own tool bar (e.g. a side panel of
  * big buttons) while the editor keeps doing the work. Use inside an `IstarProvider` or as a
  * canvas `aside`, and pass `palette={false}` to the canvas to hide the built-in one. Controls
- * come from the registry. For tools the registry doesn't list, build your own controls and call
- * `useIstarEditor().setTool(...)`, e.g. an element tool with preset `properties`.
+ * come from the registry (including element kinds with several entries); for anything else,
+ * call `useIstarEditor().setTool(...)` yourself, e.g. an element tool with preset `properties`.
  */
 export function usePaletteControls(): PaletteControls {
   const { registry, tool, setTool, store, readOnly } = useIstarEditor();

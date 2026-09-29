@@ -36,6 +36,7 @@ export type {
   LinkActions,
   LinkKindConfig,
   LinkKindOverride,
+  ElementToolEntry,
   LinkToolEntry,
   PaletteEntry,
   PaletteGroup,

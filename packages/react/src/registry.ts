@@ -110,7 +110,11 @@ export interface ElementKindConfig {
     | CustomProperties
     | ((ctx: { model: IstarModel }) => CustomProperties);
   readonly inspector?: ComponentType<InspectorProps<IstarElement>> | false;
-  readonly palette: PaletteEntry | false;
+  /**
+   * Toolbar entry for this kind, or a list of them (each creating the kind, optionally with
+   * preset `properties`, like the contribution values of link kinds); `false` hides the kind.
+   */
+  readonly palette: PaletteEntry | readonly ElementToolEntry[] | false;
   /**
    * Actor kinds only: draw the actor as a boundary around its inner elements (default, as in
    * piStar). With `false` the actor is just its `component`, drawn at the kind's `size` (a
@@ -131,6 +135,11 @@ export interface ElementKindConfig {
    * (e.g. "Goal"). Use for modeller-specific numbering such as MutRoSe's `G1: …` / `AT1: …`.
    */
   readonly defaultName?: string | ((ctx: { model: IstarModel }) => string);
+}
+
+export interface ElementToolEntry extends PaletteEntry {
+  /** customProperties preset on the element this entry creates, over `defaultProperties`. */
+  readonly properties?: CustomProperties;
 }
 
 export interface LinkPaletteEntry extends PaletteEntry {
@@ -165,7 +174,12 @@ export interface IstarRegistry {
 }
 
 export type ElementKindOverride = Partial<Omit<ElementKindConfig, 'kind' | 'palette'>> & {
-  readonly palette?: Partial<PaletteEntry> | false;
+  /**
+   * A partial entry is merged into the kind's entry (into each one, if it has a list); a list
+   * replaces them, each item inheriting the kind's icon, section and order unless it sets its
+   * own; `false` hides the kind.
+   */
+  readonly palette?: Partial<PaletteEntry> | readonly ElementToolEntry[] | false;
 };
 export type LinkKindOverride = Partial<Omit<LinkKindConfig, 'kind'>>;
 
@@ -338,6 +352,31 @@ const DEFAULT_PALETTE_GROUPS: Readonly<Record<string, PaletteGroup>> = {
 /** A registry that looks and behaves like the piStar tool. */
 export const defaultRegistry: IstarRegistry = buildDefaultRegistry();
 
+function mergeElementPalette(
+  current: ElementKindConfig,
+  palette: ElementKindOverride['palette'],
+): ElementKindConfig['palette'] {
+  if (palette === undefined) return current.palette;
+  if (palette === false) return false;
+  // What list items inherit: the kind's own entry (its first, if it already has a list).
+  const base: PaletteEntry = Array.isArray(current.palette)
+    ? (current.palette[0] ?? { label: current.label })
+    : (current.palette as PaletteEntry | false) || { label: current.label };
+  const inherited = {
+    ...(base.icon !== undefined && { icon: base.icon }),
+    ...(base.section !== undefined && { section: base.section }),
+    ...(base.order !== undefined && { order: base.order }),
+  };
+  if (Array.isArray(palette)) {
+    return (palette as readonly ElementToolEntry[]).map((entry) => ({ ...inherited, ...entry }));
+  }
+  const partial = palette as Partial<PaletteEntry>;
+  if (Array.isArray(current.palette)) {
+    return current.palette.map((entry) => ({ ...entry, ...partial }));
+  }
+  return { ...((current.palette as PaletteEntry | false) || { label: current.label }), ...partial };
+}
+
 /**
  * Builds a registry from `base` (the default registry unless given) with per-kind overrides.
  * Palette overrides are merged into the base entry; `false` removes the kind from the palette.
@@ -353,16 +392,7 @@ export function createRegistry(
   ][]) {
     const current = elements[kind];
     const { palette, ...rest } = override;
-    elements[kind] = {
-      ...current,
-      ...rest,
-      palette:
-        palette === undefined
-          ? current.palette
-          : palette === false
-            ? false
-            : { ...(current.palette || { label: current.label }), ...palette },
-    };
+    elements[kind] = { ...current, ...rest, palette: mergeElementPalette(current, palette) };
   }
   const links = { ...base.links };
   for (const [kind, override] of Object.entries(overrides.links ?? {}) as [

@@ -6,10 +6,14 @@ import { useEffect } from 'react';
 import { describe, expect, test } from 'vitest';
 import type { IstarEditor, IstarExtension, PaletteControls } from '../src';
 import {
+  applyExtensions,
   createRegistry,
+  defaultRegistry,
   IstarCanvas,
   IstarProvider,
   modelToFlow,
+  paletteEntryFor,
+  paletteSections,
   useIstarEditor,
   usePaletteControls,
 } from '../src';
@@ -187,5 +191,113 @@ describe('canvas appearance options', () => {
     const { container } = renderCanvas(store);
     expect(container.querySelector('.istar-canvas')!.classList.contains('istar-dark')).toBe(false);
     expect(container.querySelector('.react-flow__minimap')).toBeNull();
+  });
+});
+
+describe('element kinds with several palette entries', () => {
+  const resources: IstarExtension = {
+    name: 'resources',
+    elements: {
+      'istar.Resource': {
+        palette: [
+          {
+            label: 'Boolean',
+            title: 'Boolean resource: click in an actor',
+            group: 'resource',
+            properties: { type: 'bool', initialValue: 'true' },
+          },
+          {
+            label: 'Integer',
+            title: 'Integer resource (0 to 5): click in an actor',
+            group: 'resource',
+            properties: { type: 'int', initialValue: '5', lowerBound: '0', upperBound: '5' },
+          },
+        ],
+      },
+    },
+    paletteGroups: { resource: { label: 'Resource' } },
+  };
+
+  test('entries share a group, keep the kind icon, and each creates the kind with its presets', () => {
+    const { store, actor } = actorWithGoals();
+    const { container, editor } = renderCanvas(store, { extensions: [resources] });
+    // One dropdown button for the group, like Contribution.
+    fireEvent.click(screen.getByRole('button', { name: 'More: Resource' }));
+    const integer = screen.getByRole('menuitemradio', { name: 'Integer' });
+    expect(integer.querySelector('svg')).not.toBeNull();
+    fireEvent.click(integer);
+    expect(editor().tool).toEqual({
+      type: 'element',
+      kind: 'istar.Resource',
+      properties: { type: 'int', initialValue: '5', lowerBound: '0', upperBound: '5' },
+    });
+    // The active entry's own hint.
+    expect(screen.getByRole('status').textContent).toContain('Integer resource (0 to 5)');
+
+    fireEvent.click(container.querySelector(`.react-flow__node[data-id="${actor}"]`)!, {
+      clientX: 200,
+      clientY: 300,
+    });
+    const added = [...store.getModel().elements.values()].at(-1)!;
+    expect(added.kind).toBe('istar.Resource');
+    expect(added.customProperties).toMatchObject({ type: 'int', upperBound: '5' });
+  });
+
+  test('usePaletteControls and paletteEntryFor report each entry; one entry works as before', () => {
+    const registry = applyExtensions(defaultRegistry, [resources]);
+    const labels = paletteSections(registry)
+      .flat()
+      .flatMap((slot) => (slot.type === 'item' ? [slot.item] : slot.items))
+      .filter((item) => item.tool.type === 'element' && item.tool.kind === 'istar.Resource')
+      .map((item) => [item.entry.label, item.entry.group, item.entry.icon !== undefined]);
+    expect(labels).toEqual([
+      ['Boolean', 'resource', true],
+      ['Integer', 'resource', true],
+    ]);
+    expect(
+      paletteEntryFor(registry, {
+        type: 'element',
+        kind: 'istar.Resource',
+        properties: { type: 'bool', initialValue: 'true' },
+      })?.label,
+    ).toBe('Boolean');
+    expect(paletteEntryFor(registry, { type: 'element', kind: 'istar.Goal' })?.label).toBe('Goal');
+
+    const store = createModelStore();
+    const controls: { current?: PaletteControls } = {};
+    function Bar(): ReactElement {
+      const current = usePaletteControls();
+      useEffect(() => {
+        controls.current = current;
+      });
+      return <div />;
+    }
+    render(
+      <IstarProvider store={store} extensions={[resources]}>
+        <Bar />
+      </IstarProvider>,
+    );
+    expect(
+      controls
+        .current!.controls.filter((c) => c.group === 'resource')
+        .map((c) => [c.label, c.tool]),
+    ).toEqual([
+      [
+        'Boolean',
+        {
+          type: 'element',
+          kind: 'istar.Resource',
+          properties: { type: 'bool', initialValue: 'true' },
+        },
+      ],
+      [
+        'Integer',
+        {
+          type: 'element',
+          kind: 'istar.Resource',
+          properties: { type: 'int', initialValue: '5', lowerBound: '0', upperBound: '5' },
+        },
+      ],
+    ]);
   });
 });

@@ -230,6 +230,26 @@ status hint (the entry's `title`) says what to do next.
 `<IstarPalette orientation="vertical" | "horizontal" flyout="right" | "below" | "above" showLabels history />` can also be placed
 yourself inside an `<IstarProvider>` (use `<IstarCanvas palette={false}>` then).
 
+**Several entries for one kind.** An element kind's `palette` can be a list, like a link kind's:
+each entry is its own tool creating that kind, optionally presetting `properties` (merged over
+`defaultProperties`). Entries inherit the kind's icon, section and order unless they set their
+own, and entries sharing a `group` collapse into one dropdown:
+
+```tsx
+const extension: IstarExtension = {
+  name: 'typed-resources',
+  elements: {
+    'istar.Resource': {
+      palette: [
+        { label: 'Boolean', group: 'resource', properties: { type: 'bool' } },
+        { label: 'Integer', group: 'resource', properties: { type: 'int' } },
+      ],
+    },
+  },
+  paletteGroups: { resource: { label: 'Resource' } },
+};
+```
+
 **Your own tool bar.** With `palette={false}`, render any controls you like (e.g. as the canvas
 `aside`) and drive the editor's tools yourself. `usePaletteControls()` returns the registry's
 entries as data (`label`, `icon`, `active`, `select()`, plus `undo`/`redo`), or build tools directly
