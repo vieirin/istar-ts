@@ -22,11 +22,13 @@ import {
   useNodesInitialized,
   useReactFlow,
   useStore,
+  useStoreApi,
 } from '@xyflow/react';
 import type {
   ForwardRefExoticComponent,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
   ReactElement,
   ReactNode,
   Ref,
@@ -543,8 +545,28 @@ function Diagram({
     [editor, readOnly, store],
   );
 
+  // React Flow decides multi-selection from a ⌘ / Ctrl key state it tracks with keydown/keyup.
+  // If the keyup never arrives (e.g. a system shortcut such as ⌘⇧5 takes the keyboard), every
+  // later plain click adds to the selection. Each click's own modifiers are authoritative instead;
+  // this runs in the capture phase, before React Flow handles the pointer.
+  const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
+  const onPointerDownCapture = useCallback(
+    (event: ReactPointerEvent) => {
+      const multi = isMacOs() ? event.metaKey : event.ctrlKey;
+      if (flowStore.getState().multiSelectionActive !== multi) {
+        flowStore.setState({ multiSelectionActive: multi });
+      }
+    },
+    [flowStore],
+  );
+
   return (
-    <div className="istar-diagram" tabIndex={-1} onKeyDown={onKeyDown}>
+    <div
+      className="istar-diagram"
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      onPointerDownCapture={onPointerDownCapture}
+    >
       <ReactFlow<IstarFlowNode, IstarFlowEdge>
         nodes={nodes}
         edges={edges}
@@ -575,6 +597,11 @@ function Diagram({
       </ReactFlow>
     </div>
   );
+}
+
+/** Same test as React Flow's, which picks ⌘ on macOS and Ctrl elsewhere for multi-selection. */
+function isMacOs(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac');
 }
 
 function sameIds(a: readonly string[], b: readonly string[]): boolean {

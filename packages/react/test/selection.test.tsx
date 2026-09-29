@@ -135,3 +135,30 @@ describe('the canvas highlights the editor selection', () => {
     expect(editor().selection?.type).toBe('element');
   });
 });
+
+describe('multi-selection follows each click’s own modifier key', () => {
+  // jsdom isn't macOS, so React Flow's multi-selection key is Control here.
+  function clickNode(container: HTMLElement, id: string, modifiers: { ctrlKey?: boolean } = {}) {
+    const node = container.querySelector(`.react-flow__node[data-id="${id}"]`)!;
+    fireEvent.pointerDown(node, modifiers);
+    fireEvent.click(node, modifiers);
+  }
+
+  test('a modifier whose keyup never arrived does not turn plain clicks into multi-selection', () => {
+    const { store, g1, g2 } = twoGoals();
+    const { container } = setup(store);
+    // A system shortcut (e.g. ⌘⇧5 on macOS) swallows the keyup: React Flow thinks it's held.
+    fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true });
+    clickNode(container, g1);
+    clickNode(container, g2);
+    expect(highlighted(container)).toEqual([g2]);
+  });
+
+  test('a modifier click multi-selects even if React Flow missed the keydown', () => {
+    const { store, g1, g2 } = twoGoals();
+    const { container } = setup(store);
+    clickNode(container, g1);
+    clickNode(container, g2, { ctrlKey: true });
+    expect(highlighted(container).toSorted()).toEqual([g1, g2].toSorted());
+  });
+});
