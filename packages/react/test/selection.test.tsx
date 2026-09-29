@@ -4,7 +4,7 @@ import { act, fireEvent, render } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, test } from 'vitest';
 import type { IstarEditor } from '../src';
-import { IstarCanvas, IstarProvider, useIstarEditor } from '../src';
+import { defaultRegistry, IstarCanvas, IstarProvider, modelToFlow, useIstarEditor } from '../src';
 
 function Grab({ onEditor }: { onEditor: (editor: IstarEditor) => void }): null {
   const editor = useIstarEditor();
@@ -160,5 +160,65 @@ describe('multi-selection follows each click’s own modifier key', () => {
     clickNode(container, g1);
     clickNode(container, g2, { ctrlKey: true });
     expect(highlighted(container).toSorted()).toEqual([g1, g2].toSorted());
+  });
+});
+
+describe('actors are selected only through their symbol', () => {
+  function actorOf(store: ModelStore): string {
+    return [...store.getModel().elements.values()].find((e) => e.kind === 'istar.Actor')!.id;
+  }
+  function press(target: Element, modifiers: { ctrlKey?: boolean; altKey?: boolean } = {}) {
+    fireEvent.pointerDown(target, modifiers);
+    fireEvent.click(target, modifiers);
+  }
+  const body = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-boundary`)!;
+  const symbol = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-symbol`)!;
+
+  test('clicking the boundary body neither selects the actor nor clears the selection', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    press(body(container, actor));
+    expect(highlighted(container)).toEqual([g1]);
+    expect(editor().selection).toEqual({ type: 'element', id: g1 });
+  });
+
+  test('clicking the symbol selects the actor; Ctrl-clicking it adds to the selection', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    press(symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    press(symbol(container, actor), { ctrlKey: true });
+    expect(highlighted(container).toSorted()).toEqual([actor, g1].toSorted());
+  });
+
+  test('box selection skips actors, and only the symbol drags them', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    const node = container.querySelector(`.react-flow__node[data-id="${actor}"]`)!;
+    expect(node.classList.contains('selectable')).toBe(false);
+    expect(modelToFlow(store.getModel(), defaultRegistry).nodes[0]).toMatchObject({
+      id: actor,
+      selectable: false,
+      dragHandle: '.istar-actor-symbol',
+    });
+  });
+
+  test('Alt+click collapses only from the symbol', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    press(body(container, actor), { altKey: true });
+    expect(store.getModel().elements.get(actor)?.display?.collapsed).not.toBe(true);
+    press(symbol(container, actor), { altKey: true });
+    expect(store.getModel().elements.get(actor)?.display?.collapsed).toBe(true);
   });
 });

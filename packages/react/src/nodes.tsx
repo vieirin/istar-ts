@@ -4,7 +4,7 @@ import type { ComponentType, ReactElement } from 'react';
 import { memo, useCallback, useRef } from 'react';
 import { useIstarEditor } from './context';
 import type { ActorFlowNode, ElementFlowNode } from './layout';
-import { ACTOR_SYMBOL_OFFSET } from './layout';
+import { ACTOR_SYMBOL_CLASS, ACTOR_SYMBOL_OFFSET } from './layout';
 import { elementSize } from './registry';
 import { ACTOR_RADIUS } from './shapes';
 
@@ -155,7 +155,7 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
         </svg>
       )}
       <div
-        className="istar-actor-symbol"
+        className={ACTOR_SYMBOL_CLASS}
         style={{
           left: ACTOR_SYMBOL_OFFSET - ACTOR_RADIUS,
           top: ACTOR_SYMBOL_OFFSET - ACTOR_RADIUS,

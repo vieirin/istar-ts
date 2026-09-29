@@ -48,7 +48,7 @@ import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
-import { adoptFlowNode, modelToFlow } from './layout';
+import { ACTOR_SYMBOL_CLASS, adoptFlowNode, modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
 import type { IstarExtension, IstarRegistry } from './registry';
@@ -402,19 +402,31 @@ function Diagram({
     [addAt, editor, registry, tool],
   );
 
+  const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: IstarFlowNode) => {
-      // Like piStar: Alt+click on an actor collapses or expands it.
-      if (event.altKey && !tool && !readOnly) {
-        const actor = store.getModel().elements.get(node.id);
-        if (actor && isActorKind(actor.kind)) {
-          store.setCollapsed(actor.id, actor.display?.collapsed !== true);
-          return;
-        }
-      }
-      if (!tool || tool.type !== 'element') return;
       const clicked = store.getModel().elements.get(node.id);
       if (!clicked) return;
+      // Actors aren't selectable in React Flow (see modelToFlow): only their symbol selects
+      // them, and clicks elsewhere on the boundary leave the selection alone.
+      if (isActorKind(clicked.kind) && !tool) {
+        if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
+        // Like piStar: Alt+click on an actor collapses or expands it.
+        if (event.altKey) {
+          if (!readOnly) store.setCollapsed(clicked.id, clicked.display?.collapsed !== true);
+          return;
+        }
+        // What React Flow does for selectable nodes, including ⌘ / Ctrl multi-selection.
+        const { nodeLookup, addSelectedNodes, unselectNodesAndEdges, multiSelectionActive } =
+          flowStore.getState();
+        const internal = nodeLookup.get(clicked.id);
+        if (!internal?.selected) addSelectedNodes([clicked.id]);
+        else if (multiSelectionActive) {
+          unselectNodesAndEdges({ nodes: [internal.internals.userNode], edges: [] });
+        }
+        return;
+      }
+      if (!tool || tool.type !== 'element') return;
       if (isActorKind(tool.kind)) {
         editor.notify('Actors are added on an empty spot of the diagram', 'info');
         return;
@@ -427,7 +439,7 @@ function Diagram({
       event.stopPropagation();
       addAt(tool.kind, event.clientX, event.clientY, actorId);
     },
-    [addAt, editor, readOnly, store, tool],
+    [addAt, editor, flowStore, readOnly, store, tool],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
@@ -549,7 +561,6 @@ function Diagram({
   // If the keyup never arrives (e.g. a system shortcut such as ⌘⇧5 takes the keyboard), every
   // later plain click adds to the selection. Each click's own modifiers are authoritative instead;
   // this runs in the capture phase, before React Flow handles the pointer.
-  const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
   const onPointerDownCapture = useCallback(
     (event: ReactPointerEvent) => {
       const multi = isMacOs() ? event.metaKey : event.ctrlKey;

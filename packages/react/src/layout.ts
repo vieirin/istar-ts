@@ -83,6 +83,9 @@ export interface FlowGraph {
   origins: Map<string, { x: number; y: number }>;
 }
 
+/** Class of the actor symbol, the only part of an actor that selects and drags it. */
+export const ACTOR_SYMBOL_CLASS = 'istar-actor-symbol';
+
 export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGraph {
   const nodes: IstarFlowNode[] = [];
   const origins = new Map<string, { x: number; y: number }>();
@@ -116,6 +119,11 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
       data: { elementId: actor.id, collapsed },
       zIndex: 0,
       className: 'istar-node istar-node-actor',
+      // Only the actor symbol (the circle) selects and drags the actor; clicks and drags on
+      // the boundary's body do nothing, and box selection never picks up the whole frame.
+      // IstarCanvas selects actors itself when their symbol is clicked.
+      selectable: false,
+      dragHandle: `.${ACTOR_SYMBOL_CLASS}`,
     });
     for (const child of inner) {
       if (collapsed) collapsedInto.set(child.id, actor.id);

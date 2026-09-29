@@ -131,7 +131,10 @@ validator such as an LSP.
 - **Resize:** select an intentional element and drag its handles; the size is saved in `display`.
 - **Links:** click to select (the inspector shows them), Delete to remove. Links with vertices are
   drawn as smooth curves, like piStar's.
-- **Actors:** **Alt+click** an actor to collapse or expand it, as in piStar. Collapsed actors
+- **Actors:** select and drag an actor, role or agent by its **symbol** (the circle at the top left);
+  clicks and drags on the rest of its boundary do nothing, leave the current selection as it is,
+  and box selection never picks up the whole frame. **Alt+click** the symbol to collapse or expand
+  the actor, as in piStar. Collapsed actors
   hide inner elements; dependency links re-anchor on the actor; other links involving hidden nodes are
   hidden until expand.
 
