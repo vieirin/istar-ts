@@ -301,3 +301,44 @@ describe('element kinds with several palette entries', () => {
     ]);
   });
 });
+
+describe('wheel and touch navigation', () => {
+  const viewportOf = (container: HTMLElement) => {
+    const t = (container.querySelector('.react-flow__viewport') as HTMLElement).style.transform;
+    const [x, y, zoom] = [...t.matchAll(/-?[\d.]+/g)].map((m) => Number(m[0]));
+    return { x: x!, y: y!, zoom: zoom! };
+  };
+
+  test('Shift + wheel pans sideways only, from deltaY or deltaX; it can be turned off', () => {
+    const { store } = actorWithGoals();
+    const { container, unmount } = renderCanvas(store);
+    const pane = container.querySelector('.react-flow__pane')!;
+    fireEvent.wheel(pane, { shiftKey: true, deltaY: 100 });
+    expect(viewportOf(container)).toEqual({ x: -100, y: 0, zoom: 1 });
+    fireEvent.wheel(pane, { shiftKey: true, deltaX: -40, deltaY: 0 });
+    expect(viewportOf(container)).toEqual({ x: -60, y: 0, zoom: 1 });
+    unmount();
+
+    const off = renderCanvas(store, { panOnShiftScroll: false });
+    fireEvent.wheel(off.container.querySelector('.react-flow__pane')!, {
+      shiftKey: true,
+      deltaY: 100,
+    });
+    expect(viewportOf(off.container).x).toBe(0);
+  });
+
+  test('a two-finger pinch zooms around its midpoint, even when it starts on a node', () => {
+    const { store, g1 } = actorWithGoals();
+    const { container } = renderCanvas(store);
+    const node = container.querySelector(`.react-flow__node[data-id="${g1}"]`)!;
+    const touches = (d: number) => [
+      { identifier: 1, clientX: 100 - d, clientY: 100 },
+      { identifier: 2, clientX: 100 + d, clientY: 100 },
+    ];
+    fireEvent.touchStart(node, { touches: touches(20), changedTouches: touches(20) });
+    fireEvent.touchMove(node, { touches: touches(40), changedTouches: touches(40) });
+    fireEvent.touchEnd(node, { touches: [], changedTouches: touches(40) });
+    // Twice the finger distance: zoom 2, keeping the midpoint (100, 100) fixed.
+    expect(viewportOf(container)).toEqual({ x: -100, y: -100, zoom: 2 });
+  });
+});

@@ -128,9 +128,10 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
       data: { elementId: actor.id, collapsed, ...(frameless && { frameless }) },
       zIndex: 0,
       className: 'istar-node istar-node-actor',
-      // Only the actor symbol (the circle) selects and drags the actor; clicks and drags on
-      // the boundary's body do nothing, and box selection never picks up the whole frame.
-      // IstarCanvas selects actors itself when their symbol is clicked.
+      // Only the actor symbol (the circle) selects the actor, and drags it while something is
+      // selected; clicks on the boundary's body do nothing, and box selection never picks up
+      // the whole frame. IstarCanvas selects actors itself when their symbol is clicked, and
+      // drops the drag handle while nothing is selected so the body drags too.
       selectable: false,
       dragHandle: `.${ACTOR_SYMBOL_CLASS}`,
     });

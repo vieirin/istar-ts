@@ -65,7 +65,7 @@ export function Controlled() {
 panel that is still opening is fitted once it has room), `issues` (host-owned annotations such as
 LSP diagnostics — see below), `onSelectionChange`, `linkShape` (`'straight'` by default, or
 `'curved'` for Bézier links that leave each node perpendicular to its side), `colorMode`
-(`'light'` or `'dark'`, see Theming) and `minimap`.
+(`'light'` or `'dark'`, see Theming), `minimap` and `panOnShiftScroll`.
 
 ### Controlling the viewport and selection
 
@@ -133,12 +133,16 @@ validator such as an LSP.
 - **Resize:** select an intentional element and drag its handles; the size is saved in `display`.
 - **Links:** click to select (the inspector shows them), Delete to remove. Links with vertices are
   drawn as smooth curves, like piStar's.
-- **Actors:** select and drag an actor, role or agent by its **symbol** (the circle at the top left);
-  clicks and drags on the rest of its boundary do nothing, leave the current selection as it is,
-  and box selection never picks up the whole frame. **Alt+click** the symbol to collapse or expand
+- **Actors:** select an actor, role or agent by its **symbol** (the circle at the top left), and drag
+  it by the symbol, or by its body while nothing is selected. Clicks on the rest of its boundary
+  don't select it and leave the current selection as it is, and box selection never picks up the
+  whole frame. **Alt+click** the symbol to collapse or expand
   the actor, as in piStar. Collapsed actors
   hide inner elements; dependency links re-anchor on the actor; other links involving hidden nodes are
   hidden until expand.
+
+- **Navigation:** the wheel zooms; **Shift + wheel** pans sideways (`panOnShiftScroll`, on by
+  default). On touch screens, pinch with two fingers to zoom, anywhere on the diagram.
 
 Press **Escape** to clear the active palette tool.
 

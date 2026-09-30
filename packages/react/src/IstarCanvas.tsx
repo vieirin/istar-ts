@@ -107,6 +107,11 @@ export interface IstarCanvasProps {
   readonly colorMode?: 'light' | 'dark';
   /** Show React Flow's minimap in the bottom-right corner. Default false. */
   readonly minimap?: boolean;
+  /**
+   * Shift + wheel pans the diagram sideways instead of zooming (a plain wheel still zooms, and
+   * pinch / Ctrl + wheel zoom as usual). Default true.
+   */
+  readonly panOnShiftScroll?: boolean;
 }
 
 /** Options for {@link IstarCanvasHandle.fitView}. */
@@ -219,6 +224,10 @@ function fitNodes(
   });
 }
 
+/** Zoom limits of the diagram (React Flow's default maximum; a lower minimum for big models). */
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 2;
+
 /** Below this width or height (px) the flow container is still being laid out; don't fit yet. */
 const MIN_FIT_SIZE = 50;
 
@@ -272,6 +281,7 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
               fitView={props.fitView ?? true}
               colorMode={dark ? 'dark' : 'light'}
               minimap={props.minimap ?? false}
+              panOnShiftScroll={props.panOnShiftScroll ?? true}
             />
             <ToolHint />
             <NoticeBar />
@@ -295,12 +305,14 @@ function Diagram({
   fitView,
   colorMode,
   minimap,
+  panOnShiftScroll,
 }: {
   controls: boolean;
   background: boolean;
   fitView: boolean;
   colorMode: 'light' | 'dark';
   minimap: boolean;
+  panOnShiftScroll: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
   const { model, registry, store, tool, readOnly } = editor;
@@ -628,15 +640,117 @@ function Diagram({
     [flowStore],
   );
 
+  // Shift + wheel pans sideways. React attaches wheel listeners as passive, so this is a native
+  // non-passive capture listener: it runs before React Flow's zoom handler on the pane, and
+  // stops it. Mice and trackpads often report Shift + wheel as deltaX with deltaY 0.
+  const diagramRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = diagramRef.current;
+    if (!element || !panOnShiftScroll) return;
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.shiftKey || event.ctrlKey || event.metaKey) return;
+      if (!(event.target as Element).closest('.react-flow__pane, .react-flow__node')) return;
+      const delta = event.deltaX !== 0 ? event.deltaX : event.deltaY;
+      if (delta === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const pixels =
+        event.deltaMode === 1 ? delta * 16 : event.deltaMode === 2 ? delta * 400 : delta;
+      const viewport = flow.getViewport();
+      void flow.setViewport({ ...viewport, x: viewport.x - pixels });
+    };
+    element.addEventListener('wheel', onWheel, { capture: true, passive: false });
+    return () => element.removeEventListener('wheel', onWheel, { capture: true });
+  }, [flow, panOnShiftScroll]);
+
+  // Two-finger pinch zoom on touch screens. React Flow ignores touches that start on a node
+  // (they carry `nopan`), and actor boundaries and elements cover most of the diagram, so a
+  // pinch there did nothing. The canvas handles every two-finger gesture itself instead:
+  // zooming around the fingers' midpoint and following it, within React Flow's zoom limits.
+  // One finger keeps React Flow's behaviour (drag a node, or pan).
+  useEffect(() => {
+    const element = diagramRef.current;
+    if (!element) return;
+    let pinch: {
+      distance: number;
+      mid: { x: number; y: number };
+      viewport: { x: number; y: number; zoom: number };
+    } | null = null;
+    const measure = (touches: TouchList) => {
+      const a = touches[0]!;
+      const b = touches[1]!;
+      const box = element.getBoundingClientRect();
+      return {
+        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        mid: {
+          x: (a.clientX + b.clientX) / 2 - box.left,
+          y: (a.clientY + b.clientY) / 2 - box.top,
+        },
+      };
+    };
+    const onStart = (event: TouchEvent): void => {
+      if (event.touches.length !== 2) return;
+      const { distance, mid } = measure(event.touches);
+      pinch = { distance: Math.max(distance, 1), mid, viewport: flow.getViewport() };
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const onMove = (event: TouchEvent): void => {
+      if (!pinch || event.touches.length < 2) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const { distance, mid } = measure(event.touches);
+      const { viewport } = pinch;
+      const zoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, viewport.zoom * (distance / pinch.distance)),
+      );
+      // Keep the flow point under the starting midpoint under the current midpoint.
+      const flowX = (pinch.mid.x - viewport.x) / viewport.zoom;
+      const flowY = (pinch.mid.y - viewport.y) / viewport.zoom;
+      void flow.setViewport({ x: mid.x - flowX * zoom, y: mid.y - flowY * zoom, zoom });
+    };
+    const onEnd = (event: TouchEvent): void => {
+      if (!pinch) return;
+      event.stopPropagation();
+      if (event.touches.length < 2) pinch = null;
+    };
+    const capture = { capture: true, passive: false };
+    element.addEventListener('touchstart', onStart, capture);
+    element.addEventListener('touchmove', onMove, capture);
+    element.addEventListener('touchend', onEnd, capture);
+    element.addEventListener('touchcancel', onEnd, capture);
+    return () => {
+      element.removeEventListener('touchstart', onStart, capture);
+      element.removeEventListener('touchmove', onMove, capture);
+      element.removeEventListener('touchend', onEnd, capture);
+      element.removeEventListener('touchcancel', onEnd, capture);
+    };
+  }, [flow]);
+
+  // With nothing selected, an actor also drags by its body, not just by its symbol (still never
+  // selected by a body click: actors aren't selectable, see modelToFlow).
+  const nothingSelected = editor.selection === null;
+  const flowNodes = useMemo(
+    () =>
+      nothingSelected
+        ? nodes.map((n) =>
+            n.type === 'istarActor' && n.dragHandle ? { ...n, dragHandle: undefined } : n,
+          )
+        : nodes,
+    [nodes, nothingSelected],
+  );
+
   return (
     <div
+      ref={diagramRef}
       className="istar-diagram"
       tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerDownCapture={onPointerDownCapture}
     >
       <ReactFlow<IstarFlowNode, IstarFlowEdge>
-        nodes={nodes}
+        nodes={flowNodes}
         edges={edges}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
@@ -656,7 +770,8 @@ function Diagram({
         elementsSelectable
         elevateNodesOnSelect={false}
         deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-        minZoom={0.1}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
         colorMode={colorMode}
         proOptions={{ hideAttribution: true }}
       >
