@@ -7,6 +7,7 @@ import type {
   LinkKind,
   LinkKindOf,
   Metamodel,
+  ModelStore,
   NodeKind,
 } from '../src';
 import {
@@ -85,6 +86,16 @@ describe('ISTAR_2_0', () => {
     expectTypeOf(createEmptyModel()).toEqualTypeOf<IstarModel>();
     expectTypeOf(createModelStore().getModel()).toEqualTypeOf<IstarModel>();
     expectTypeOf(ISTAR_2_0).toEqualTypeOf<Metamodel>();
+  });
+
+  test('function references and option-only calls type as before', () => {
+    // Overloaded functions resolve references against their last (iStar 2.0) signature.
+    expectTypeOf(['{}'].map(parsePistar)).toEqualTypeOf<IstarModel[]>();
+    const make: () => IstarModel = createEmptyModel;
+    expectTypeOf(make).returns.toEqualTypeOf<IstarModel>();
+    expectTypeOf(createModelStore(undefined, { historyLimit: 5 })).toEqualTypeOf<ModelStore>();
+    expectTypeOf(createModelStore(createEmptyModel())).toEqualTypeOf<ModelStore>();
+    expectTypeOf(parsePistar('{}', {})).toEqualTypeOf<IstarModel>();
   });
 });
 

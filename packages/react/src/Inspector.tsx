@@ -6,7 +6,7 @@ import type {
   PropertySchema,
   PropertyType,
 } from '@istar-ts/core';
-import { CONTRIBUTION_LABELS, isActorKind } from '@istar-ts/core';
+import { CONTRIBUTION_LABELS } from '@istar-ts/core';
 import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { useId, useState } from 'react';
 import { useIstarEditor } from './context';
@@ -43,7 +43,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         model={model}
         actions={editor.elementActions(element.id)}
         readOnly={readOnly}
-        schema={config.properties}
+        schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(element.id) ?? []}
       />
     ) : null;
@@ -57,7 +57,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         model={model}
         actions={editor.linkActions(link.id)}
         readOnly={readOnly}
-        schema={config.properties}
+        schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(link.id) ?? []}
       />
     ) : null;
@@ -338,7 +338,7 @@ export function DefaultElementInspector({
   readOnly,
   schema,
 }: InspectorProps<IstarElement>): ReactElement {
-  const { registry } = useIstarEditor();
+  const { registry, metamodel } = useIstarEditor();
   const nameId = useId();
   const colorId = useId();
   const typed = useTypedProperties(schema, target, actions);
@@ -390,7 +390,10 @@ export function DefaultElementInspector({
           <input
             id={colorId}
             type="color"
-            value={normalizeColor(target.display?.backgroundColor, isActorKind(target.kind))}
+            value={normalizeColor(
+              target.display?.backgroundColor,
+              metamodel.elements.get(target.kind)?.category === 'actor',
+            )}
             disabled={readOnly}
             onChange={(e) => actions.setDisplay({ backgroundColor: e.target.value })}
           />
@@ -426,7 +429,10 @@ export function DefaultLinkInspector({
   readOnly,
   schema,
 }: InspectorProps<IstarLink>): ReactElement {
-  const { registry, model } = useIstarEditor();
+  const { registry, model, metamodel } = useIstarEditor();
+  // A kind with a selectable value (Contribution, or an extended kind with possibleLabels).
+  const info = metamodel.links.get(target.kind)?.info;
+  const values = info?.changeableLabel ? (info.possibleLabels ?? CONTRIBUTION_LABELS) : undefined;
   const labelId = useId();
   const typed = useTypedProperties(schema, target, actions);
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
@@ -438,8 +444,11 @@ export function DefaultLinkInspector({
       <p className="istar-inspector-endpoints">
         {source} → {destination}
       </p>
-      {target.kind === 'istar.ContributionLink' && (
-        <InspectorField label="Contribution" htmlFor={labelId}>
+      {values && (
+        <InspectorField
+          label={metamodel.links.get(target.kind)?.label ?? 'Value'}
+          htmlFor={labelId}
+        >
           <select
             id={labelId}
             value={target.label ?? ''}
@@ -447,7 +456,7 @@ export function DefaultLinkInspector({
             onChange={(e) => actions.setLabel(e.target.value || undefined)}
           >
             <option value="">—</option>
-            {CONTRIBUTION_LABELS.map((value) => (
+            {values.map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>

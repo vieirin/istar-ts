@@ -5,7 +5,9 @@
  * the line between their centres, passing through any saved vertices.
  */
 import type { IstarLink } from '@istar-ts/core';
-import { LINK_KIND_INFO } from '@istar-ts/core';
+import type { AnyMetamodel, LinkKind } from '@istar-ts/core';
+import { LINK_KINDS, effectiveLinkKind } from '@istar-ts/core';
+import type { AnyIstarRegistry, IstarRegistry } from './registry';
 import type { EdgeProps, EdgeTypes, InternalNode } from '@xyflow/react';
 import { BaseEdge, useInternalNode } from '@xyflow/react';
 import type { ComponentType, ReactElement } from 'react';
@@ -102,6 +104,57 @@ export const TARGET_MARKERS: Partial<Record<IstarLink['kind'], { d: string; fill
   'istar.IsALink': { d: 'm 10,-6 l -10,6 10,6', filled: false },
   'istar.ParticipatesInLink': { d: 'm 10,-6 l -10,6 10,6', filled: false },
 };
+
+/** The marker of link kinds that have no style of their own: an open arrow. */
+export const OPEN_ARROW = 'm 10,-6 l -10,6 10,6';
+
+export interface ResolvedLinkStyle {
+  readonly dash?: string;
+  readonly marker?: { readonly d: string; readonly filled: boolean };
+  /** Draw the dependency "D" (dependency-category kinds). */
+  readonly dependency: boolean;
+  /** The kind carries a selectable value (contribution), drawn near the source. */
+  readonly changeableLabel: boolean;
+  /** Fixed text at the middle (e.g. "is-a"). */
+  readonly label?: string;
+}
+
+/**
+ * How a link kind is drawn: its registry `line` if any; else the iStar 2.0 style of the kind
+ * it behaves like; else (an extension kind with its own rules) a continuous line with an open
+ * arrow, as piStar-ext draws new links by default.
+ */
+export function resolveLinkStyle(
+  metamodel: AnyMetamodel,
+  registry: IstarRegistry,
+  kind: string,
+): ResolvedLinkStyle {
+  const definition = metamodel.links.get(kind);
+  const line = (registry as unknown as AnyIstarRegistry).links[kind]?.line;
+  const effective = effectiveLinkKind(metamodel, kind) as LinkKind;
+  const builtIn = (LINK_KINDS as readonly string[]).includes(effective);
+  let dash: string | undefined;
+  let marker: ResolvedLinkStyle['marker'];
+  if (line) {
+    dash = line.dash;
+    marker =
+      line.marker === false
+        ? undefined
+        : { d: line.marker ?? OPEN_ARROW, filled: line.markerFilled === true };
+  } else if (builtIn) {
+    dash = effective === 'istar.QualificationLink' ? '10,5' : undefined;
+    marker = TARGET_MARKERS[effective];
+  } else {
+    marker = { d: OPEN_ARROW, filled: false };
+  }
+  return {
+    ...(dash ? { dash } : {}),
+    ...(marker ? { marker } : {}),
+    dependency: definition?.category === 'dependency',
+    changeableLabel: definition?.info.changeableLabel === true,
+    ...(definition?.info.label ? { label: definition.info.label } : {}),
+  };
+}
 
 /** The dependency "D", drawn at the middle of each half and facing the dependee. */
 export const DEPENDENCY_D = 'm 0,-10 l 0,20 4,0 c 10,0, 10 -20, 0,-20 l -4,0';
@@ -242,7 +295,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   data,
   selected,
 }: EdgeProps<IstarFlowEdge>): ReactElement | null {
-  const { model } = useIstarEditor();
+  const { model, metamodel, registry } = useIstarEditor();
   const { linkShape } = useCanvasOptions();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -266,8 +319,8 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const end = points[points.length - 1]!;
   const beforeEnd = points[points.length - 2]!;
   const backAngle = (Math.atan2(beforeEnd.y - end.y, beforeEnd.x - end.x) * 180) / Math.PI;
-  const marker = TARGET_MARKERS[link.kind];
-  const info = LINK_KIND_INFO[link.kind];
+  const style = resolveLinkStyle(metamodel, registry, link.kind);
+  const marker = style.marker;
   const middle = pointAlong(points, 0.5);
 
   return (
@@ -277,7 +330,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
         path={path}
         interactionWidth={20}
         className="istar-link-line"
-        style={link.kind === 'istar.QualificationLink' ? { strokeDasharray: '10,5' } : undefined}
+        style={style.dash ? { strokeDasharray: style.dash } : undefined}
       />
       {marker && (
         <path
@@ -286,17 +339,17 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
           transform={`translate(${end.x} ${end.y}) rotate(${backAngle})`}
         />
       )}
-      {link.kind === 'istar.DependencyLink' && (
+      {style.dependency && (
         <path
           className="istar-link-dependency"
           d={DEPENDENCY_D}
           transform={`translate(${middle.x} ${middle.y}) rotate(${middle.angle})`}
         />
       )}
-      {link.kind === 'istar.ContributionLink' && link.label && (
+      {style.changeableLabel && link.label && (
         <LinkLabel at={pointAlong(points, 0.4)} text={link.label} className="is-contribution" />
       )}
-      {info.label && <LinkLabel at={middle} text={info.label} className="is-actor-link" />}
+      {style.label && <LinkLabel at={middle} text={style.label} className="is-actor-link" />}
     </g>
   );
 });

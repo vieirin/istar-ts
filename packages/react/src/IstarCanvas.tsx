@@ -1,5 +1,4 @@
-import type { ElementKind, IstarModel, ModelStore } from '@istar-ts/core';
-import { isActorKind, isNodeKind } from '@istar-ts/core';
+import type { ElementKind, IstarModel, LinkKind, ModelStore } from '@istar-ts/core';
 import type {
   Connection,
   FinalConnectionState,
@@ -58,15 +57,19 @@ import type { IstarExtension, IstarRegistry } from './registry';
 import { defaultNameFor, defaultPropertiesFor } from './registry';
 import type { ElementIssue } from './issues';
 
-export interface IstarCanvasProps {
+/**
+ * `EK`/`LK` are the kinds of the model's metamodel: iStar 2.0's by default, inferred from
+ * `model`/`store` when they use an extended metamodel (see `extendMetamodel`).
+ */
+export interface IstarCanvasProps<EK extends string = ElementKind, LK extends string = LinkKind> {
   /** Controlled model; pair with `onChange`. Ignored when `store` is given. */
-  readonly model?: IstarModel;
-  readonly onChange?: (model: IstarModel) => void;
+  readonly model?: IstarModel<EK, LK>;
+  readonly onChange?: (model: IstarModel<EK, LK>) => void;
   /** An existing store, for undo/redo and change events. */
-  readonly store?: ModelStore;
-  readonly registry?: IstarRegistry;
+  readonly store?: ModelStore<EK, LK>;
+  readonly registry?: IstarRegistry | IstarRegistry<EK, LK>;
   /** Extensions adapting the editor to another modeller (see `IstarExtension`). */
-  readonly extensions?: readonly IstarExtension[];
+  readonly extensions?: readonly IstarExtension<EK, LK>[];
   readonly readOnly?: boolean;
   /**
    * Host-owned issues (e.g. LSP diagnostics). Forwarded to {@link IstarProvider} when this
@@ -149,7 +152,11 @@ export interface IstarCanvasHandle {
  */
 export const IstarCanvas: ForwardRefExoticComponent<
   IstarCanvasProps & RefAttributes<IstarCanvasHandle>
-> = forwardRef<IstarCanvasHandle, IstarCanvasProps>(function IstarCanvas(
+> &
+  // Models of an extended metamodel (kinds beyond iStar 2.0's) are accepted too.
+  (<EK extends string, LK extends string>(
+    props: IstarCanvasProps<EK, LK> & RefAttributes<IstarCanvasHandle>,
+  ) => ReactNode) = forwardRef<IstarCanvasHandle, IstarCanvasProps>(function IstarCanvas(
   props: IstarCanvasProps,
   ref: Ref<IstarCanvasHandle>,
 ): ReactElement {
@@ -162,7 +169,7 @@ export const IstarCanvas: ForwardRefExoticComponent<
   );
   if (hasProvider) return content;
   return (
-    <IstarProvider
+    <IstarProvider<ElementKind, LinkKind>
       model={props.model}
       onChange={props.onChange}
       store={props.store}
@@ -175,7 +182,7 @@ export const IstarCanvas: ForwardRefExoticComponent<
       {content}
     </IstarProvider>
   );
-});
+}) as never;
 
 /** Exposes the canvas's React Flow viewport through the `IstarCanvas` ref. */
 const CanvasHandle = forwardRef<IstarCanvasHandle>(function CanvasHandle(_props, ref) {
@@ -315,7 +322,15 @@ function Diagram({
   panOnShiftScroll: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
-  const { model, registry, store, tool, readOnly } = editor;
+  const { model, registry, store, tool, readOnly, metamodel } = editor;
+  const isActorKind = useCallback(
+    (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor',
+    [metamodel],
+  );
+  const isNodeKind = useCallback(
+    (kind: string): boolean => metamodel.elements.get(kind)?.category === 'node',
+    [metamodel],
+  );
   const flow = useReactFlow();
   const graph = useMemo(() => modelToFlow(model, registry), [model, registry]);
   useInitialFit(fitView);
@@ -431,7 +446,7 @@ function Diagram({
       editor.setEditingId(element.id);
       editor.setTool(null);
     },
-    [editor, flow, registry, store],
+    [editor, flow, isActorKind, registry, store],
   );
 
   const onPaneClick = useCallback(
@@ -465,7 +480,7 @@ function Diagram({
         );
       }
     },
-    [addAt, editor, flow, registry, store, tool],
+    [addAt, editor, flow, isActorKind, registry, store, tool],
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
@@ -508,7 +523,7 @@ function Diagram({
       event.stopPropagation();
       addAt(tool.kind, event.clientX, event.clientY, actorId, tool.properties);
     },
-    [addAt, editor, flowStore, readOnly, registry, store, tool],
+    [addAt, editor, flowStore, isActorKind, isNodeKind, readOnly, registry, store, tool],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
@@ -525,6 +540,7 @@ function Diagram({
               depender: connection.source,
               dependee: connection.target,
               dependum: { kind: tool.dependum, name: registry.elements[tool.dependum].label },
+              ...(tool.linkKind && { linkKind: tool.linkKind }),
             })
           : store.connect({
               kind: tool.kind,
@@ -848,9 +864,9 @@ function ConnectionHint(): ReactElement | null {
 
 /** Like piStar's status bar: says what to do with the active tool, and how to cancel it. */
 function ToolHint(): ReactElement | null {
-  const { tool, registry, setTool } = useIstarEditor();
+  const { tool, registry, setTool, metamodel } = useIstarEditor();
   if (!tool) return null;
-  const entry = paletteEntryFor(registry, tool);
+  const entry = paletteEntryFor(registry, tool, metamodel);
   return (
     <div className="istar-tool-hint" role="status">
       <span>

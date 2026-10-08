@@ -286,6 +286,22 @@
   align-items: center;
   justify-content: center;
 }
+/* Extended kinds without a shape of their own: piStar's default node, «Kind» above the name. */
+.istar-element-body.has-stereotype {
+  flex-direction: column;
+}
+.istar-stereotype {
+  position: relative;
+  font-size: 0.9em;
+  font-style: italic;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.istar-actor-symbol-body .istar-stereotype {
+  position: absolute;
+  top: 14px;
+}
 .istar-shape {
   position: absolute;
   inset: 0;

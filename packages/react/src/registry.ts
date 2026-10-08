@@ -8,17 +8,24 @@
  * - `palette`: whether and how the kind appears in the "add" toolbar.
  */
 import type {
+  ActorKind,
+  AnyMetamodel,
   CustomProperties,
   ElementKind,
   IstarElement,
   IstarLink,
   IstarModel,
   LinkKind,
+  Metamodel,
+  MetamodelExtension,
   NodeKind,
   PropertySchema,
+  PropertyShape,
   Size,
 } from '@istar-ts/core';
 import {
+  ISTAR_2_0,
+  extendMetamodel,
   CONTRIBUTION_LABELS,
   DEFAULT_ELEMENT_SIZE,
   ELEMENT_KINDS,
@@ -31,6 +38,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
 import type { ElementIssue } from './issues';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
+import type { ShapeSpec } from './shapes';
 
 // ---------------------------------------------------------------------------------------------
 // Props passed to registry components
@@ -100,8 +108,8 @@ export interface PaletteGroup {
   readonly title?: string;
 }
 
-export interface ElementKindConfig {
-  readonly kind: ElementKind;
+export interface ElementKindConfig<K extends string = ElementKind> {
+  readonly kind: K;
   readonly label: string;
   /** Default size (actors: initial boundary size). `display.width/height` override per element. */
   readonly size: Size;
@@ -129,7 +137,18 @@ export interface ElementKindConfig {
    */
   readonly resizable?: boolean;
   /** Typed customProperties; the default inspector renders fields from it. */
-  readonly properties?: PropertySchema;
+  readonly properties?: PropertySchema<PropertyShape, string>;
+  /**
+   * The kind's shape as SVG path data (piStar-ext's "Shape" field), drawn by the default
+   * component scaled to the element. Without one, built-in kinds use their piStar shape and
+   * extended kinds piStar's default node: a dashed box labelled with their «stereotype».
+   */
+  readonly shape?: ShapeSpec;
+  /**
+   * Text drawn above the name, without the guillemets (`Planning` → «Planning»). Default: the
+   * label, for extended kinds without a `shape`; none otherwise.
+   */
+  readonly stereotype?: string | false;
   /**
    * Name assigned when the palette creates an element of this kind. Defaults to `label`
    * (e.g. "Goal"). Use for modeller-specific numbering such as MutRoSe's `G1: …` / `AT1: …`.
@@ -147,33 +166,69 @@ export interface LinkPaletteEntry extends PaletteEntry {
   readonly label: string;
 }
 
-export interface LinkKindConfig {
-  readonly kind: LinkKind;
+/**
+ * How a link kind is drawn. piStar-ext's "Kind of Line" values are `dashed` ('10,5'),
+ * `dotted` ('1,3') and `continuous` (no dash); see `LINE_DASHES`.
+ */
+export interface LinkLineStyle {
+  /** SVG dash array, e.g. '10,5'. Default: continuous. */
+  readonly dash?: string;
+  /**
+   * Target marker as path data in JointJS's convention (as piStar-ext stores it): (0,0) is the
+   * link end and +x points back towards the source. Default: an open arrow. `false`: none.
+   */
+  readonly marker?: string | false;
+  /** Fill the marker (a solid arrowhead or dot). Default false. */
+  readonly markerFilled?: boolean;
+}
+
+/** piStar-ext's line kinds, as dash arrays. */
+export const LINE_DASHES: Readonly<Record<'continuous' | 'dashed' | 'dotted', string | undefined>> =
+  {
+    continuous: undefined,
+    dashed: '10,5',
+    dotted: '1,3',
+  };
+
+export interface LinkKindConfig<K extends string = LinkKind, DK extends string = NodeKind> {
+  readonly kind: K;
   readonly label: string;
   readonly inspector?: ComponentType<InspectorProps<IstarLink>> | false;
   /**
    * Toolbar entries for this link kind. Contribution has one per value (make/help/hurt/break);
    * Dependency has one per dependum kind. `false` hides the kind.
    */
-  readonly palette: readonly LinkToolEntry[] | false;
-  readonly properties?: PropertySchema;
+  readonly palette: readonly LinkToolEntry<DK>[] | false;
+  readonly properties?: PropertySchema<PropertyShape, string>;
+  /**
+   * Line, dash and marker. Default: built-in kinds draw as in piStar; an extended kind draws
+   * like the kind it behaves like, or as a continuous line with an open arrow.
+   */
+  readonly line?: LinkLineStyle;
 }
 
-export interface LinkToolEntry extends PaletteEntry {
+export interface LinkToolEntry<DK extends string = NodeKind> extends PaletteEntry {
   /** Contribution value to set on the new link. */
   readonly value?: string;
   /** For dependencies: the kind of dependum to create. */
-  readonly dependum?: NodeKind;
+  readonly dependum?: DK;
 }
 
-export interface IstarRegistry {
-  readonly elements: Readonly<Record<ElementKind, ElementKindConfig>>;
-  readonly links: Readonly<Record<LinkKind, LinkKindConfig>>;
+/**
+ * Per-kind configuration of the editor. `EK`/`LK` are the element and link kinds; they default
+ * to iStar 2.0's. `registryForMetamodel` builds one covering an extended metamodel.
+ */
+export interface IstarRegistry<EK extends string = ElementKind, LK extends string = LinkKind> {
+  readonly elements: Readonly<Record<EK, ElementKindConfig<EK>>>;
+  readonly links: Readonly<Record<LK, LinkKindConfig<LK, Exclude<EK, ActorKind>>>>;
   /** Labels for palette groups, keyed by `PaletteEntry.group`. */
   readonly paletteGroups: Readonly<Record<string, PaletteGroup>>;
 }
 
-export type ElementKindOverride = Partial<Omit<ElementKindConfig, 'kind' | 'palette'>> & {
+/** A registry of any dialect, for code that handles every kind generically. */
+export type AnyIstarRegistry = IstarRegistry<string, string>;
+
+export type ElementKindOverride = Partial<Omit<ElementKindConfig<string>, 'kind' | 'palette'>> & {
   /**
    * A partial entry is merged into the kind's entry (into each one, if it has a list); a list
    * replaces them, each item inheriting the kind's icon, section and order unless it sets its
@@ -181,11 +236,11 @@ export type ElementKindOverride = Partial<Omit<ElementKindConfig, 'kind' | 'pale
    */
   readonly palette?: Partial<PaletteEntry> | readonly ElementToolEntry[] | false;
 };
-export type LinkKindOverride = Partial<Omit<LinkKindConfig, 'kind'>>;
+export type LinkKindOverride = Partial<Omit<LinkKindConfig<string, string>, 'kind'>>;
 
-export interface RegistryOverrides {
-  readonly elements?: Partial<Record<ElementKind, ElementKindOverride>>;
-  readonly links?: Partial<Record<LinkKind, LinkKindOverride>>;
+export interface RegistryOverrides<EK extends string = ElementKind, LK extends string = LinkKind> {
+  readonly elements?: Partial<Record<EK, ElementKindOverride>>;
+  readonly links?: Partial<Record<LK, LinkKindOverride>>;
   readonly paletteGroups?: Readonly<Record<string, PaletteGroup>>;
 }
 
@@ -380,34 +435,48 @@ function mergeElementPalette(
 /**
  * Builds a registry from `base` (the default registry unless given) with per-kind overrides.
  * Palette overrides are merged into the base entry; `false` removes the kind from the palette.
+ * Overrides for kinds the base doesn't know are ignored (complete it first with
+ * `registryForMetamodel`).
  */
+// The iStar 2.0 overload comes last, so function references type as before.
+export function createRegistry<EK extends string, LK extends string>(
+  overrides: RegistryOverrides<EK, LK>,
+  base: IstarRegistry<EK, LK>,
+): IstarRegistry<EK, LK>;
+export function createRegistry(overrides?: RegistryOverrides, base?: IstarRegistry): IstarRegistry;
 export function createRegistry(
-  overrides: RegistryOverrides = {},
-  base: IstarRegistry = defaultRegistry,
-): IstarRegistry {
-  const elements = { ...base.elements };
-  for (const [kind, override] of Object.entries(overrides.elements ?? {}) as [
-    ElementKind,
-    ElementKindOverride,
-  ][]) {
+  overrides: RegistryOverrides<string, string> = {},
+  base: AnyIstarRegistry = defaultRegistry as unknown as AnyIstarRegistry,
+): AnyIstarRegistry {
+  const elements: Record<string, ElementKindConfig<string>> = { ...base.elements };
+  for (const [kind, override] of Object.entries(overrides.elements ?? {})) {
     const current = elements[kind];
+    if (!current || !override) continue;
     const { palette, ...rest } = override;
-    elements[kind] = { ...current, ...rest, palette: mergeElementPalette(current, palette) };
+    elements[kind] = {
+      ...current,
+      ...rest,
+      palette: mergeElementPalette(current as ElementKindConfig, palette),
+    } as ElementKindConfig<string>;
   }
-  const links = { ...base.links };
-  for (const [kind, override] of Object.entries(overrides.links ?? {}) as [
-    LinkKind,
-    LinkKindOverride,
-  ][]) {
-    links[kind] = { ...links[kind], ...override };
+  const links: Record<string, LinkKindConfig<string, string>> = { ...base.links };
+  for (const [kind, override] of Object.entries(overrides.links ?? {})) {
+    const current = links[kind];
+    if (!current || !override) continue;
+    links[kind] = { ...current, ...override };
   }
   return { elements, links, paletteGroups: { ...base.paletteGroups, ...overrides.paletteGroups } };
 }
 
 /**
  * Adapts the piStar defaults to another modeller: per-kind element and link overrides
- * (`component`, `defaultProperties`, `inspector`, `palette`, `properties`, …) and palette groups.
- * The editor itself knows nothing about any particular modeller; extensions carry that.
+ * (`component`, `defaultProperties`, `inspector`, `palette`, `properties`, `shape`, `line`, …)
+ * and palette groups. The editor itself knows nothing about any particular modeller;
+ * extensions carry that.
+ *
+ * An extension may also bring new kinds (`metamodel`, see `extendMetamodel` in
+ * `@istar-ts/core`): `metamodelWithExtensions` applies them, and the editor then offers the
+ * new kinds in its palette and draws them with their `shape` / `line`.
  *
  * @example
  * const variables: IstarExtension = {
@@ -416,48 +485,185 @@ export function createRegistry(
  * };
  * <IstarCanvas store={store} extensions={[variables]} />
  */
-export interface IstarExtension extends RegistryOverrides {
+export interface IstarExtension<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+> extends RegistryOverrides<EK, LK> {
   readonly name: string;
+  /** New element and link kinds this extension adds to the metamodel. */
+  readonly metamodel?: MetamodelExtension<string, string>;
+}
+
+/**
+ * The metamodel an editor needs for `extensions`: `base` (iStar 2.0 by default) extended with
+ * each extension's `metamodel` part, in order. Parse files with it (`parsePistar(text, {
+ * metamodel })`) or create stores with it, then pass the same `extensions` to the canvas.
+ */
+export function metamodelWithExtensions(
+  extensions: readonly { readonly metamodel?: MetamodelExtension<string, string> }[],
+  base: Metamodel<string, string> = ISTAR_2_0 as unknown as Metamodel<string, string>,
+): Metamodel<string, string> {
+  return extensions.reduce<Metamodel<string, string>>(
+    (metamodel, extension) =>
+      extension.metamodel && !metamodel.extensions.includes(extension.metamodel.name)
+        ? extendMetamodel(metamodel, extension.metamodel)
+        : metamodel,
+    base,
+  );
 }
 
 /** Applies extensions in order on top of `base` (later extensions win). */
-export function applyExtensions(
-  base: IstarRegistry,
-  extensions: readonly RegistryOverrides[],
-): IstarRegistry {
-  return extensions.reduce<IstarRegistry>((registry, ext) => createRegistry(ext, registry), base);
+export function applyExtensions<EK extends string = ElementKind, LK extends string = LinkKind>(
+  base: IstarRegistry<EK, LK>,
+  extensions: readonly RegistryOverrides<EK, LK>[],
+): IstarRegistry<EK, LK> {
+  return extensions.reduce<IstarRegistry<EK, LK>>(
+    (registry, ext) => createRegistry(ext, registry),
+    base,
+  );
+}
+
+function article(word: string): string {
+  return /^[aeiou]/i.test(word) ? 'an' : 'a';
+}
+
+/**
+ * Completes `base` with default configurations for the kinds of `metamodel` it lacks (those
+ * an extension added): the kind's label and size, the default components, and a palette entry
+ * after the built-in ones, as piStar-ext adds new constructs to its toolbar. Extended node
+ * kinds that can be dependums also get an entry in the dependency menu.
+ */
+export function registryForMetamodel<EK extends string, LK extends string>(
+  metamodel: Metamodel<EK, LK>,
+  base: IstarRegistry = defaultRegistry,
+): IstarRegistry<EK, LK> {
+  const meta = metamodel as unknown as AnyMetamodel;
+  const from = base as unknown as AnyIstarRegistry;
+  const elements: Record<string, ElementKindConfig<string>> = { ...from.elements };
+  const links: Record<string, LinkKindConfig<string, string>> = { ...from.links };
+  let extraNode = 0;
+  let extraActor = 0;
+  const newDependums: string[] = [];
+  for (const definition of meta.elements.values()) {
+    if (elements[definition.kind]) continue;
+    const actor = definition.category === 'actor';
+    const order = actor ? 2 + ++extraActor / 100 : 36 + ++extraNode / 100;
+    elements[definition.kind] = {
+      kind: definition.kind,
+      label: definition.label,
+      size: definition.size,
+      component: actor ? DefaultActorComponent : DefaultElementComponent,
+      resizable: !actor,
+      palette: {
+        label: definition.label,
+        title: actor
+          ? `Add ${article(definition.label)} ${definition.label}: click on an empty spot of the diagram`
+          : `Adding ${definition.label}: click on an actor/role/agent to add ${article(definition.label)} ${definition.label}`,
+        order,
+        section: actor ? 'actors' : 'elements',
+        ...(actor ? { group: 'actors' } : {}),
+      },
+    };
+    if (!actor && definition.info?.canBeDependum) newDependums.push(definition.kind);
+  }
+  let extraLink = 0;
+  for (const definition of meta.links.values()) {
+    if (links[definition.kind]) continue;
+    const order = 44 + ++extraLink / 100;
+    const entry: LinkToolEntry<string> = {
+      label: definition.label,
+      title: `Add ${article(definition.label)} ${definition.label} link: drag from the source to the target`,
+      order,
+      section: definition.category === 'actor' ? 'actors' : 'elements',
+      ...(definition.category === 'actor' ? { group: 'actor-links' } : {}),
+    };
+    links[definition.kind] = {
+      kind: definition.kind,
+      label: definition.label,
+      palette:
+        definition.category === 'dependency'
+          ? [...meta.elements.values()]
+              .filter((e) => e.category === 'node' && e.info?.canBeDependum)
+              .map((e, i) => ({
+                label: `${e.label} ${definition.label.toLowerCase()}`,
+                dependum: e.kind,
+                order: order + i / 1000,
+                section: 'actors',
+                group: 'dependencies',
+                title: `Add ${article(definition.label)} ${definition.label} with ${article(e.label)} ${e.label} dependum: drag from the depender to the dependee`,
+              }))
+          : [entry],
+    };
+  }
+  // Extended node kinds can be dependums of the built-in dependency too.
+  const dependency = links['istar.DependencyLink'];
+  if (dependency && Array.isArray(dependency.palette) && newDependums.length > 0) {
+    const palette = dependency.palette as readonly LinkToolEntry<string>[];
+    const last = palette[palette.length - 1];
+    links['istar.DependencyLink'] = {
+      ...dependency,
+      palette: [
+        ...palette,
+        ...newDependums.map((kind, i) => {
+          const label = meta.elements.get(kind)!.label;
+          return {
+            label: `${label} dependency`,
+            dependum: kind,
+            order: (last?.order ?? 20) + (i + 1) / 100,
+            section: last?.section ?? 'actors',
+            group: last?.group ?? 'dependencies',
+            title: `Add a dependency with ${article(label)} ${label} dependum: drag from the depender to the dependee`,
+          };
+        }),
+      ],
+    };
+  }
+  return {
+    elements,
+    links,
+    paletteGroups: from.paletteGroups,
+  } as unknown as IstarRegistry<EK, LK>;
 }
 
 /** Resolves `defaultProperties` for a new element of `kind`. */
-export function defaultPropertiesFor(
-  registry: IstarRegistry,
-  kind: ElementKind,
-  model: IstarModel,
+export function defaultPropertiesFor<EK extends string = ElementKind, LK extends string = LinkKind>(
+  registry: IstarRegistry<EK, LK>,
+  kind: string,
+  model: IstarModel<EK, LK>,
 ): CustomProperties | undefined {
-  const config = registry.elements[kind];
+  const config = (registry as unknown as AnyIstarRegistry).elements[kind];
+  if (!config) return undefined;
   const preset = config.defaultProperties;
-  const fromPreset = typeof preset === 'function' ? preset({ model }) : preset;
+  const fromPreset =
+    typeof preset === 'function' ? preset({ model: model as unknown as IstarModel }) : preset;
   const fromSchema = config.properties?.defaults();
   if (!fromPreset && !fromSchema) return undefined;
   return { ...fromSchema, ...fromPreset };
 }
 
 /** Resolves the name for a newly created element of `kind`. */
-export function defaultNameFor(
-  registry: IstarRegistry,
-  kind: ElementKind,
-  model: IstarModel,
+export function defaultNameFor<EK extends string = ElementKind, LK extends string = LinkKind>(
+  registry: IstarRegistry<EK, LK>,
+  kind: string,
+  model: IstarModel<EK, LK>,
 ): string {
-  const config = registry.elements[kind];
+  const config = (registry as unknown as AnyIstarRegistry).elements[kind];
+  if (!config) return kind;
   const factory = config.defaultName;
-  if (typeof factory === 'function') return factory({ model });
+  if (typeof factory === 'function') return factory({ model: model as unknown as IstarModel });
   if (typeof factory === 'string') return factory;
   return config.label;
 }
 
 /** The rendered size of an element: its display override or the registry size. */
-export function elementSize(registry: IstarRegistry, element: IstarElement): Size {
-  const base = registry.elements[element.kind].size;
+export function elementSize<EK extends string = ElementKind, LK extends string = LinkKind>(
+  registry: IstarRegistry<EK, LK>,
+  element: IstarElement<string>,
+): Size {
+  const base = (registry as unknown as AnyIstarRegistry).elements[element.kind]?.size ?? {
+    width: 90,
+    height: 35,
+  };
   return {
     width: typeof element.display?.width === 'number' ? element.display.width : base.width,
     height: typeof element.display?.height === 'number' ? element.display.height : base.height,

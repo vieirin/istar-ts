@@ -171,11 +171,16 @@ export interface ParsePistarOptions<EK extends string = ElementKind, LK extends 
   readonly metamodel?: Metamodel<EK, LK>;
 }
 
-export function parsePistar(input: string | PistarFile | Record<string, unknown>): IstarModel;
+// The iStar 2.0 overload comes last, so `parsePistar` passed as a callback types as before.
 export function parsePistar<EK extends string, LK extends string>(
   input: string | PistarFile | Record<string, unknown>,
-  options: ParsePistarOptions<EK, LK>,
+  options: ParsePistarOptions<EK, LK> & { readonly metamodel: Metamodel<EK, LK> },
 ): IstarModel<EK, LK>;
+export function parsePistar(
+  input: string | PistarFile | Record<string, unknown>,
+  options: ParsePistarOptions,
+): IstarModel;
+export function parsePistar(input: string | PistarFile | Record<string, unknown>): IstarModel;
 export function parsePistar(
   input: string | PistarFile | Record<string, unknown>,
   options: ParsePistarOptions<string, string> = {},

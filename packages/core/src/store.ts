@@ -110,11 +110,16 @@ export interface ModelStore<EK extends string = ElementKind, LK extends string =
   clearHistory(): void;
 }
 
-export function createModelStore(initial?: IstarModel, options?: ModelStoreOptions): ModelStore;
+// The iStar 2.0 overload comes last, so function references type as before.
 export function createModelStore<EK extends string, LK extends string>(
-  initial: IstarModel<EK, LK> | undefined,
+  initial: IstarModel<EK, LK>,
   options?: ModelStoreOptions<EK, LK>,
 ): ModelStore<EK, LK>;
+export function createModelStore<EK extends string, LK extends string>(
+  initial: undefined,
+  options: ModelStoreOptions<EK, LK> & { readonly metamodel: Metamodel<EK, LK> },
+): ModelStore<EK, LK>;
+export function createModelStore(initial?: IstarModel, options?: ModelStoreOptions): ModelStore;
 export function createModelStore(
   initial?: AnyIstarModel,
   options: ModelStoreOptions<string, string> = {},

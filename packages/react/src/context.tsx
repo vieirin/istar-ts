@@ -1,14 +1,18 @@
 import type {
+  ActorKind,
+  AnyMetamodel,
+  DependencyLinkKind,
   ElementKind,
   IstarElement,
   IstarLink,
   IstarModel,
   LinkCheck,
   LinkKind,
+  Metamodel,
   ModelStore,
-  NodeKind,
+  ModelStoreOptions,
 } from '@istar-ts/core';
-import { canLink, createModelStore } from '@istar-ts/core';
+import { canLink, createModelStore, metamodelOf } from '@istar-ts/core';
 import type { ReactElement, ReactNode } from 'react';
 import {
   createContext,
@@ -22,20 +26,25 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
-import { applyExtensions, defaultRegistry } from './registry';
+import { applyExtensions, defaultRegistry, registryForMetamodel } from './registry';
 import type { ElementIssue } from './issues';
 import { groupIssuesById } from './issues';
 
-/** The active toolbar tool. */
-export type Tool =
+/** The active toolbar tool. `EK`/`LK` default to iStar 2.0's kinds. */
+export type Tool<EK extends string = ElementKind, LK extends string = LinkKind> =
   | {
       type: 'element';
-      kind: ElementKind;
+      kind: EK;
       /** customProperties preset on the new element, over the kind's defaults. */
       properties?: Readonly<Record<string, string>>;
     }
-  | { type: 'link'; kind: Exclude<LinkKind, 'istar.DependencyLink'>; value?: string }
-  | { type: 'dependency'; dependum: NodeKind };
+  | { type: 'link'; kind: Exclude<LK, DependencyLinkKind>; value?: string }
+  | {
+      type: 'dependency';
+      dependum: Exclude<EK, ActorKind>;
+      /** The dependency link kind. Default `istar.DependencyLink`. */
+      linkKind?: LK;
+    };
 
 export type Selection = { type: 'element'; id: string } | { type: 'link'; id: string } | null;
 
@@ -48,6 +57,11 @@ export interface Notice {
 export interface IstarEditor {
   readonly store: ModelStore;
   readonly model: IstarModel;
+  /**
+   * The model's metamodel (iStar 2.0 unless the model was read or created with an extended
+   * one). Extended kinds are in `registry` too, with default configurations.
+   */
+  readonly metamodel: AnyMetamodel;
   readonly registry: IstarRegistry;
   readonly readOnly: boolean;
   readonly tool: Tool | null;
@@ -97,30 +111,52 @@ export function useStoreModel(store: ModelStore): IstarModel {
  * Creates a store once and returns it with its current model. Use it to get undo/redo and
  * change events without wiring your own store.
  */
-export function useIstarStore(initial?: IstarModel | (() => IstarModel)): {
-  store: ModelStore;
-  model: IstarModel;
+export function useIstarStore<EK extends string = ElementKind, LK extends string = LinkKind>(
+  initial?: IstarModel<EK, LK> | (() => IstarModel<EK, LK>),
+  options: {
+    /** Metamodel of the empty model created when `initial` is omitted. */
+    readonly metamodel?: Metamodel<EK, LK>;
+  } = {},
+): {
+  store: ModelStore<EK, LK>;
+  model: IstarModel<EK, LK>;
 } {
-  const [store] = useState(() =>
-    createModelStore(typeof initial === 'function' ? initial() : initial),
+  const [store] = useState(
+    () =>
+      createModelStore(
+        (typeof initial === 'function' ? initial() : initial) as IstarModel | undefined,
+        (options.metamodel ? { metamodel: options.metamodel } : {}) as ModelStoreOptions,
+      ) as unknown as ModelStore<EK, LK>,
   );
-  return { store, model: useStoreModel(store) };
+  return {
+    store,
+    model: useStoreModel(store as unknown as ModelStore) as unknown as IstarModel<EK, LK>,
+  };
 }
 
-export interface IstarProviderProps {
+/**
+ * Editor props. `EK`/`LK` are the kinds of the model's metamodel; they default to iStar 2.0's
+ * and are inferred from `model`/`store` when those use an extended metamodel.
+ */
+export interface IstarProviderProps<EK extends string = ElementKind, LK extends string = LinkKind> {
   /** Controlled model. Ignored when `store` is given. */
-  readonly model?: IstarModel;
+  readonly model?: IstarModel<EK, LK>;
   /** Called with the next model after each edit (controlled mode). */
-  readonly onChange?: (model: IstarModel) => void;
+  readonly onChange?: (model: IstarModel<EK, LK>) => void;
   /** Use an existing store (for undo/redo and change events). Takes precedence over `model`. */
-  readonly store?: ModelStore;
-  /** Base registry; the piStar-like `defaultRegistry` when omitted. */
-  readonly registry?: IstarRegistry;
+  readonly store?: ModelStore<EK, LK>;
+  /**
+   * Base registry; the piStar-like `defaultRegistry` when omitted. It is completed with default
+   * configurations for kinds the model's metamodel adds (see `registryForMetamodel`).
+   */
+  readonly registry?: IstarRegistry | IstarRegistry<EK, LK>;
   /**
    * Extensions applied on top of `registry`, in order, to adapt the editor to another modeller.
    * Keep the array stable (memoize it) to avoid rebuilding the registry on every render.
+   * (Their `metamodel` part must already be in the model's metamodel: see
+   * `metamodelWithExtensions`.)
    */
-  readonly extensions?: readonly IstarExtension[];
+  readonly extensions?: readonly IstarExtension<EK, LK>[];
   readonly readOnly?: boolean;
   /**
    * Host-owned issues (e.g. LSP diagnostics from a VS Code webview). Keyed by element/link id
@@ -136,17 +172,24 @@ export interface IstarProviderProps {
  * Supplies the editor state to `<IstarCanvas>`, `<IstarPalette>`, `<IstarInspector>` and custom
  * UI. `<IstarCanvas>` creates one automatically when it isn't wrapped in a provider.
  */
-export function IstarProvider(props: IstarProviderProps): ReactElement {
+export function IstarProvider<EK extends string = ElementKind, LK extends string = LinkKind>(
+  typedProps: IstarProviderProps<EK, LK>,
+): ReactElement {
+  // Internally kinds are plain strings looked up in the metamodel and registry.
+  const props = typedProps as unknown as IstarProviderProps;
   const store = useControlledStore(props.store, props.model, props.onChange);
   const storeModel = useStoreModel(store);
   // In controlled mode render exactly what the parent passed.
   const model = props.store ? storeModel : (props.model ?? storeModel);
+  const metamodel = metamodelOf(model) as unknown as AnyMetamodel;
   const baseRegistry = props.registry ?? defaultRegistry;
-  const registry = useMemo(
-    () =>
-      props.extensions?.length ? applyExtensions(baseRegistry, props.extensions) : baseRegistry,
-    [baseRegistry, props.extensions],
-  );
+  const registry = useMemo(() => {
+    const complete =
+      metamodel.extensions.length > 0
+        ? (registryForMetamodel(metamodel, baseRegistry) as unknown as IstarRegistry)
+        : baseRegistry;
+    return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
+  }, [metamodel, baseRegistry, props.extensions]);
   const readOnly = props.readOnly ?? false;
   const [tool, setTool] = useState<Tool | null>(null);
   const [rawSelection, setRawSelection] = useState<Selection>(null);
@@ -198,7 +241,8 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
       if (!forTool || forTool.type === 'element') {
         return { ok: false, code: 'unknown-link-kind', reason: 'select a link type first' };
       }
-      const kind = forTool.type === 'dependency' ? 'istar.DependencyLink' : forTool.kind;
+      const kind =
+        forTool.type === 'dependency' ? (forTool.linkKind ?? 'istar.DependencyLink') : forTool.kind;
       return canLink(current, source, target, kind);
     },
     [store, tool],
@@ -244,6 +288,7 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
     () => ({
       store,
       model,
+      metamodel,
       registry,
       readOnly,
       tool,
@@ -263,6 +308,7 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
     [
       store,
       model,
+      metamodel,
       registry,
       readOnly,
       tool,
@@ -283,6 +329,11 @@ export function IstarProvider(props: IstarProviderProps): ReactElement {
 /** True when rendered inside an `IstarProvider`. */
 export function useHasIstarProvider(): boolean {
   return useContext(EditorContext) !== null;
+}
+
+/** The surrounding editor, or `null` outside a provider (e.g. a component rendered standalone). */
+export function useOptionalIstarEditor(): IstarEditor | null {
+  return useContext(EditorContext);
 }
 
 /**

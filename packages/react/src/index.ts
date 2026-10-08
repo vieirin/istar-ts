@@ -9,17 +9,22 @@ export type {
   PaletteOrientation,
 } from './Palette';
 export { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
+export type { ElementIconOptions, LinkIconStyle } from './palette-icons';
 export {
   IstarProvider,
   useIstarEditor,
   useIstarStore,
+  useOptionalIstarEditor,
   useSelectedTarget,
   useStoreModel,
 } from './context';
 export type { IstarEditor, IstarProviderProps, Notice, Selection, Tool } from './context';
 export {
+  LINE_DASHES,
   applyExtensions,
   createRegistry,
+  metamodelWithExtensions,
+  registryForMetamodel,
   defaultNameFor,
   defaultPropertiesFor,
   defaultRegistry,
@@ -30,8 +35,10 @@ export type {
   ElementComponentProps,
   ElementKindConfig,
   ElementKindOverride,
+  AnyIstarRegistry,
   InspectorProps,
   IstarExtension,
+  LinkLineStyle,
   IstarRegistry,
   LinkActions,
   LinkKindConfig,
@@ -55,13 +62,20 @@ export type { ElementIssue, IssueSeverity } from './issues';
 export {
   ACTOR_RADIUS,
   ActorSymbol,
+  DefaultNodeShape,
   GoalShape,
+  PathShape,
   QUALITY_PATH,
   QualityShape,
   ResourceShape,
   TaskShape,
+  shapeViewBox,
 } from './shapes';
-export type { ShapeProps } from './shapes';
+export type { ShapeProps, ShapeSpec } from './shapes';
+export { pathBounds } from './svg-path';
+export type { PathBounds } from './svg-path';
+export { OPEN_ARROW, resolveLinkStyle } from './edges';
+export type { ResolvedLinkStyle } from './edges';
 export { ACTOR_PADDING, actorBoundary, modelToFlow } from './layout';
 export type { Box, FlowGraph } from './layout';
 export {

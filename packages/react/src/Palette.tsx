@@ -1,9 +1,12 @@
-import type { LinkKind } from '@istar-ts/core';
+import type { AnyMetamodel, LinkKind, NodeKind } from '@istar-ts/core';
+import { ISTAR_2_0 } from '@istar-ts/core';
+import { resolveLinkStyle } from './edges';
+import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Tool } from './context';
 import { useIstarEditor } from './context';
-import type { ElementToolEntry, IstarRegistry, PaletteEntry } from './registry';
+import type { AnyIstarRegistry, ElementToolEntry, IstarRegistry, PaletteEntry } from './registry';
 
 export type PaletteOrientation = 'vertical' | 'horizontal';
 
@@ -38,8 +41,12 @@ function sameTool(a: Tool | null, b: Tool): boolean {
 }
 
 /** The palette entry that produces `tool`, if any (used for the status hint). */
-export function paletteEntryFor(registry: IstarRegistry, tool: Tool): PaletteEntry | undefined {
-  for (const slots of paletteSections(registry)) {
+export function paletteEntryFor(
+  registry: IstarRegistry,
+  tool: Tool,
+  metamodel: AnyMetamodel = ISTAR_2_0,
+): PaletteEntry | undefined {
+  for (const slots of paletteSections(registry, metamodel)) {
     for (const slot of slots) {
       const items = slot.type === 'item' ? [slot.item] : slot.items;
       const match = items.find((i) => sameTool(i.tool, tool));
@@ -49,35 +56,77 @@ export function paletteEntryFor(registry: IstarRegistry, tool: Tool): PaletteEnt
   return undefined;
 }
 
-/** Registry palette entries, ordered, split into sections, with groups collapsed. */
-export function paletteSections(registry: IstarRegistry): Slot[][] {
+/**
+ * Registry palette entries, ordered, split into sections, with groups collapsed. `metamodel`
+ * (default iStar 2.0) tells dependency kinds apart and draws icons for extended kinds whose
+ * entries have none.
+ */
+export function paletteSections(
+  registry: IstarRegistry,
+  metamodel: AnyMetamodel = ISTAR_2_0,
+): Slot[][] {
   const items: Item[] = [];
+  const any = registry as unknown as AnyIstarRegistry;
+  const elementIconFor = (kind: string): ReactNode => {
+    const shape = any.elements[kind]?.shape;
+    return elementIcon(kind, {
+      ...(shape ? { shape } : {}),
+      actor: metamodel.elements.get(kind)?.category === 'actor',
+    });
+  };
   for (const config of Object.values(registry.elements)) {
     if (config.palette === false) continue;
+    const defaultIcon = (): ReactNode => elementIconFor(config.kind);
     if (Array.isArray(config.palette)) {
       (config.palette as readonly ElementToolEntry[]).forEach(({ properties, ...entry }, i) => {
         items.push({
           key: `${config.kind}:${i}`,
-          entry,
+          entry: entry.icon === undefined ? { ...entry, icon: defaultIcon() } : entry,
           tool: { type: 'element', kind: config.kind, ...(properties && { properties }) },
         });
       });
       continue;
     }
+    const entry = config.palette as PaletteEntry;
     items.push({
       key: config.kind,
-      entry: config.palette as PaletteEntry,
+      entry: entry.icon === undefined ? { ...entry, icon: defaultIcon() } : entry,
       tool: { type: 'element', kind: config.kind },
     });
   }
   for (const config of Object.values(registry.links)) {
     if (config.palette === false) continue;
     const kind = config.kind as LinkKind;
-    for (const entry of config.palette) {
-      const tool: Tool =
-        kind === 'istar.DependencyLink'
-          ? { type: 'dependency', dependum: entry.dependum ?? 'istar.Goal' }
-          : { type: 'link', kind, ...(entry.value ? { value: entry.value } : {}) };
+    const dependency = metamodel.links.get(kind)?.category === 'dependency';
+    for (const raw of config.palette) {
+      let entry: PaletteEntry & { readonly value?: string; readonly dependum?: string } = raw;
+      if (entry.icon === undefined) {
+        const style = resolveLinkStyle(metamodel, registry, kind);
+        entry = {
+          ...entry,
+          icon: dependency
+            ? (() => {
+                const shape = any.elements[entry.dependum ?? '']?.shape;
+                return dependencyIcon(entry.dependum ?? 'istar.Goal', shape ? { shape } : {});
+              })()
+            : linkIcon(kind, entry.value, {
+                ...(style.dash ? { dash: style.dash } : {}),
+                marker: style.marker ?? null,
+              }),
+        };
+      }
+      const tool: Tool = dependency
+        ? {
+            type: 'dependency',
+            dependum: (entry.dependum ?? 'istar.Goal') as NodeKind,
+            // The default kind stays implicit, so tools compare equal to those created before.
+            ...(kind !== 'istar.DependencyLink' && { linkKind: kind }),
+          }
+        : {
+            type: 'link',
+            kind: kind as Exclude<LinkKind, 'istar.DependencyLink'>,
+            ...(entry.value ? { value: entry.value } : {}),
+          };
       items.push({ key: `${kind}:${entry.value ?? entry.dependum ?? ''}`, entry, tool });
     }
   }
@@ -141,11 +190,11 @@ export interface PaletteControls {
  * call `useIstarEditor().setTool(...)` yourself, e.g. an element tool with preset `properties`.
  */
 export function usePaletteControls(): PaletteControls {
-  const { registry, tool, setTool, store, readOnly } = useIstarEditor();
+  const { registry, metamodel, tool, setTool, store, readOnly } = useIstarEditor();
   // Re-render when history changes so undo/redo enablement is current.
   useSyncExternalStore(store.subscribe, store.getModel, store.getModel);
   const controls: PaletteControl[] = [];
-  for (const slots of paletteSections(registry)) {
+  for (const slots of paletteSections(registry, metamodel)) {
     for (const slot of slots) {
       for (const item of slot.type === 'item' ? [slot.item] : slot.items) {
         const active = sameTool(tool, item.tool);
@@ -323,7 +372,7 @@ export function IstarPalette({
     );
   };
 
-  const sections = paletteSections(registry);
+  const sections = paletteSections(registry, editor.metamodel);
   return (
     <div
       ref={rootRef}

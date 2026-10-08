@@ -4,6 +4,7 @@
  */
 import type { ElementKind } from '@istar-ts/core';
 import type { ReactElement } from 'react';
+import { pathBounds } from './svg-path';
 
 export interface ShapeProps {
   readonly width: number;
@@ -95,6 +96,72 @@ export function QualityShape({ width, height, fill }: ShapeProps): ReactElement 
   );
 }
 
+/**
+ * A shape given as SVG path data, as piStar-ext's "Create a new Construct" dialog takes it.
+ * The path is scaled to the element's size (like JointJS's `resetOffset`), so it can be drawn
+ * at any scale; `viewBox` overrides the computed bounds.
+ */
+export interface ShapeSpec {
+  /** SVG path data (`d`). */
+  readonly path: string;
+  /** `minX minY width height` of the drawing; default: the path's bounds. */
+  readonly viewBox?: string;
+}
+
+const boundsCache = new Map<string, string>();
+
+/** The `viewBox` a shape is drawn with: its own, or its path's bounds plus a small margin. */
+export function shapeViewBox(spec: ShapeSpec): string {
+  if (spec.viewBox) return spec.viewBox;
+  let viewBox = boundsCache.get(spec.path);
+  if (viewBox === undefined) {
+    const b = pathBounds(spec.path) ?? { x: 0, y: 0, width: 1, height: 1 };
+    // A margin so the stroke at the edge isn't clipped.
+    const mx = Math.max(b.width, 1) * 0.02;
+    const my = Math.max(b.height, 1) * 0.02;
+    viewBox = `${b.x - mx} ${b.y - my} ${Math.max(b.width, 1) + 2 * mx} ${Math.max(b.height, 1) + 2 * my}`;
+    boundsCache.set(spec.path, viewBox);
+  }
+  return viewBox;
+}
+
+export function PathShape({
+  path,
+  viewBox,
+  width,
+  height,
+  fill,
+}: ShapeProps & ShapeSpec): ReactElement {
+  return (
+    <Svg
+      width={width}
+      height={height}
+      viewBox={shapeViewBox({ path, ...(viewBox ? { viewBox } : {}) })}
+    >
+      <path d={path} fill={fill ?? 'var(--istar-node-fill)'} style={stroke} />
+    </Svg>
+  );
+}
+
+/**
+ * piStar's `DefaultNode`: the shape of a node kind that has none of its own, a white dashed
+ * box (the label adds the kind's «stereotype»).
+ */
+export function DefaultNodeShape({ width, height, fill }: ShapeProps): ReactElement {
+  return (
+    <Svg width={width} height={height}>
+      <rect
+        x={1}
+        y={1}
+        width={width - 2}
+        height={height - 2}
+        fill={fill ?? 'var(--istar-canvas-bg, #fff)'}
+        style={{ ...stroke, strokeDasharray: '8 4' }}
+      />
+    </Svg>
+  );
+}
+
 /** Radius of the actor symbol circle (upstream `r: 40`). */
 export const ACTOR_RADIUS = 40;
 
@@ -105,9 +172,19 @@ const ACTOR_DECORATOR: Partial<Record<ElementKind, string>> = {
   'istar.Agent': 'm 9 15 62 0',
 };
 
-export function ActorSymbol({ kind, fill }: { kind: ElementKind; fill?: string }): ReactElement {
+export function ActorSymbol({
+  kind,
+  fill,
+  dashed,
+}: {
+  /** Actor, Agent or Role (Agent and Role add their decoration); other kinds draw a plain circle. */
+  kind: string;
+  fill?: string;
+  /** piStar's `DefaultContainer` look, for actor kinds without a symbol of their own. */
+  dashed?: boolean;
+}): ReactElement {
   const size = ACTOR_RADIUS * 2;
-  const decorator = ACTOR_DECORATOR[kind];
+  const decorator = ACTOR_DECORATOR[kind as ElementKind];
   return (
     <svg
       className="istar-shape"
@@ -121,7 +198,7 @@ export function ActorSymbol({ kind, fill }: { kind: ElementKind; fill?: string }
         cy={ACTOR_RADIUS}
         r={ACTOR_RADIUS}
         fill={fill ?? 'var(--istar-node-fill)'}
-        style={stroke}
+        style={dashed ? { ...stroke, strokeDasharray: '8 4' } : stroke}
       />
       {decorator && (
         <path d={decorator} fill="none" stroke="var(--istar-node-stroke)" strokeWidth={1.5} />

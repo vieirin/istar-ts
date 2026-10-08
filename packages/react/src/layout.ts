@@ -6,7 +6,8 @@
  * offset from its top-left corner.
  */
 import type { IstarElement, IstarLink, IstarModel } from '@istar-ts/core';
-import { isActorKind } from '@istar-ts/core';
+import type { AnyIstarModel } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import type { Edge, Node } from '@xyflow/react';
 import type { IstarRegistry } from './registry';
 import { elementSize } from './registry';
@@ -92,6 +93,11 @@ export interface FlowGraph {
 export const ACTOR_SYMBOL_CLASS = 'istar-actor-symbol';
 
 export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGraph {
+  // Categories come from the model's metamodel, so extended actor kinds are actors too.
+  const metamodel = metamodelOf(model as unknown as AnyIstarModel);
+  const isActorKind = (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor';
+  const isDependencyKind = (kind: string): boolean =>
+    metamodel.links.get(kind)?.category === 'dependency';
   const nodes: IstarFlowNode[] = [];
   const origins = new Map<string, { x: number; y: number }>();
   const children = new Map<string, IstarElement[]>();
@@ -173,19 +179,23 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
 
   const edges: IstarFlowEdge[] = [];
   for (const link of model.links.values()) {
-    const edge = linkToEdge(link, collapsedInto);
+    const edge = linkToEdge(link, collapsedInto, isDependencyKind(link.kind));
     if (edge) edges.push(edge);
   }
   return { nodes, edges, origins };
 }
 
-function linkToEdge(link: IstarLink, collapsedInto: Map<string, string>): IstarFlowEdge | null {
+function linkToEdge(
+  link: IstarLink,
+  collapsedInto: Map<string, string>,
+  isDependency: boolean,
+): IstarFlowEdge | null {
   let { source, target } = link;
   const hiddenSource = collapsedInto.get(source);
   const hiddenTarget = collapsedInto.get(target);
   if (hiddenSource || hiddenTarget) {
     // Like piStar's collapse: dependency links are re-anchored on the actor, others are hidden.
-    if (link.kind !== 'istar.DependencyLink') return null;
+    if (!isDependency) return null;
     source = hiddenSource ?? source;
     target = hiddenTarget ?? target;
   }
@@ -196,6 +206,8 @@ function linkToEdge(link: IstarLink, collapsedInto: Map<string, string>): IstarF
     target,
     data: { linkId: link.id },
     zIndex: 1,
-    className: `istar-edge istar-edge-${link.kind.slice(6)}`,
+    // `istar.OrRefinementLink` → `istar-edge-OrRefinementLink`; namespaced extension kinds
+    // likewise drop their namespace.
+    className: `istar-edge istar-edge-${link.kind.slice(link.kind.indexOf('.') + 1)}`,
   };
 }

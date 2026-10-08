@@ -1,7 +1,9 @@
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import type { ElementComponentProps } from './registry';
-import { ActorSymbol, DEFAULT_SHAPES, GoalShape } from './shapes';
+import type { ElementKind } from '@istar-ts/core';
+import { useOptionalIstarEditor } from './context';
+import type { AnyIstarRegistry, ElementComponentProps } from './registry';
+import { ActorSymbol, DEFAULT_SHAPES, DefaultNodeShape, PathShape } from './shapes';
 
 export interface EditableLabelProps {
   readonly value: string;
@@ -53,14 +55,37 @@ function LabelEditor({ value, onCommit, onDone, className }: EditableLabelProps)
   );
 }
 
-/** piStar-like intentional element: the kind's shape with the name centred on it. */
+/**
+ * piStar-like intentional element: the kind's shape with the name centred on it.
+ *
+ * The shape is the kind's registry `shape` (SVG path data) if it has one, else its piStar
+ * shape; an extended kind with neither is drawn as piStar's default node, a dashed box with
+ * the kind's «stereotype» above the name.
+ */
 export function DefaultElementComponent(props: ElementComponentProps): ReactElement {
   const { element, width, height, editing, setEditing, actions } = props;
-  const Shape = DEFAULT_SHAPES[element.kind] ?? GoalShape;
+  const editor = useOptionalIstarEditor();
+  const config = (editor?.registry as AnyIstarRegistry | undefined)?.elements[element.kind];
   const fill = element.display?.backgroundColor;
+  const builtIn = DEFAULT_SHAPES[element.kind as ElementKind];
+  const stereotype =
+    config?.stereotype === false
+      ? undefined
+      : (config?.stereotype ??
+        (!config?.shape && !builtIn ? (config?.label ?? element.kind) : undefined));
   return (
-    <div className="istar-element-body" style={{ width, height }}>
-      <Shape width={width} height={height} fill={fill} />
+    <div
+      className={`istar-element-body${stereotype ? ' has-stereotype' : ''}`}
+      style={{ width, height }}
+    >
+      {config?.shape ? (
+        <PathShape {...config.shape} width={width} height={height} fill={fill} />
+      ) : builtIn ? (
+        builtIn({ width, height, fill })
+      ) : (
+        <DefaultNodeShape width={width} height={height} fill={fill} />
+      )}
+      {stereotype && <div className="istar-stereotype">«{stereotype}»</div>}
       <EditableLabel
         value={element.name}
         editing={editing}
@@ -71,12 +96,38 @@ export function DefaultElementComponent(props: ElementComponentProps): ReactElem
   );
 }
 
-/** piStar-like actor symbol: a circle (with Role/Agent decoration) holding the name. */
+/**
+ * piStar-like actor symbol: a circle (with Role/Agent decoration) holding the name. An
+ * extended actor kind is drawn like the kind it behaves like, or as piStar's default
+ * container: a dashed circle with its «stereotype».
+ */
 export function DefaultActorComponent(props: ElementComponentProps): ReactElement {
   const { element, editing, setEditing, actions } = props;
+  const editor = useOptionalIstarEditor();
+  const definition = editor?.metamodel.elements.get(element.kind);
+  let symbolKind: string = element.kind;
+  for (
+    let current = definition;
+    current?.behavesLike !== undefined;
+    current = editor?.metamodel.elements.get(current.behavesLike)
+  ) {
+    symbolKind = current.behavesLike;
+  }
+  const extended = definition?.extension !== undefined;
+  const config = (editor?.registry as AnyIstarRegistry | undefined)?.elements[element.kind];
+  const stereotype =
+    config?.stereotype === false
+      ? undefined
+      : (config?.stereotype ??
+        (extended && !definition?.behavesLike ? definition?.label : undefined));
   return (
     <div className="istar-actor-symbol-body">
-      <ActorSymbol kind={element.kind} fill={element.display?.backgroundColor} />
+      <ActorSymbol
+        kind={symbolKind}
+        fill={element.display?.backgroundColor}
+        dashed={extended && !definition?.behavesLike}
+      />
+      {stereotype && <div className="istar-stereotype">«{stereotype}»</div>}
       <EditableLabel
         value={element.name}
         editing={editing}

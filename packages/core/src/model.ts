@@ -141,11 +141,13 @@ export function inheritMetamodel<M extends IstarModel<string, string>>(
   return to;
 }
 
-export function createEmptyModel(diagram?: Diagram): IstarModel;
+// The iStar 2.0 overload comes last: TypeScript resolves function references (e.g.
+// `useIstarStore(createEmptyModel)`) against the last one, as before metamodels existed.
 export function createEmptyModel<EK extends string, LK extends string>(
   diagram: Diagram | undefined,
   options: { metamodel: Metamodel<EK, LK> },
 ): IstarModel<EK, LK>;
+export function createEmptyModel(diagram?: Diagram): IstarModel;
 export function createEmptyModel(
   diagram: Diagram = DEFAULT_DIAGRAM,
   options: { metamodel?: AnyMetamodel } = {},
