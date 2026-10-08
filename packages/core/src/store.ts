@@ -53,7 +53,7 @@ export type ModelListener<EK extends string = ElementKind, LK extends string = L
 export interface ModelStoreOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
   /**
    * Metamodel for the default empty model, when no initial model is given. A given initial
-   * model keeps its own (`model.metamodel`).
+   * model keeps its own (see `metamodelOf`).
    */
   readonly metamodel?: Metamodel<EK, LK>;
   readonly createId?: IdGenerator;

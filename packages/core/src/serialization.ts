@@ -18,7 +18,7 @@ import type {
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf, metamodelOf } from './model';
+import { dependencyLinksOf, metamodelOf, withMetamodel } from './model';
 import type { AnyIstarModel } from './model';
 
 // ---------------------------------------------------------------------------------------------
@@ -78,6 +78,11 @@ export interface PistarFile {
 
 export class PistarParseError extends Error {
   override name = 'PistarParseError';
+}
+
+/** Thrown by `toPistar` for a kind its metamodel doesn't know (rather than writing it wrong). */
+export class PistarWriteError extends Error {
+  override name = 'PistarWriteError';
 }
 
 /**
@@ -161,7 +166,7 @@ function asArray(value: unknown, where: string): unknown[] {
 export interface ParsePistarOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
   /**
    * The metamodel whose kinds the file may use. Default iStar 2.0: any other `type` throws,
-   * as in the piStar tool. The parsed model remembers it (`model.metamodel`).
+   * as in the piStar tool. The parsed model remembers it (see `metamodelOf`).
    */
   readonly metamodel?: Metamodel<EK, LK>;
 }
@@ -316,7 +321,6 @@ export function parsePistar(
   const model: AnyIstarModel = {
     elements,
     links,
-    ...(metamodel !== ISTAR_2_0 ? { metamodel } : {}),
     ...optional('diagram', diagram),
     ...optional('tool', typeof json.tool === 'string' ? json.tool : undefined),
     ...optional('istar', typeof json.istar === 'string' ? json.istar : undefined),
@@ -325,7 +329,7 @@ export function parsePistar(
     ...optional('extra', extraOf(json, TOP_LEVEL_KEY_SET)),
   };
   layouts.set(model, { keys: Object.keys(json), display: Object.keys(display) });
-  return model;
+  return withMetamodel(model, metamodel);
 }
 
 function optional<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
@@ -351,11 +355,20 @@ function formatDate(date: Date): string {
   return date.toUTCString();
 }
 
+function pistarTypeOf(type: string | undefined, kind: string, metamodel: AnyMetamodel): string {
+  if (type === undefined) {
+    throw new PistarWriteError(
+      `kind "${kind}" is not part of ${metamodel.name}; pass its metamodel (toPistar(model, { metamodel }) or withMetamodel)`,
+    );
+  }
+  return type;
+}
+
 function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): PistarElementJson {
   return {
     id: element.id,
     text: element.name,
-    type: metamodel.elements.get(element.kind)?.pistarType ?? element.kind,
+    type: pistarTypeOf(metamodel.elements.get(element.kind)?.pistarType, element.kind, metamodel),
     x: element.x,
     y: element.y,
     ...(element.customProperties ? { customProperties: { ...element.customProperties } } : {}),
@@ -409,7 +422,7 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const link of model.links.values()) {
     links.push({
       id: link.id,
-      type: metamodel.links.get(link.kind)?.pistarType ?? link.kind,
+      type: pistarTypeOf(metamodel.links.get(link.kind)?.pistarType, link.kind, metamodel),
       source: link.source,
       target: link.target,
       ...(link.name !== undefined ? { name: link.name } : {}),

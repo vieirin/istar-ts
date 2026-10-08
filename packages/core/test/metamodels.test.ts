@@ -17,6 +17,7 @@ import {
   MetamodelError,
   NODE_KIND_INFO,
   PistarParseError,
+  PistarWriteError,
   canLink,
   createEmptyModel,
   createModelStore,
@@ -25,11 +26,13 @@ import {
   elementKindDefinition,
   extendMetamodel,
   isActor,
+  metamodelOf,
   parsePistar,
   prop,
   toPistar,
   validateModel,
   validateModelProperties,
+  withMetamodel,
 } from '../src';
 import { loadExtensionFixtures } from './fixtures';
 import { RATIONAL_AGENTS, rationalAgents } from './rationalAgents';
@@ -249,7 +252,7 @@ describe('serialization with an extended metamodel', () => {
   test('reads piStar-ext types into namespaced kinds and keeps unknown keys', () => {
     const fixture = fixtures.find((f) => f.name === 'extensions/rationalAgents.txt')!;
     const model = parsePistar(fixture.text, { metamodel: RATIONAL_AGENTS });
-    expect(model.metamodel).toBe(RATIONAL_AGENTS);
+    expect(metamodelOf(model)).toBe(RATIONAL_AGENTS);
     expect(model.elements.get('p1')).toMatchObject({
       kind: 'rationalAgents.Planning',
       parent: 'a1',
@@ -280,16 +283,107 @@ describe('serialization with an extended metamodel', () => {
     expect(() => parsePistar(unknownLink)).toThrow(/unknown link type/);
   });
 
-  test('a built-in model never records a metamodel', () => {
-    expect(parsePistar('{"actors":[]}')).not.toHaveProperty('metamodel');
-    expect(createEmptyModel()).not.toHaveProperty('metamodel');
+  test('the metamodel never reaches disk, JSON or the model shape', () => {
+    const fixture = fixtures.find((f) => f.name === 'extensions/rationalAgents.txt')!;
+    const extended = parsePistar(fixture.text, { metamodel: RATIONAL_AGENTS });
+    const builtIn = parsePistar('{"actors":[]}');
+    const keys = ['elements', 'links', 'diagram', 'tool', 'istar', 'saveDate', 'extra'];
+    expect(Object.keys(extended)).toEqual(keys);
+    expect(Object.keys(builtIn)).toEqual(['elements', 'links']);
+    expect(Object.keys(createEmptyModel())).toEqual([
+      'elements',
+      'links',
+      'diagram',
+      'tool',
+      'istar',
+    ]);
+    expect(Object.keys(createEmptyModel(undefined, { metamodel: RATIONAL_AGENTS }))).toEqual(
+      Object.keys(createEmptyModel()),
+    );
+    expect(JSON.stringify(extended)).not.toContain('metamodel');
+    expect(JSON.stringify(extended)).not.toContain('rationalAgents');
+    expect(toPistar(extended)).not.toContain('"metamodel"');
   });
 
-  test('the metamodel can be given to toPistar explicitly', () => {
+  test('a spread loses the association; withMetamodel or an option restores it', () => {
     const fixture = fixtures.find((f) => f.name === 'extensions/rationalAgents.txt')!;
     const model = parsePistar(fixture.text, { metamodel: RATIONAL_AGENTS });
-    const { metamodel: _drop, ...bare } = model;
+    const bare = { ...model };
+    expect(metamodelOf(bare)).toBe(ISTAR_2_0);
+    expect(() => toPistar(bare)).toThrow(PistarWriteError);
+    expect(() => toPistar(bare)).toThrow(/rationalAgents\.Planning" is not part of istar-2\.0/);
     expect(toPistar(bare, { metamodel: RATIONAL_AGENTS })).toBe(fixture.text);
+    expect(toPistar(withMetamodel(bare, RATIONAL_AGENTS))).toBe(fixture.text);
+  });
+
+  test('each disk form: piStar-ext type with pistarType, namespaced type without', () => {
+    const store = createModelStore(undefined, { metamodel: RATIONAL_AGENTS });
+    const agent = store.addElement({ kind: 'istar.Agent', x: 0, y: 0 });
+    store.addElement({ kind: 'rationalAgents.Planning', x: 0, y: 0, parent: agent.id });
+    store.addElement({ kind: 'rationalAgents.Plan', x: 0, y: 0, parent: agent.id });
+    const types = JSON.parse(toPistar(store.getModel())).actors[0].nodes.map(
+      (n: { type: string }) => n.type,
+    );
+    // Planning keeps piStar-ext's `istar.Planning`, which piStar-ext opens (given the same
+    // construct in its localStorage); Plan is written namespaced, which plain piStar rejects.
+    expect(types).toEqual(['istar.Planning', 'rationalAgents.Plan']);
+  });
+});
+
+describe('model snapshots keep their metamodel', () => {
+  test('through edits, undo and redo', () => {
+    const store = createModelStore(undefined, { metamodel: RATIONAL_AGENTS });
+    const agent = store.addElement({ kind: 'istar.Agent', x: 0, y: 0 });
+    store.addElement({ kind: 'rationalAgents.Plan', x: 0, y: 0, parent: agent.id });
+    store.moveElement(agent.id, 5, 5);
+    expect(metamodelOf(store.getModel())).toBe(RATIONAL_AGENTS);
+    store.undo();
+    store.undo();
+    expect(metamodelOf(store.getModel())).toBe(RATIONAL_AGENTS);
+    store.redo();
+    expect(metamodelOf(store.getModel())).toBe(RATIONAL_AGENTS);
+    expect(store.getModel().elements.size).toBe(2);
+  });
+});
+
+describe('pistarType collisions', () => {
+  test('a pistarType equal to a built-in kind is rejected', () => {
+    expect(() =>
+      extendMetamodel(ISTAR_2_0, {
+        name: 'clash',
+        elements: [{ kind: 'clash.Objective', category: 'node', pistarType: 'istar.Goal' }],
+      }),
+    ).toThrow(/pistarType "istar\.Goal" of kind "clash\.Objective" is already used/);
+    expect(() =>
+      extendMetamodel(ISTAR_2_0, {
+        name: 'clash',
+        links: [
+          { kind: 'clash.L', behavesLike: 'istar.OrRefinementLink', pistarType: 'istar.IsALink' },
+        ],
+      }),
+    ).toThrow(MetamodelError);
+  });
+
+  test('two extensions with the same pistarType are rejected', () => {
+    const first = extendMetamodel(ISTAR_2_0, {
+      name: 'one',
+      elements: [{ kind: 'one.Plan', category: 'node', pistarType: 'istar.Plan' }],
+    });
+    expect(() =>
+      extendMetamodel(first, {
+        name: 'two',
+        elements: [{ kind: 'two.Plan', category: 'node', pistarType: 'istar.Plan' }],
+      }),
+    ).toThrow(/pistarType "istar\.Plan" of kind "two\.Plan" is already used/);
+  });
+
+  test("a pistarType may not equal another kind's name either", () => {
+    expect(() =>
+      extendMetamodel(RATIONAL_AGENTS, {
+        name: 'three',
+        elements: [{ kind: 'three.Plan', category: 'node', pistarType: 'rationalAgents.Plan' }],
+      }),
+    ).toThrow(MetamodelError);
   });
 });
 
@@ -322,7 +416,7 @@ describe('canLink with extended kinds', () => {
   test('the store creates extended elements with their label as name', () => {
     const { planning, store } = setup();
     expect(planning).toMatchObject({ kind: 'rationalAgents.Planning', name: 'Planning' });
-    expect(store.getModel().metamodel).toBe(RATIONAL_AGENTS);
+    expect(metamodelOf(store.getModel())).toBe(RATIONAL_AGENTS);
   });
 
   test('behavesLike: a Planning follows the Task rules', () => {

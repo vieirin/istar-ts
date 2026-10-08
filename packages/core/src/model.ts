@@ -91,11 +91,6 @@ export interface Diagram {
 export interface IstarModel<EK extends string = ElementKind, LK extends string = LinkKind> {
   readonly elements: ReadonlyMap<string, IstarElement<EK>>;
   readonly links: ReadonlyMap<string, IstarLink<LK>>;
-  /**
-   * The metamodel the model was read or created with. Absent means iStar 2.0 (`ISTAR_2_0`).
-   * Constraints, operations and serialization use it unless given another one.
-   */
-  readonly metamodel?: Metamodel<EK, LK>;
   readonly diagram?: Diagram;
   readonly tool?: string;
   readonly istar?: string;
@@ -115,6 +110,37 @@ export const DEFAULT_DIAGRAM: Diagram = { width: 2000, height: 1300 };
 /** A model of any dialect, for code that handles every kind generically. */
 export type AnyIstarModel = IstarModel<string, string>;
 
+/**
+ * The metamodel of each model that isn't iStar 2.0. Kept beside the model rather than in it,
+ * so a model's shape (and `JSON.stringify`, deep equality, snapshots) is the same as before
+ * metamodels existed. Operations and the store carry it to every model they derive.
+ */
+const metamodels = new WeakMap<object, AnyMetamodel>();
+
+/**
+ * Associates `metamodel` with `model` and returns the same model, typed for it. Use when a
+ * model was built without the library's operations (e.g. with an object spread), which loses
+ * the association.
+ */
+export function withMetamodel<EK extends string, LK extends string>(
+  model: IstarModel<string, string>,
+  metamodel: Metamodel<EK, LK>,
+): IstarModel<EK, LK> {
+  if ((metamodel as unknown) === ISTAR_2_0) metamodels.delete(model);
+  else metamodels.set(model, metamodel as unknown as AnyMetamodel);
+  return model as unknown as IstarModel<EK, LK>;
+}
+
+/** Gives `to` the metamodel of `from` (used for every model an operation derives). */
+export function inheritMetamodel<M extends IstarModel<string, string>>(
+  from: IstarModel<string, string>,
+  to: M,
+): M {
+  const metamodel = metamodels.get(from);
+  if (metamodel && from !== to) metamodels.set(to, metamodel);
+  return to;
+}
+
 export function createEmptyModel(diagram?: Diagram): IstarModel;
 export function createEmptyModel<EK extends string, LK extends string>(
   diagram: Diagram | undefined,
@@ -124,23 +150,24 @@ export function createEmptyModel(
   diagram: Diagram = DEFAULT_DIAGRAM,
   options: { metamodel?: AnyMetamodel } = {},
 ): AnyIstarModel {
-  return {
+  const model: AnyIstarModel = {
     elements: new Map(),
     links: new Map(),
     diagram,
     tool: PISTAR_TOOL,
     istar: ISTAR_VERSION,
-    ...(options.metamodel && options.metamodel !== ISTAR_2_0
-      ? { metamodel: options.metamodel }
-      : {}),
   };
+  return options.metamodel ? withMetamodel(model, options.metamodel) : model;
 }
 
-/** The metamodel a model uses: its own, or iStar 2.0. */
+/**
+ * The metamodel a model was read or created with (see `parsePistar`, `createEmptyModel`), or
+ * iStar 2.0. Constraints, operations and serialization use it unless given another one.
+ */
 export function metamodelOf<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
 ): Metamodel<EK, LK> {
-  return model.metamodel ?? (ISTAR_2_0 as unknown as Metamodel<EK, LK>);
+  return (metamodels.get(model) ?? ISTAR_2_0) as unknown as Metamodel<EK, LK>;
 }
 
 /** True for actor-category elements; pass the metamodel for extended actor kinds. */

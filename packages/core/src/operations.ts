@@ -9,7 +9,7 @@
  *   removes the whole dependency (upstream keeps an `otherHalf` reference for this);
  * - moving an actor moves its inner elements with it (they are JointJS-embedded upstream).
  *
- * Kinds are looked up in the model's metamodel (`model.metamodel`, iStar 2.0 by default), so
+ * Kinds are looked up in the model's metamodel (`metamodelOf`, iStar 2.0 by default), so
  * extended actor, node, link and dependency kinds behave like their built-in counterparts.
  */
 import type { LinkCheck } from './constraints';
@@ -26,7 +26,7 @@ import type {
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf, metamodelOf } from './model';
+import { dependencyLinksOf, inheritMetamodel, metamodelOf } from './model';
 import { inheritSourceLayout } from './serialization';
 
 export class ModelOperationError extends Error {
@@ -70,7 +70,7 @@ function isActorIn(model: AnyIstarModel, kind: string): boolean {
 }
 
 function derive(from: AnyIstarModel, changes: Partial<AnyIstarModel>): AnyIstarModel {
-  return inheritSourceLayout(from, { ...from, ...changes });
+  return inheritMetamodel(from, inheritSourceLayout(from, { ...from, ...changes }));
 }
 
 function requireElement(model: AnyIstarModel, id: string): AnyElement {
