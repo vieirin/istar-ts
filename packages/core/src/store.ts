@@ -9,8 +9,9 @@
  */
 import type { LinkCheck } from './constraints';
 import { canLink } from './constraints';
-import type { LinkKind } from './metamodel';
-import type { Diagram, IstarElement, IstarModel } from './model';
+import type { ElementKind, LinkKind } from './metamodel';
+import type { Metamodel } from './metamodels';
+import type { AnyIstarModel, Diagram, IstarElement, IstarModel } from './model';
 import { createEmptyModel } from './model';
 import type {
   ConnectOptions,
@@ -37,30 +38,41 @@ export type ModelChange =
   | { type: 'updateDiagram'; patch: Partial<Diagram> }
   | { type: 'replace' };
 
-export interface ModelChangeEvent {
-  readonly model: IstarModel;
-  readonly previous: IstarModel;
+export interface ModelChangeEvent<EK extends string = ElementKind, LK extends string = LinkKind> {
+  readonly model: IstarModel<EK, LK>;
+  readonly previous: IstarModel<EK, LK>;
   /** `undo`/`redo`/`load` carry no changes; a transaction carries all of its changes. */
   readonly changes: readonly ModelChange[];
   readonly source: 'edit' | 'undo' | 'redo' | 'load';
 }
 
-export type ModelListener = (event: ModelChangeEvent) => void;
+export type ModelListener<EK extends string = ElementKind, LK extends string = LinkKind> = (
+  event: ModelChangeEvent<EK, LK>,
+) => void;
 
-export interface ModelStoreOptions {
+export interface ModelStoreOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
+  /**
+   * Metamodel for the default empty model, when no initial model is given. A given initial
+   * model keeps its own (`model.metamodel`).
+   */
+  readonly metamodel?: Metamodel<EK, LK>;
   readonly createId?: IdGenerator;
   /** Maximum number of undo steps kept. Default 100. */
   readonly historyLimit?: number;
 }
 
-export interface ModelStore {
-  getModel(): IstarModel;
+export interface ModelStore<EK extends string = ElementKind, LK extends string = LinkKind> {
+  getModel(): IstarModel<EK, LK>;
   /** Returns an unsubscribe function. */
-  subscribe(listener: ModelListener): () => void;
+  subscribe(listener: ModelListener<EK, LK>): () => void;
 
-  canLink(source: string | IstarElement, target: string | IstarElement, kind: LinkKind): LinkCheck;
+  canLink(
+    source: string | IstarElement<EK>,
+    target: string | IstarElement<EK>,
+    kind: LK,
+  ): LinkCheck;
 
-  addElement(input: NewElement): IstarElement;
+  addElement(input: NewElement<EK>): IstarElement<EK>;
   updateElement(id: string, patch: ElementPatch): void;
   moveElement(id: string, x: number, y: number): void;
   nestElement(id: string, parent: string | null): void;
@@ -68,19 +80,22 @@ export interface ModelStore {
   removeElements(ids: Iterable<string>): void;
   setCollapsed(actorId: string, collapsed: boolean): void;
 
-  connect(input: NewLink, options?: Omit<ConnectOptions, 'createId'>): ops.ConnectResult;
+  connect(
+    input: NewLink<LK>,
+    options?: Omit<ConnectOptions, 'createId'>,
+  ): ops.ConnectResult<EK, LK>;
   addDependency(
-    input: NewDependency,
+    input: NewDependency<EK, LK>,
     options?: Omit<ConnectOptions, 'createId' | 'tryReversed'>,
-  ): ops.AddDependencyResult;
+  ): ops.AddDependencyResult<EK, LK>;
   updateLink(id: string, patch: LinkPatch): void;
   disconnect(id: string): void;
   updateDiagram(patch: Partial<Diagram>): void;
 
   /** Replaces the model as one undoable edit. */
-  replace(model: IstarModel): void;
+  replace(model: IstarModel<EK, LK>): void;
   /** Replaces the model and clears history (like opening a file in piStar). */
-  load(model: IstarModel): void;
+  load(model: IstarModel<EK, LK>): void;
 
   /**
    * Groups several edits into one undo step and one change event. Nested calls join the
@@ -95,23 +110,31 @@ export interface ModelStore {
   clearHistory(): void;
 }
 
+export function createModelStore(initial?: IstarModel, options?: ModelStoreOptions): ModelStore;
+export function createModelStore<EK extends string, LK extends string>(
+  initial: IstarModel<EK, LK> | undefined,
+  options?: ModelStoreOptions<EK, LK>,
+): ModelStore<EK, LK>;
 export function createModelStore(
-  initial: IstarModel = createEmptyModel(),
-  options: ModelStoreOptions = {},
-): ModelStore {
+  initial?: AnyIstarModel,
+  options: ModelStoreOptions<string, string> = {},
+): ModelStore<string, string> {
+  initial ??= options.metamodel
+    ? createEmptyModel(undefined, { metamodel: options.metamodel })
+    : (createEmptyModel() as AnyIstarModel);
   const limit = options.historyLimit ?? 100;
   const ctx = { createId: options.createId ?? ops.defaultIdGenerator };
-  const listeners = new Set<ModelListener>();
+  const listeners = new Set<ModelListener<string, string>>();
   let model = initial;
-  let past: IstarModel[] = [];
-  let future: IstarModel[] = [];
-  let tx: { start: IstarModel; changes: ModelChange[]; depth: number } | undefined;
+  let past: AnyIstarModel[] = [];
+  let future: AnyIstarModel[] = [];
+  let tx: { start: AnyIstarModel; changes: ModelChange[]; depth: number } | undefined;
 
-  const emit = (event: ModelChangeEvent): void => {
+  const emit = (event: ModelChangeEvent<string, string>): void => {
     for (const listener of listeners) listener(event);
   };
 
-  const commit = (next: IstarModel, change: ModelChange): void => {
+  const commit = (next: AnyIstarModel, change: ModelChange): void => {
     if (next === model) return;
     if (tx) {
       model = next;
@@ -126,7 +149,7 @@ export function createModelStore(
     emit({ model, previous, changes: [change], source: 'edit' });
   };
 
-  const store: ModelStore = {
+  const store: ModelStore<string, string> = {
     getModel: () => model,
     subscribe(listener) {
       listeners.add(listener);

@@ -5,3 +5,4 @@ export * from './serialization';
 export * from './operations';
 export * from './store';
 export * from './properties';
+export * from './metamodels';

@@ -8,12 +8,16 @@
  * - a dependency is two `DependencyLink`s around a dependum, and removing any of the three
  *   removes the whole dependency (upstream keeps an `otherHalf` reference for this);
  * - moving an actor moves its inner elements with it (they are JointJS-embedded upstream).
+ *
+ * Kinds are looked up in the model's metamodel (`model.metamodel`, iStar 2.0 by default), so
+ * extended actor, node, link and dependency kinds behave like their built-in counterparts.
  */
 import type { LinkCheck } from './constraints';
 import { canLink } from './constraints';
-import type { ElementKind, LinkKind, NodeKind } from './metamodel';
-import { LINK_KIND_INFO, isActorKind, isNodeKind, shortKindName } from './metamodel';
+import type { ActorKind, DependencyLinkKind, ElementKind, LinkKind } from './metamodel';
+import type { AnyMetamodel } from './metamodels';
 import type {
+  AnyIstarModel,
   CustomProperties,
   Diagram,
   ElementDisplay,
@@ -22,7 +26,7 @@ import type {
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf } from './model';
+import { dependencyLinksOf, metamodelOf } from './model';
 import { inheritSourceLayout } from './serialization';
 
 export class ModelOperationError extends Error {
@@ -46,17 +50,36 @@ export interface OperationContext {
   readonly createId?: IdGenerator;
 }
 
-function derive(from: IstarModel, changes: Partial<IstarModel>): IstarModel {
+type AnyElement = IstarElement<string>;
+type AnyLink = IstarLink<string>;
+
+function any<EK extends string, LK extends string>(model: IstarModel<EK, LK>): AnyIstarModel {
+  return model as unknown as AnyIstarModel;
+}
+
+function typed<EK extends string, LK extends string>(model: AnyIstarModel): IstarModel<EK, LK> {
+  return model as unknown as IstarModel<EK, LK>;
+}
+
+function metaOf(model: AnyIstarModel): AnyMetamodel {
+  return metamodelOf(model) as unknown as AnyMetamodel;
+}
+
+function isActorIn(model: AnyIstarModel, kind: string): boolean {
+  return metaOf(model).elements.get(kind)?.category === 'actor';
+}
+
+function derive(from: AnyIstarModel, changes: Partial<AnyIstarModel>): AnyIstarModel {
   return inheritSourceLayout(from, { ...from, ...changes });
 }
 
-function requireElement(model: IstarModel, id: string): IstarElement {
+function requireElement(model: AnyIstarModel, id: string): AnyElement {
   const element = model.elements.get(id);
   if (!element) throw new ModelOperationError(`unknown element "${id}"`);
   return element;
 }
 
-function requireLink(model: IstarModel, id: string): IstarLink {
+function requireLink(model: AnyIstarModel, id: string): AnyLink {
   const link = model.links.get(id);
   if (!link) throw new ModelOperationError(`unknown link "${id}"`);
   return link;
@@ -71,12 +94,12 @@ function withoutUndefined<T extends object>(value: T): T {
 // ---------------------------------------------------------------------------------------------
 // Elements
 
-export interface NewElement {
-  readonly kind: ElementKind;
+export interface NewElement<K extends string = ElementKind> {
+  readonly kind: K;
   readonly x: number;
   readonly y: number;
   readonly id?: string;
-  /** Defaults to the kind's short name ("Goal"), like piStar. */
+  /** Defaults to the kind's label ("Goal"), like piStar. */
   readonly name?: string;
   /** Actor to place the element in. Required in practice for iStar nodes (see NodeKindInfo). */
   readonly parent?: string;
@@ -84,33 +107,39 @@ export interface NewElement {
   readonly display?: ElementDisplay;
 }
 
-export function addElement(
-  model: IstarModel,
-  input: NewElement,
+export function addElement<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  input: NewElement<EK>,
   ctx: OperationContext = {},
-): { model: IstarModel; element: IstarElement } {
+): { model: IstarModel<EK, LK>; element: IstarElement<EK> } {
+  const m = any(model);
+  const metamodel = metaOf(m);
+  const definition = metamodel.elements.get(input.kind);
+  if (!definition) {
+    throw new ModelOperationError(`unknown element kind "${input.kind}" in ${metamodel.name}`);
+  }
   const id = input.id ?? (ctx.createId ?? defaultIdGenerator)();
-  if (model.elements.has(id) || model.links.has(id)) {
+  if (m.elements.has(id) || m.links.has(id)) {
     throw new ModelOperationError(`id "${id}" is already in use`);
   }
   if (input.parent !== undefined) {
-    if (isActorKind(input.kind)) throw new ModelOperationError('actors cannot be nested');
-    if (!isActorKind(requireElement(model, input.parent).kind)) {
+    if (definition.category === 'actor') throw new ModelOperationError('actors cannot be nested');
+    if (!isActorIn(m, requireElement(m, input.parent).kind)) {
       throw new ModelOperationError(`parent "${input.parent}" is not an actor`);
     }
   }
-  const element: IstarElement = withoutUndefined({
+  const element: AnyElement = withoutUndefined({
     id,
     kind: input.kind,
-    name: input.name ?? shortKindName(input.kind),
+    name: input.name ?? definition.label,
     x: input.x,
     y: input.y,
     parent: input.parent,
     customProperties: input.customProperties,
     display: input.display,
   });
-  const elements = new Map(model.elements).set(id, element);
-  return { model: derive(model, { elements }), element };
+  const elements = new Map(m.elements).set(id, element);
+  return { model: typed(derive(m, { elements })), element: element as IstarElement<EK> };
 }
 
 export interface ElementPatch {
@@ -135,9 +164,14 @@ function mergeDisplay<D extends object>(
   return Object.keys(merged).length > 0 ? (merged as D) : undefined;
 }
 
-export function updateElement(model: IstarModel, id: string, patch: ElementPatch): IstarModel {
-  const current = requireElement(model, id);
-  const next: IstarElement = withoutUndefined({
+export function updateElement<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+  patch: ElementPatch,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  const current = requireElement(m, id);
+  const next: AnyElement = withoutUndefined({
     ...current,
     name: patch.name ?? current.name,
     customProperties:
@@ -146,27 +180,33 @@ export function updateElement(model: IstarModel, id: string, patch: ElementPatch
         : (patch.customProperties ?? undefined),
     display: mergeDisplay<ElementDisplay>(current.display, patch.display),
   });
-  return derive(model, { elements: new Map(model.elements).set(id, next) });
+  return typed(derive(m, { elements: new Map(m.elements).set(id, next) }));
 }
 
 /**
  * Moves an element to an absolute position. Moving an actor shifts its inner elements by the
  * same offset.
  */
-export function moveElement(model: IstarModel, id: string, x: number, y: number): IstarModel {
-  const current = requireElement(model, id);
+export function moveElement<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+  x: number,
+  y: number,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  const current = requireElement(m, id);
   const dx = x - current.x;
   const dy = y - current.y;
   if (dx === 0 && dy === 0) return model;
-  const elements = new Map(model.elements);
+  const elements = new Map(m.elements);
   elements.set(id, { ...current, x, y });
-  if (isActorKind(current.kind)) {
-    for (const child of model.elements.values()) {
+  if (isActorIn(m, current.kind)) {
+    for (const child of m.elements.values()) {
       if (child.parent === id)
         elements.set(child.id, { ...child, x: child.x + dx, y: child.y + dy });
     }
   }
-  return derive(model, { elements });
+  return typed(derive(m, { elements }));
 }
 
 /**
@@ -174,39 +214,53 @@ export function moveElement(model: IstarModel, id: string, x: number, y: number)
  * becomes the actor's last child. Links that become invalid are kept; `validateModel` reports
  * them.
  */
-export function nestElement(model: IstarModel, id: string, parent: string | null): IstarModel {
-  const current = requireElement(model, id);
-  if (isActorKind(current.kind)) throw new ModelOperationError('actors cannot be nested');
+export function nestElement<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+  parent: string | null,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  const current = requireElement(m, id);
+  if (isActorIn(m, current.kind)) throw new ModelOperationError('actors cannot be nested');
   if (current.isDependum) throw new ModelOperationError('a dependum cannot be nested');
   if ((current.parent ?? null) === parent) return model;
-  if (parent !== null && !isActorKind(requireElement(model, parent).kind)) {
+  if (parent !== null && !isActorIn(m, requireElement(m, parent).kind)) {
     throw new ModelOperationError(`parent "${parent}" is not an actor`);
   }
-  const elements = new Map(model.elements);
+  const elements = new Map(m.elements);
   elements.delete(id);
   const { parent: _old, ...rest } = current;
   elements.set(id, parent === null ? rest : { ...rest, parent });
-  return derive(model, { elements });
+  return typed(derive(m, { elements }));
 }
 
 /**
  * Removes elements and everything that depends on them: inner elements of removed actors,
  * links touching removed elements, and the rest of any dependency that loses a part.
  */
-export function removeElements(model: IstarModel, ids: Iterable<string>): IstarModel {
-  return removeCascade(model, new Set(ids), new Set());
+export function removeElements<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  ids: Iterable<string>,
+): IstarModel<EK, LK> {
+  return typed(removeCascade(any(model), new Set(ids), new Set()));
 }
 
-export function removeElement(model: IstarModel, id: string): IstarModel {
-  requireElement(model, id);
+export function removeElement<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+): IstarModel<EK, LK> {
+  requireElement(any(model), id);
   return removeElements(model, [id]);
 }
 
 function removeCascade(
-  model: IstarModel,
+  model: AnyIstarModel,
   elementIds: Set<string>,
   linkIds: Set<string>,
-): IstarModel {
+): AnyIstarModel {
+  const metamodel = metaOf(model);
+  const isDependencyHalf = (link: AnyLink): boolean =>
+    metamodel.links.get(link.kind)?.category === 'dependency';
   // Iterate to a fixed point: each round may remove more elements or links.
   let changed = true;
   while (changed) {
@@ -227,7 +281,7 @@ function removeCascade(
     }
     // A dependency that lost a half, or its dependum, goes entirely.
     for (const link of model.links.values()) {
-      if (!linkIds.has(link.id) || link.kind !== 'istar.DependencyLink') continue;
+      if (!linkIds.has(link.id) || !isDependencyHalf(link)) continue;
       for (const end of [link.source, link.target]) {
         const element = model.elements.get(end);
         if (element?.isDependum && !elementIds.has(end)) {
@@ -248,8 +302,9 @@ function removeCascade(
 // ---------------------------------------------------------------------------------------------
 // Links
 
-export interface NewLink {
-  readonly kind: Exclude<LinkKind, 'istar.DependencyLink'>;
+export interface NewLink<K extends string = LinkKind> {
+  /** Any link kind except dependency kinds (use `addDependency` for those). */
+  readonly kind: Exclude<K, DependencyLinkKind>;
   readonly source: string;
   readonly target: string;
   readonly id?: string;
@@ -269,26 +324,30 @@ export interface ConnectOptions extends OperationContext {
   readonly tryReversed?: boolean;
 }
 
-export type ConnectResult =
-  | { ok: true; model: IstarModel; link: IstarLink; reversed: boolean }
+export type ConnectResult<EK extends string = ElementKind, LK extends string = LinkKind> =
+  | { ok: true; model: IstarModel<EK, LK>; link: IstarLink<LK>; reversed: boolean }
   | Extract<LinkCheck, { ok: false }>;
 
 /** Adds a link between two elements if the iStar constraints allow it. */
-export function connect(
-  model: IstarModel,
-  input: NewLink,
+export function connect<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  input: NewLink<LK>,
   options: ConnectOptions = {},
-): ConnectResult {
-  if ((input.kind as LinkKind) === 'istar.DependencyLink') {
+): ConnectResult<EK, LK> {
+  const m = any(model);
+  const metamodel = metaOf(m);
+  const kind: string = input.kind;
+  const definition = metamodel.links.get(kind);
+  if (definition?.category === 'dependency') {
     throw new ModelOperationError('use addDependency to create dependencies');
   }
   let { source, target } = input;
   let reversed = false;
   if (!options.force) {
-    let check = canLink(model, source, target, input.kind);
-    const tryReversed = options.tryReversed ?? LINK_KIND_INFO[input.kind].tryReversedWhenAdding;
+    let check = canLink(m, source, target, kind);
+    const tryReversed = options.tryReversed ?? definition?.info.tryReversedWhenAdding;
     if (!check.ok && tryReversed) {
-      const swapped = canLink(model, target, source, input.kind);
+      const swapped = canLink(m, target, source, kind);
       if (swapped.ok) {
         [source, target] = [target, source];
         reversed = true;
@@ -297,16 +356,19 @@ export function connect(
     }
     if (!check.ok) return check;
   } else {
-    requireElement(model, source);
-    requireElement(model, target);
+    if (!definition) {
+      throw new ModelOperationError(`unknown link kind "${kind}" in ${metamodel.name}`);
+    }
+    requireElement(m, source);
+    requireElement(m, target);
   }
   const id = input.id ?? (options.createId ?? defaultIdGenerator)();
-  if (model.elements.has(id) || model.links.has(id)) {
+  if (m.elements.has(id) || m.links.has(id)) {
     throw new ModelOperationError(`id "${id}" is already in use`);
   }
-  const link: IstarLink = withoutUndefined({
+  const link: AnyLink = withoutUndefined({
     id,
-    kind: input.kind,
+    kind,
     source,
     target,
     label: input.label,
@@ -315,19 +377,20 @@ export function connect(
   });
   return {
     ok: true,
-    model: derive(model, { links: new Map(model.links).set(id, link) }),
-    link,
+    model: typed(derive(m, { links: new Map(m.links).set(id, link) })),
+    link: link as IstarLink<LK>,
     reversed,
   };
 }
 
-export interface NewDependency {
+export interface NewDependency<EK extends string = ElementKind, LK extends string = LinkKind> {
   /** The depender: an actor or one of its inner elements. */
   readonly depender: string;
   /** The dependee: an actor or one of its inner elements. */
   readonly dependee: string;
   readonly dependum: {
-    readonly kind: NodeKind;
+    /** A node kind (built-in or extended) that can be a dependum. */
+    readonly kind: Exclude<EK, ActorKind>;
     readonly name?: string;
     readonly id?: string;
     /** Defaults to the midpoint between depender and dependee, as in piStar. */
@@ -335,38 +398,48 @@ export interface NewDependency {
     readonly y?: number;
     readonly customProperties?: CustomProperties;
   };
+  /** A dependency link kind. Default `istar.DependencyLink`. */
+  readonly linkKind?: LK;
   readonly linkIds?: readonly [string, string];
 }
 
-export type AddDependencyResult =
+export type AddDependencyResult<EK extends string = ElementKind, LK extends string = LinkKind> =
   | {
       ok: true;
-      model: IstarModel;
-      dependum: IstarElement;
-      links: readonly [IstarLink, IstarLink];
+      model: IstarModel<EK, LK>;
+      dependum: IstarElement<EK>;
+      links: readonly [IstarLink<LK>, IstarLink<LK>];
     }
   | Extract<LinkCheck, { ok: false }>;
 
 /** Adds depender → dependum → dependee. */
-export function addDependency(
-  model: IstarModel,
-  input: NewDependency,
+export function addDependency<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  input: NewDependency<EK, LK>,
   options: Omit<ConnectOptions, 'tryReversed'> = {},
-): AddDependencyResult {
-  if (!isNodeKind(input.dependum.kind)) {
-    throw new ModelOperationError(`${input.dependum.kind} cannot be a dependum`);
+): AddDependencyResult<EK, LK> {
+  const m = any(model);
+  const metamodel = metaOf(m);
+  const dependumKind: string = input.dependum.kind;
+  const dependumDefinition = metamodel.elements.get(dependumKind);
+  if (dependumDefinition?.category !== 'node' || dependumDefinition.info?.canBeDependum === false) {
+    throw new ModelOperationError(`${dependumKind} cannot be a dependum`);
+  }
+  const linkKind: string = input.linkKind ?? 'istar.DependencyLink';
+  if (metamodel.links.get(linkKind)?.category !== 'dependency') {
+    throw new ModelOperationError(`${linkKind} is not a dependency link kind`);
   }
   if (!options.force) {
-    const check = canLink(model, input.depender, input.dependee, 'istar.DependencyLink');
+    const check = canLink(m, input.depender, input.dependee, linkKind);
     if (!check.ok) return check;
   }
-  const depender = requireElement(model, input.depender);
-  const dependee = requireElement(model, input.dependee);
+  const depender = requireElement(m, input.depender);
+  const dependee = requireElement(m, input.dependee);
   const createId = options.createId ?? defaultIdGenerator;
   const added = addElement(
-    model,
+    m,
     {
-      kind: input.dependum.kind,
+      kind: dependumKind,
       id: input.dependum.id,
       name: input.dependum.name,
       x: input.dependum.x ?? (depender.x + dependee.x) / 2,
@@ -375,20 +448,10 @@ export function addDependency(
     },
     { createId },
   );
-  const dependum: IstarElement = { ...added.element, isDependum: true };
+  const dependum: AnyElement = { ...added.element, isDependum: true };
   const [id1, id2] = input.linkIds ?? [createId(), createId()];
-  const first: IstarLink = {
-    id: id1,
-    kind: 'istar.DependencyLink',
-    source: depender.id,
-    target: dependum.id,
-  };
-  const second: IstarLink = {
-    id: id2,
-    kind: 'istar.DependencyLink',
-    source: dependum.id,
-    target: dependee.id,
-  };
+  const first: AnyLink = { id: id1, kind: linkKind, source: depender.id, target: dependum.id };
+  const second: AnyLink = { id: id2, kind: linkKind, source: dependum.id, target: dependee.id };
   for (const id of [id1, id2]) {
     if (added.model.elements.has(id) || added.model.links.has(id) || id1 === id2) {
       throw new ModelOperationError(`id "${id}" is already in use`);
@@ -396,19 +459,25 @@ export function addDependency(
   }
   return {
     ok: true,
-    model: derive(model, {
-      elements: new Map(added.model.elements).set(dependum.id, dependum),
-      links: new Map(model.links).set(id1, first).set(id2, second),
-    }),
-    dependum,
-    links: [first, second],
+    model: typed(
+      derive(m, {
+        elements: new Map(added.model.elements).set(dependum.id, dependum),
+        links: new Map(m.links).set(id1, first).set(id2, second),
+      }),
+    ),
+    dependum: dependum as IstarElement<EK>,
+    links: [first as IstarLink<LK>, second as IstarLink<LK>],
   };
 }
 
 /** Removes a link. Removing either half of a dependency removes the whole dependency. */
-export function disconnect(model: IstarModel, id: string): IstarModel {
-  requireLink(model, id);
-  return removeCascade(model, new Set(), new Set([id]));
+export function disconnect<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  requireLink(m, id);
+  return typed(removeCascade(m, new Set(), new Set([id])));
 }
 
 export interface LinkPatch {
@@ -423,28 +492,37 @@ function pick<T>(value: T | null | undefined, fallback: T | undefined): T | unde
   return value === undefined ? fallback : (value ?? undefined);
 }
 
-export function updateLink(model: IstarModel, id: string, patch: LinkPatch): IstarModel {
-  const current = requireLink(model, id);
-  const next: IstarLink = withoutUndefined({
+export function updateLink<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  id: string,
+  patch: LinkPatch,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  const current = requireLink(m, id);
+  const next: AnyLink = withoutUndefined({
     ...current,
     label: pick(patch.label, current.label),
     name: pick(patch.name, current.name),
     customProperties: pick(patch.customProperties, current.customProperties),
     display: mergeDisplay<LinkDisplay>(current.display, patch.display),
   });
-  return derive(model, { links: new Map(model.links).set(id, next) });
+  return typed(derive(m, { links: new Map(m.links).set(id, next) }));
 }
 
 // ---------------------------------------------------------------------------------------------
 // Diagram
 
-export function updateDiagram(model: IstarModel, patch: Partial<Diagram>): IstarModel {
-  return derive(model, { diagram: withoutUndefined({ ...model.diagram, ...patch }) });
+export function updateDiagram<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  patch: Partial<Diagram>,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  return typed(derive(m, { diagram: withoutUndefined({ ...m.diagram, ...patch }) }));
 }
 
 /** Where dependency depender/dependee currently point (see `dependencyLinksOf`). */
-export function dependencyEnds(
-  model: IstarModel,
+export function dependencyEnds<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
   dependumId: string,
 ): { depender?: string; dependee?: string } {
   const { inbound, outbound } = dependencyLinksOf(model, dependumId);

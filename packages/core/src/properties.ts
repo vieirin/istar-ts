@@ -130,8 +130,15 @@ export interface PropertyIssue {
   message: string;
 }
 
-export interface PropertySchema<S extends PropertyShape = PropertyShape> {
-  readonly kind: ElementKind | LinkKind;
+/**
+ * Typed custom properties of one element or link kind. `K` is the kind: iStar 2.0's kinds by
+ * default; any extension kind (see `extendMetamodel`) is accepted too.
+ */
+export interface PropertySchema<
+  S extends PropertyShape = PropertyShape,
+  K extends string = ElementKind | LinkKind,
+> {
+  readonly kind: K;
   readonly shape: S;
   read(source: CustomProperties | undefined | PropertyOwner): {
     values: Partial<InferProperties<S>>;
@@ -240,11 +247,14 @@ function readShape<S extends PropertyShape>(
   return { values, issues };
 }
 
-export function defineProperties<const S extends PropertyShape>(
-  kind: ElementKind | LinkKind,
+export function defineProperties<
+  const S extends PropertyShape,
+  const Kind extends string = ElementKind | LinkKind,
+>(
+  kind: Kind,
   shape: S,
   options?: { validate?: (values: Partial<InferProperties<S>>) => PropertyIssue[] },
-): PropertySchema<S> {
+): PropertySchema<S, Kind> {
   const crossValidate = options?.validate;
 
   return {
@@ -311,11 +321,11 @@ export function defineProperties<const S extends PropertyShape>(
   };
 }
 
-export function validateModelProperties(
-  model: IstarModel,
-  schemas: readonly PropertySchema[],
+export function validateModelProperties<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  schemas: readonly PropertySchema<PropertyShape, string>[],
 ): ModelPropertyIssue[] {
-  const byKind = new Map<ElementKind | LinkKind, PropertySchema[]>();
+  const byKind = new Map<string, PropertySchema<PropertyShape, string>[]>();
   for (const schema of schemas) {
     const list = byKind.get(schema.kind) ?? [];
     list.push(schema);

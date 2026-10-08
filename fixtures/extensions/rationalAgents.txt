@@ -1,0 +1,179 @@
+{
+  "actors": [
+    {
+      "id": "a1",
+      "text": "Robot",
+      "type": "istar.Agent",
+      "x": 100,
+      "y": 60,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "g1",
+          "text": "Deliver sample",
+          "type": "istar.Goal",
+          "x": 220,
+          "y": 90,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "p1",
+          "text": "Plan delivery",
+          "type": "istar.Planning",
+          "x": 200,
+          "y": 190,
+          "customProperties": {
+            "Description": ""
+          },
+          "extension": {
+            "stereotype": "goal-based",
+            "selectedStereotype": "goal-based",
+            "taggedValue": "",
+            "selectedTaggedValue": ""
+          }
+        },
+        {
+          "id": "x1",
+          "text": "Delivery plan",
+          "type": "rationalAgents.Plan",
+          "x": 210,
+          "y": 300,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "t1",
+          "text": "Drive to lab",
+          "type": "istar.Task",
+          "x": 360,
+          "y": 190,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "g2",
+          "text": "Reach lab",
+          "type": "istar.Goal",
+          "x": 370,
+          "y": 90,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "a2",
+      "text": "Nurse",
+      "type": "istar.Role",
+      "x": 700,
+      "y": 60,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "g3",
+          "text": "Sample collected",
+          "type": "istar.Goal",
+          "x": 760,
+          "y": 120,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "dependencies": [
+    {
+      "id": "d1",
+      "text": "Collection plan",
+      "type": "rationalAgents.Plan",
+      "x": 560,
+      "y": 230,
+      "customProperties": {
+        "Description": ""
+      },
+      "source": "g3",
+      "target": "a1"
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "type": "istar.AndRefinementLink",
+      "source": "p1",
+      "target": "g1"
+    },
+    {
+      "id": "l2",
+      "type": "rationalAgents.GeneratesLink",
+      "source": "p1",
+      "target": "x1"
+    },
+    {
+      "id": "l3",
+      "type": "rationalAgents.AlternativeLink",
+      "source": "t1",
+      "target": "g2"
+    },
+    {
+      "id": "l4",
+      "type": "istar.DependencyLink",
+      "source": "g3",
+      "target": "d1"
+    },
+    {
+      "id": "l5",
+      "type": "istar.DependencyLink",
+      "source": "d1",
+      "target": "a1"
+    }
+  ],
+  "display": {
+    "x1": {
+      "backgroundColor": "#FAE573"
+    },
+    "l2": {
+      "vertices": [
+        {
+          "x": 240,
+          "y": 260
+        }
+      ]
+    }
+  },
+  "tool": "pistar.2.1.0",
+  "istar": "2.0",
+  "saveDate": "Thu, 08 Oct 2026 12:00:00 GMT",
+  "diagram": {
+    "width": 1300,
+    "height": 600,
+    "name": "iStar4RationalAgents demo",
+    "customProperties": {
+      "Description": ""
+    }
+  },
+  "extension": {
+    "stereotype_list": [
+      {
+        "name": "goal-based",
+        "constructsApplie": [
+          "Agent",
+          "Role"
+        ],
+        "groupName": "rational"
+      }
+    ],
+    "taggedvalue_list": [],
+    "group_list": []
+  }
+}

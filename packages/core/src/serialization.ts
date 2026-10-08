@@ -6,7 +6,8 @@
  * not interpret are kept and written back.
  */
 import type { ElementKind, LinkKind } from './metamodel';
-import { isActorKind, isElementKind, isLinkKind } from './metamodel';
+import type { AnyMetamodel, Metamodel } from './metamodels';
+import { ISTAR_2_0 } from './metamodels';
 import type {
   CustomProperties,
   Diagram,
@@ -17,7 +18,8 @@ import type {
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf } from './model';
+import { dependencyLinksOf, metamodelOf } from './model';
+import type { AnyIstarModel } from './model';
 
 // ---------------------------------------------------------------------------------------------
 // File format types
@@ -89,10 +91,12 @@ export interface SourceLayout {
   readonly display: readonly string[];
 }
 
-const layouts = new WeakMap<IstarModel, SourceLayout>();
+const layouts = new WeakMap<object, SourceLayout>();
 
 /** The key order recorded when `model` was parsed, if it came from `parsePistar`. */
-export function getSourceLayout(model: IstarModel): SourceLayout | undefined {
+export function getSourceLayout<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+): SourceLayout | undefined {
   return layouts.get(model);
 }
 
@@ -100,7 +104,10 @@ export function getSourceLayout(model: IstarModel): SourceLayout | undefined {
  * Carries the recorded key order over to a model derived from `from` (the store does this for
  * every edit, so saving an edited file keeps a stable diff).
  */
-export function inheritSourceLayout<M extends IstarModel>(from: IstarModel, to: M): M {
+export function inheritSourceLayout<M extends IstarModel<string, string>>(
+  from: IstarModel<string, string>,
+  to: M,
+): M {
   const layout = layouts.get(from);
   if (layout && from !== to) layouts.set(to, layout);
   return to;
@@ -151,7 +158,25 @@ function asArray(value: unknown, where: string): unknown[] {
  * Unlike the piStar tool, elements with `x` or `y` equal to 0 are kept: upstream's
  * `if (element.x && element.y)` silently drops them, which looks unintended.
  */
-export function parsePistar(input: string | PistarFile | Record<string, unknown>): IstarModel {
+export interface ParsePistarOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
+  /**
+   * The metamodel whose kinds the file may use. Default iStar 2.0: any other `type` throws,
+   * as in the piStar tool. The parsed model remembers it (`model.metamodel`).
+   */
+  readonly metamodel?: Metamodel<EK, LK>;
+}
+
+export function parsePistar(input: string | PistarFile | Record<string, unknown>): IstarModel;
+export function parsePistar<EK extends string, LK extends string>(
+  input: string | PistarFile | Record<string, unknown>,
+  options: ParsePistarOptions<EK, LK>,
+): IstarModel<EK, LK>;
+export function parsePistar(
+  input: string | PistarFile | Record<string, unknown>,
+  options: ParsePistarOptions<string, string> = {},
+): AnyIstarModel {
+  const metamodel: AnyMetamodel = options.metamodel ?? ISTAR_2_0;
+  const categoryOf = (kind: string): string | undefined => metamodel.elements.get(kind)?.category;
   let json: unknown;
   if (typeof input === 'string') {
     try {
@@ -166,8 +191,8 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
 
   const display = isRecord(json.display) ? json.display : {};
   const usedDisplay = new Set<string>();
-  const elements = new Map<string, IstarElement>();
-  const links = new Map<string, IstarLink>();
+  const elements = new Map<string, IstarElement<string>>();
+  const links = new Map<string, IstarLink<string>>();
 
   const displayFor = (id: string): Record<string, unknown> | undefined => {
     const entry = display[id];
@@ -180,22 +205,23 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
     raw: unknown,
     where: string,
     known: ReadonlySet<string>,
-    extras: Partial<IstarElement>,
-  ): IstarElement => {
+    extras: Partial<IstarElement<string>>,
+  ): IstarElement<string> => {
     if (!isRecord(raw)) throw new PistarParseError(`${where}: expected an object`);
     const { id, type } = raw;
     if (typeof id !== 'string' || id === '') {
       throw new PistarParseError(`${where}: missing "id"`);
     }
-    if (typeof type !== 'string' || !isElementKind(type)) {
+    const kind = typeof type === 'string' ? metamodel.elementsByPistarType.get(type) : undefined;
+    if (kind === undefined) {
       throw new PistarParseError(`${where} (${id}): unknown element type ${JSON.stringify(type)}`);
     }
     if (elements.has(id) || links.has(id)) {
       throw new PistarParseError(`${where}: duplicated id "${id}"`);
     }
-    const element: IstarElement = {
+    const element: IstarElement<string> = {
       id,
-      kind: type as ElementKind,
+      kind,
       name: typeof raw.text === 'string' ? raw.text : '',
       x: typeof raw.x === 'number' ? raw.x : 0,
       y: typeof raw.y === 'number' ? raw.y : 0,
@@ -212,14 +238,14 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
 
   asArray(json.actors, 'actors').forEach((raw, i) => {
     const actor = readElement(raw, `actors[${i}]`, ACTOR_KEYS, {});
-    if (!isActorKind(actor.kind)) {
+    if (categoryOf(actor.kind) !== 'actor') {
       throw new PistarParseError(`actors[${i}] (${actor.id}): ${actor.kind} is not an actor kind`);
     }
     asArray((raw as Record<string, unknown>).nodes, `actors[${i}].nodes`).forEach((node, j) => {
       const child = readElement(node, `actors[${i}].nodes[${j}]`, ELEMENT_KEYS, {
         parent: actor.id,
       });
-      if (isActorKind(child.kind)) {
+      if (categoryOf(child.kind) === 'actor') {
         throw new PistarParseError(`actors[${i}].nodes[${j}]: actors cannot be nested`);
       }
     });
@@ -243,7 +269,8 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
     const { id, type, source, target } = raw;
     if (typeof id !== 'string' || id === '')
       throw new PistarParseError(`links[${i}]: missing "id"`);
-    if (typeof type !== 'string' || !isLinkKind(type)) {
+    const kind = typeof type === 'string' ? metamodel.linksByPistarType.get(type) : undefined;
+    if (kind === undefined) {
       throw new PistarParseError(`links[${i}] (${id}): unknown link type ${JSON.stringify(type)}`);
     }
     if (typeof source !== 'string' || typeof target !== 'string') {
@@ -254,7 +281,7 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
     }
     links.set(id, {
       id,
-      kind: type as LinkKind,
+      kind,
       source,
       target,
       ...optional('name', typeof raw.name === 'string' ? raw.name : undefined),
@@ -286,9 +313,10 @@ export function parsePistar(input: string | PistarFile | Record<string, unknown>
     };
   }
 
-  const model: IstarModel = {
+  const model: AnyIstarModel = {
     elements,
     links,
+    ...(metamodel !== ISTAR_2_0 ? { metamodel } : {}),
     ...optional('diagram', diagram),
     ...optional('tool', typeof json.tool === 'string' ? json.tool : undefined),
     ...optional('istar', typeof json.istar === 'string' ? json.istar : undefined),
@@ -308,6 +336,8 @@ function optional<K extends string, V>(key: K, value: V | undefined): { [P in K]
 // Serialization
 
 export interface ToPistarOptions {
+  /** Default: the model's metamodel, or iStar 2.0. Decides each kind's `type` and category. */
+  metamodel?: AnyMetamodel;
   /**
    * Value for `saveDate`. Defaults to the model's own `saveDate` (so a load/save round trip is
    * lossless), or the current time for models that never had one. Pass `new Date()` when
@@ -321,11 +351,11 @@ function formatDate(date: Date): string {
   return date.toUTCString();
 }
 
-function elementJson(element: IstarElement): PistarElementJson {
+function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): PistarElementJson {
   return {
     id: element.id,
     text: element.name,
-    type: element.kind,
+    type: metamodel.elements.get(element.kind)?.pistarType ?? element.kind,
     x: element.x,
     y: element.y,
     ...(element.customProperties ? { customProperties: { ...element.customProperties } } : {}),
@@ -333,7 +363,14 @@ function elementJson(element: IstarElement): PistarElementJson {
 }
 
 /** Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`. */
-export function toPistarObject(model: IstarModel, options: ToPistarOptions = {}): PistarFile {
+export function toPistarObject<EK extends string, LK extends string>(
+  input: IstarModel<EK, LK>,
+  options: ToPistarOptions = {},
+): PistarFile {
+  const model = input as unknown as AnyIstarModel;
+  const metamodel: AnyMetamodel =
+    options.metamodel ?? (metamodelOf(input) as unknown as AnyMetamodel);
+  const isActorKind = (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor';
   const actors: PistarActorJson[] = [];
   const orphans: PistarElementJson[] = [];
   const dependencies: PistarDependencyJson[] = [];
@@ -343,14 +380,14 @@ export function toPistarObject(model: IstarModel, options: ToPistarOptions = {})
     if (element.parent !== undefined && !isActorKind(element.kind)) {
       let list = children.get(element.parent);
       if (!list) children.set(element.parent, (list = []));
-      list.push({ ...elementJson(element), ...element.extra });
+      list.push({ ...elementJson(element, metamodel), ...element.extra });
     }
   }
 
   for (const element of model.elements.values()) {
     if (isActorKind(element.kind)) {
       actors.push({
-        ...elementJson(element),
+        ...elementJson(element, metamodel),
         nodes: children.get(element.id) ?? [],
         ...element.extra,
       });
@@ -358,13 +395,13 @@ export function toPistarObject(model: IstarModel, options: ToPistarOptions = {})
       // Like piStar, derive depender/dependee from the dependency links.
       const { inbound, outbound } = dependencyLinksOf(model, element.id);
       dependencies.push({
-        ...elementJson(element),
+        ...elementJson(element, metamodel),
         source: inbound?.source ?? element.dependency?.source ?? '',
         target: outbound?.target ?? element.dependency?.target ?? '',
         ...element.extra,
       });
     } else if (element.parent === undefined || !model.elements.has(element.parent)) {
-      orphans.push({ ...elementJson(element), ...element.extra });
+      orphans.push({ ...elementJson(element, metamodel), ...element.extra });
     }
   }
 
@@ -372,7 +409,7 @@ export function toPistarObject(model: IstarModel, options: ToPistarOptions = {})
   for (const link of model.links.values()) {
     links.push({
       id: link.id,
-      type: link.kind,
+      type: metamodel.links.get(link.kind)?.pistarType ?? link.kind,
       source: link.source,
       target: link.target,
       ...(link.name !== undefined ? { name: link.name } : {}),
@@ -446,6 +483,9 @@ export function toPistarObject(model: IstarModel, options: ToPistarOptions = {})
 }
 
 /** Serializes a model to piStar's JSON text (2-space indentation, no trailing newline). */
-export function toPistar(model: IstarModel, options?: ToPistarOptions): string {
+export function toPistar<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  options?: ToPistarOptions,
+): string {
   return JSON.stringify(toPistarObject(model, options), null, 2);
 }

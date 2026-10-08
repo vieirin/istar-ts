@@ -4,9 +4,11 @@
  * Each check runs in the same order as upstream so the reported reason is the one piStar
  * would show. Upstream messages embed HTML and illustrative images; here they are plain text.
  */
-import type { LinkKind } from './metamodel';
-import { isActorKind } from './metamodel';
-import type { IstarElement, IstarLink, IstarModel } from './model';
+import type { ElementKind, LinkKind } from './metamodel';
+import type { AnyMetamodel, LinkKindDefinition, LinkRules, Metamodel } from './metamodels';
+import { effectiveElementKind, effectiveLinkKind, elementBehavesLike } from './metamodels';
+import type { AnyIstarModel, IstarElement, IstarLink, IstarModel } from './model';
+import { metamodelOf } from './model';
 
 export type ConstraintCode =
   | 'unknown-element'
@@ -33,49 +35,122 @@ function fail(code: ConstraintCode, reason: string): LinkCheck {
   return { ok: false, code, reason };
 }
 
-type ElementRef = string | IstarElement;
+type ElementRef = string | IstarElement<string>;
+
+export interface CanLinkOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
+  /** Default: the model's metamodel, or iStar 2.0. */
+  readonly metamodel?: Metamodel<EK, LK>;
+}
 
 /**
  * Checks whether a link of `kind` may be added from `source` to `target` in `model`.
  *
- * For `istar.DependencyLink`, `source` is the depender and `target` the dependee (an actor or
- * one of its inner elements); the dependum sits between them and is not part of the check.
+ * For dependency links, `source` is the depender and `target` the dependee (an actor or one of
+ * its inner elements); the dependum sits between them and is not part of the check.
+ *
+ * Extended kinds (see `extendMetamodel`) are checked with the rules of the kind they behave
+ * like, or with their declarative rules, then with their extra predicate.
  */
-export function canLink(
-  model: IstarModel,
-  source: ElementRef,
-  target: ElementRef,
-  kind: LinkKind,
+export function canLink<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  source: string | IstarElement<EK>,
+  target: string | IstarElement<EK>,
+  kind: LK,
+  options: CanLinkOptions<EK, LK> = {},
 ): LinkCheck {
-  const s = resolve(model, source);
-  const t = resolve(model, target);
+  const any = model as unknown as AnyIstarModel;
+  const metamodel = (options.metamodel ?? metamodelOf(model)) as unknown as AnyMetamodel;
+  const s = resolve(any, source);
+  const t = resolve(any, target);
   if (!s) return fail('unknown-element', `unknown source element "${refId(source)}"`);
   if (!t) return fail('unknown-element', `unknown target element "${refId(target)}"`);
-  const check = CHECKS[kind];
-  if (!check) return fail('unknown-link-kind', `unknown link kind "${String(kind)}"`);
-  return check(new Graph(model), s, t);
+  const definition = metamodel.links.get(kind);
+  if (!definition) return fail('unknown-link-kind', `unknown link kind "${String(kind)}"`);
+  return checkWith(new Graph(any, metamodel), definition, s, t);
+}
+
+/** Runs the rule a link kind resolves to, then every extra predicate along its chain. */
+function checkWith(
+  graph: Graph,
+  definition: LinkKindDefinition,
+  source: IstarElement<string>,
+  target: IstarElement<string>,
+): LinkCheck {
+  const chain: LinkKindDefinition[] = [];
+  for (
+    let current: LinkKindDefinition | undefined = definition;
+    current && !chain.includes(current);
+    current = current.behavesLike ? graph.metamodel.links.get(current.behavesLike) : undefined
+  ) {
+    chain.push(current);
+  }
+  const root = chain[chain.length - 1]!;
+  const builtIn = CHECKS[root.kind as LinkKind];
+  let result: LinkCheck;
+  if (root.rules)
+    result = declarativeCheck(graph, definition, root.rules, root.kind, source, target);
+  else if (builtIn) result = builtIn(graph, source, target);
+  else result = fail('unknown-link-kind', `link kind "${definition.kind}" has no rules`);
+  if (!result.ok) return result;
+  const context = graph.context(definition.kind, source, target);
+  for (const step of chain.toReversed()) {
+    if (!step.check) continue;
+    const extra = step.check(context);
+    if (!extra.ok) return extra;
+  }
+  return OK;
 }
 
 function refId(ref: ElementRef): string {
   return typeof ref === 'string' ? ref : ref.id;
 }
 
-function resolve(model: IstarModel, ref: ElementRef): IstarElement | undefined {
+function resolve(model: AnyIstarModel, ref: ElementRef): IstarElement<string> | undefined {
   // Always look the element up so a stale object can't be checked against a newer model.
   return model.elements.get(refId(ref));
 }
 
-/** The graph queries used by upstream constraints (`istar.isThereLinkBetween`, etc.). */
+/**
+ * What an extension's `check` predicate receives: the model, the endpoints, and the graph
+ * queries the iStar 2.0 rules use.
+ */
+export interface LinkRuleContext {
+  readonly model: AnyIstarModel;
+  readonly metamodel: AnyMetamodel;
+  /** The link kind being added. */
+  readonly kind: string;
+  readonly source: IstarElement<string>;
+  readonly target: IstarElement<string>;
+  /** A link (optionally of `kind`, or a kind behaving like it) joins `a` and `b`, either way. */
+  isThereLinkBetween(a: IstarElement<string>, b: IstarElement<string>, kind?: string): boolean;
+  /** `element` is the source of a link of `kind` (or a kind behaving like it). */
+  isSourceOfType(element: IstarElement<string>, kind: string): boolean;
+  /** `element` is the target of a link of `kind` (or a kind behaving like it). */
+  isTargetOfType(element: IstarElement<string>, kind: string): boolean;
+}
+
+/**
+ * The graph queries used by upstream constraints (`istar.isThereLinkBetween`, etc.). Link kinds
+ * are compared by what they behave like, so an extension link behaving like an OR-refinement
+ * counts as one for the iStar 2.0 rules (no mixing with AND, no refining a depender…).
+ */
 class Graph {
-  constructor(readonly model: IstarModel) {}
+  constructor(
+    readonly model: AnyIstarModel,
+    readonly metamodel: AnyMetamodel,
+  ) {}
+
+  private matches(link: IstarLink<string>, kind: string): boolean {
+    return link.kind === kind || effectiveLinkKind(this.metamodel, link.kind) === kind;
+  }
 
   /**
    * True when a link (optionally of `kind`) already connects the two elements, in either
    * direction. Mirrors `istar.isThereLinkBetween`.
    */
-  isThereLinkBetween(a: IstarElement, b: IstarElement, kind?: LinkKind): boolean {
+  isThereLinkBetween(a: IstarElement<string>, b: IstarElement<string>, kind?: string): boolean {
     for (const link of this.model.links.values()) {
-      if (kind && link.kind !== kind) continue;
+      if (kind && !this.matches(link, kind)) continue;
       if (
         (link.source === a.id && link.target === b.id) ||
         (link.source === b.id && link.target === a.id)
@@ -86,33 +161,82 @@ class Graph {
     return false;
   }
 
-  isSourceOfType(element: IstarElement, kind: LinkKind): boolean {
+  /** Like `isThereLinkBetween`, counting only links of exactly `kind`. */
+  isThereLinkOfKindBetween(
+    a: IstarElement<string>,
+    b: IstarElement<string>,
+    kind: string,
+  ): boolean {
     for (const link of this.model.links.values()) {
-      if (link.kind === kind && link.source === element.id) return true;
+      if (link.kind !== kind) continue;
+      if (
+        (link.source === a.id && link.target === b.id) ||
+        (link.source === b.id && link.target === a.id)
+      ) {
+        return true;
+      }
     }
     return false;
   }
 
-  isTargetOfType(element: IstarElement, kind: LinkKind): boolean {
+  isSourceOfType(element: IstarElement<string>, kind: string): boolean {
     for (const link of this.model.links.values()) {
-      if (link.kind === kind && link.target === element.id) return true;
+      if (link.source === element.id && this.matches(link, kind)) return true;
     }
     return false;
+  }
+
+  isTargetOfType(element: IstarElement<string>, kind: string): boolean {
+    for (const link of this.model.links.values()) {
+      if (link.target === element.id && this.matches(link, kind)) return true;
+    }
+    return false;
+  }
+
+  /** The kind the iStar 2.0 rules see: built-in kinds as they are, extensions as what they behave like. */
+  kindOf(element: IstarElement<string>): string {
+    return effectiveElementKind(this.metamodel, element.kind);
+  }
+
+  isActor(element: IstarElement<string>): boolean {
+    return this.metamodel.elements.get(element.kind)?.category === 'actor';
+  }
+
+  context(
+    kind: string,
+    source: IstarElement<string>,
+    target: IstarElement<string>,
+  ): LinkRuleContext {
+    return {
+      model: this.model,
+      metamodel: this.metamodel,
+      kind,
+      source,
+      target,
+      isThereLinkBetween: (a, b, k) => this.isThereLinkBetween(a, b, k),
+      isSourceOfType: (e, k) => this.isSourceOfType(e, k),
+      isTargetOfType: (e, k) => this.isTargetOfType(e, k),
+    };
   }
 }
 
-type Check = (graph: Graph, source: IstarElement, target: IstarElement) => LinkCheck;
+type Check = (
+  graph: Graph,
+  source: IstarElement<string>,
+  target: IstarElement<string>,
+) => LinkCheck;
 
-const is = (element: IstarElement, ...shortNames: string[]): boolean =>
-  shortNames.some((name) => element.kind === `istar.${name}`);
+const is = (graph: Graph, element: IstarElement<string>, ...shortNames: string[]): boolean => {
+  const kind = graph.kindOf(element);
+  return shortNames.some((name) => kind === `istar.${name}`);
+};
 
-const isKindOfActor = (element: IstarElement): boolean => isActorKind(element.kind);
-const isDependum = (element: IstarElement): boolean => element.isDependum === true;
+const isDependum = (element: IstarElement<string>): boolean => element.isDependum === true;
 
 const isALink: Check = (graph, source, target) => {
   // Upstream evaluates the source-kind check after the type-equality check without guarding
   // on the previous result, so its message wins when both fail. Reproduced here.
-  if (!is(source, 'Actor', 'Role')) {
+  if (!is(graph, source, 'Actor', 'Role')) {
     return fail(
       'invalid-source',
       'the source of Is-A links must be a Role or a general Actor (iStar 2.0 Guide, Page 6).',
@@ -124,7 +248,7 @@ const isALink: Check = (graph, source, target) => {
       'the source and target of Is-A links must be of the same type - Actor and Actor, or Role and Role (iStar 2.0 Guide, Page 6).',
     );
   }
-  if (!is(target, 'Actor', 'Role')) {
+  if (!is(graph, target, 'Actor', 'Role')) {
     return fail(
       'invalid-target',
       'the target of Is-A links must be a Role or a general Actor (iStar 2.0 Guide, Page 6).',
@@ -143,13 +267,13 @@ const isALink: Check = (graph, source, target) => {
 };
 
 const participatesInLink: Check = (graph, source, target) => {
-  if (!isKindOfActor(source)) {
+  if (!graph.isActor(source)) {
     return fail(
       'invalid-source',
       'the source of a Participates-In link must be some kind of actor (iStar 2.0 Guide, Page 6)',
     );
   }
-  if (!isKindOfActor(target)) {
+  if (!graph.isActor(target)) {
     return fail(
       'invalid-target',
       'the target of a Participates-In link must be some kind of actor (iStar 2.0 Guide, Page 6)',
@@ -168,8 +292,8 @@ const participatesInLink: Check = (graph, source, target) => {
 };
 
 /** The actor an element belongs to: itself for actors, its parent for inner elements. */
-function owningActorId(element: IstarElement): string | undefined {
-  return isKindOfActor(element) ? element.id : element.parent;
+function owningActorId(graph: Graph, element: IstarElement<string>): string | undefined {
+  return graph.isActor(element) ? element.id : element.parent;
 }
 
 const dependencyLink: Check = (graph, source, target) => {
@@ -182,7 +306,7 @@ const dependencyLink: Check = (graph, source, target) => {
   if (isDependum(target)) {
     return fail('dependum-endpoint', 'a Dependency link cannot end in a dependum');
   }
-  if (owningActorId(source) === owningActorId(target)) {
+  if (owningActorId(graph, source) === owningActorId(graph, target)) {
     return fail(
       'same-actor',
       'a Dependency link must involve two different actors (iStar 2.0 Guide, Page 14)',
@@ -211,13 +335,13 @@ const dependencyLink: Check = (graph, source, target) => {
 function refinementLink(label: 'AND' | 'OR'): Check {
   const other = label === 'AND' ? 'istar.OrRefinementLink' : 'istar.AndRefinementLink';
   return (graph, source, target) => {
-    if (!is(source, 'Task', 'Goal')) {
+    if (!is(graph, source, 'Task', 'Goal')) {
       return fail(
         'invalid-source',
         `the source of an ${label}-refinement link must be a Goal or a Task (iStar 2.0 Guide, Table 1)`,
       );
     }
-    if (!is(target, 'Task', 'Goal')) {
+    if (!is(graph, target, 'Task', 'Goal')) {
       return fail(
         'invalid-target',
         `the target of an ${label}-refinement link must be a Goal or a Task (iStar 2.0 Guide, Table 1)`,
@@ -266,13 +390,13 @@ function refinementLink(label: 'AND' | 'OR'): Check {
 }
 
 const neededByLink: Check = (graph, source, target) => {
-  if (!is(source, 'Resource')) {
+  if (!is(graph, source, 'Resource')) {
     return fail(
       'invalid-source',
       'the source of a Needed-By link must be a Resource (iStar 2.0 Guide, Table 1)',
     );
   }
-  if (!is(target, 'Task')) {
+  if (!is(graph, target, 'Task')) {
     return fail(
       'invalid-target',
       'the target of a Needed-By link must be a Task (iStar 2.0 Guide, Table 1)',
@@ -303,13 +427,13 @@ const neededByLink: Check = (graph, source, target) => {
 };
 
 const contributionLink: Check = (graph, source, target) => {
-  if (!is(source, 'Goal', 'Quality', 'Task', 'Resource')) {
+  if (!is(graph, source, 'Goal', 'Quality', 'Task', 'Resource')) {
     return fail(
       'invalid-source',
       'the source of a Contribution link must be a Goal, a Quality, a Task or a Resource (iStar 2.0 Guide, Table 1)',
     );
   }
-  if (!is(target, 'Quality')) {
+  if (!is(graph, target, 'Quality')) {
     return fail(
       'invalid-target',
       'the target of a Contribution link must be a Quality (iStar 2.0 Guide, Table 1)',
@@ -356,13 +480,13 @@ const contributionLink: Check = (graph, source, target) => {
 };
 
 const qualificationLink: Check = (graph, source, target) => {
-  if (!is(source, 'Quality')) {
+  if (!is(graph, source, 'Quality')) {
     return fail(
       'invalid-source',
       'the source of a Qualification link must be a Quality (iStar 2.0 Guide, Table 1)',
     );
   }
-  if (!is(target, 'Goal', 'Task', 'Resource')) {
+  if (!is(graph, target, 'Goal', 'Task', 'Resource')) {
     return fail(
       'invalid-target',
       'the target of a Qualification link must be a Goal, a Task or a Resource (iStar 2.0 Guide, Table 1)',
@@ -398,7 +522,86 @@ const qualificationLink: Check = (graph, source, target) => {
   return OK;
 };
 
-const CHECKS: Readonly<Record<LinkKind, Check>> = {
+/** The words used for a list of kind selectors in messages: "a Goal or a Task". */
+function describe(graph: Graph, selectors: readonly string[]): string {
+  const names = selectors.map((selector) => {
+    if (selector === '*') return 'any element';
+    if (selector === 'node') return 'an intentional element';
+    if (selector === 'actor') return 'an actor';
+    const label = graph.metamodel.elements.get(selector)?.label ?? selector;
+    return /^[aeiou]/i.test(label) ? `an ${label}` : `a ${label}`;
+  });
+  return names.length <= 2
+    ? names.join(' or ')
+    : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
+}
+
+function matchesSelector(graph: Graph, element: IstarElement<string>, selector: string): boolean {
+  if (selector === '*') return true;
+  const category = graph.metamodel.elements.get(element.kind)?.category;
+  if (selector === 'node' || selector === 'actor') return category === selector;
+  return elementBehavesLike(graph.metamodel, element.kind, selector);
+}
+
+/**
+ * Declarative rules of an extension link kind, checked in the order of the iStar 2.0 node-link
+ * rules (and of piStar-ext's generated `isValid`): source kind, target kind, self link,
+ * dependum, same actor, duplicates.
+ */
+function declarativeCheck(
+  graph: Graph,
+  definition: LinkKindDefinition,
+  rules: LinkRules,
+  rulesKind: string,
+  source: IstarElement<string>,
+  target: IstarElement<string>,
+): LinkCheck {
+  const name = definition.label;
+  const article = /^[aeiou]/i.test(name) ? 'an' : 'a';
+  if (!rules.sources.some((selector) => matchesSelector(graph, source, selector))) {
+    return fail(
+      'invalid-source',
+      `the source of ${article} ${name} link must be ${describe(graph, rules.sources)}`,
+    );
+  }
+  if (!rules.targets.some((selector) => matchesSelector(graph, target, selector))) {
+    return fail(
+      'invalid-target',
+      `the target of ${article} ${name} link must be ${describe(graph, rules.targets)}`,
+    );
+  }
+  if (!rules.allowSelf && source.id === target.id) {
+    return fail('self-link', `you cannot make ${article} ${name} link from an element onto itself`);
+  }
+  if (definition.category === 'node') {
+    if (!rules.allowDependum && (isDependum(source) || isDependum(target))) {
+      return fail('dependum-endpoint', `you cannot make ${article} ${name} link with a dependum`);
+    }
+    if (rules.sameActor !== false && source.parent !== target.parent) {
+      return fail(
+        'different-actors',
+        `the source and target of ${article} ${name} link must pertain to the same actor (iStar 2.0 Guide, Page 14)`,
+      );
+    }
+  }
+  const unique = rules.unique ?? 'kind';
+  if (
+    (unique === 'any' && graph.isThereLinkBetween(source, target)) ||
+    (unique === 'kind' && graph.isThereLinkOfKindBetween(source, target, definition.kind)) ||
+    // A kind inheriting these rules shares the limit with the kind that declares them.
+    (unique === 'kind' &&
+      rulesKind !== definition.kind &&
+      graph.isThereLinkOfKindBetween(source, target, rulesKind))
+  ) {
+    return fail(
+      'duplicate-link',
+      `there can only be one ${name} link between the same two elements`,
+    );
+  }
+  return OK;
+}
+
+const CHECKS: Partial<Readonly<Record<string, Check>>> = {
   'istar.IsALink': isALink,
   'istar.ParticipatesInLink': participatesInLink,
   'istar.DependencyLink': dependencyLink,
@@ -409,9 +612,9 @@ const CHECKS: Readonly<Record<LinkKind, Check>> = {
   'istar.QualificationLink': qualificationLink,
 };
 
-export interface ModelIssue {
+export interface ModelIssue<LK extends string = LinkKind> {
   readonly linkId: string;
-  readonly kind: LinkKind;
+  readonly kind: LK;
   readonly source: string;
   readonly target: string;
   readonly code: ConstraintCode;
@@ -423,54 +626,63 @@ export interface ModelIssue {
  * first (each checked before its own links are added), then the remaining links in file
  * order, each against the graph built so far. Invalid links are reported, not removed.
  */
-export function validateModel(model: IstarModel): ModelIssue[] {
-  const issues: ModelIssue[] = [];
-  const accepted = new Map<string, IstarLink>();
-  const view = (): IstarModel => ({ ...model, links: accepted });
+export function validateModel<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  options: CanLinkOptions<EK, LK> = {},
+): ModelIssue<LK>[] {
+  const metamodel = (options.metamodel ?? metamodelOf(model)) as unknown as AnyMetamodel;
+  const any = model as unknown as AnyIstarModel;
+  const issues: ModelIssue<LK>[] = [];
+  const accepted = new Map<string, IstarLink<string>>();
+  const view = (): AnyIstarModel => ({ ...any, links: accepted });
+  const check = (source: string, target: string, kind: string): LinkCheck =>
+    canLink(view(), source, target, kind, { metamodel });
+  const isDependency = (link: IstarLink<string>): boolean =>
+    metamodel.links.get(link.kind)?.category === 'dependency';
 
   const report = (
     linkId: string,
-    kind: LinkKind,
+    kind: string,
     source: string,
     target: string,
-    check: LinkCheck,
+    result: LinkCheck,
   ): void => {
-    if (!check.ok) {
-      issues.push({ linkId, kind, source, target, code: check.code, message: check.reason });
+    if (!result.ok) {
+      issues.push({
+        linkId,
+        kind: kind as LK,
+        source,
+        target,
+        code: result.code,
+        message: result.reason,
+      });
     }
   };
 
-  const dependencyLinks = [...model.links.values()].filter(
-    (l) => l.kind === 'istar.DependencyLink',
-  );
-  for (const dependum of model.elements.values()) {
+  const dependencyLinks = [...any.links.values()].filter(isDependency);
+  for (const dependum of any.elements.values()) {
     if (!dependum.isDependum) continue;
     const inbound = dependencyLinks.find((l) => l.target === dependum.id);
     const outbound = dependencyLinks.find((l) => l.source === dependum.id);
     const depender = inbound?.source ?? dependum.dependency?.source;
     const dependee = outbound?.target ?? dependum.dependency?.target;
+    const kind = inbound?.kind ?? outbound?.kind ?? 'istar.DependencyLink';
     if (depender !== undefined && dependee !== undefined) {
-      report(
-        inbound?.id ?? dependum.id,
-        'istar.DependencyLink',
-        depender,
-        dependee,
-        canLink(view(), depender, dependee, 'istar.DependencyLink'),
-      );
+      report(inbound?.id ?? dependum.id, kind, depender, dependee, check(depender, dependee, kind));
     }
     if (inbound) accepted.set(inbound.id, inbound);
     if (outbound) accepted.set(outbound.id, outbound);
   }
 
-  for (const link of model.links.values()) {
-    if (link.kind === 'istar.DependencyLink') continue;
-    if (model.elements.has(link.source) && model.elements.has(link.target)) {
+  for (const link of any.links.values()) {
+    if (isDependency(link)) continue;
+    if (any.elements.has(link.source) && any.elements.has(link.target)) {
       report(
         link.id,
         link.kind,
         link.source,
         link.target,
-        canLink(view(), link.source, link.target, link.kind),
+        check(link.source, link.target, link.kind),
       );
     } else {
       report(link.id, link.kind, link.source, link.target, {

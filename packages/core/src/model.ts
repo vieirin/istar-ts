@@ -1,5 +1,6 @@
 import type { ActorKind, ElementKind, LinkKind, NodeKind } from './metamodel';
-import { isActorKind } from './metamodel';
+import type { AnyMetamodel, Metamodel } from './metamodels';
+import { ISTAR_2_0, isActorKindIn } from './metamodels';
 
 /**
  * piStar stores every custom property value as a string (e.g. `"initialValue": "false"`).
@@ -31,7 +32,11 @@ export interface LinkDisplay {
   readonly [key: string]: unknown;
 }
 
-export interface IstarElement<K extends ElementKind = ElementKind> {
+/**
+ * An element of the model. `K` is the kind union: iStar 2.0's by default, wider for models of an
+ * extended metamodel (see `extendMetamodel`).
+ */
+export interface IstarElement<K extends string = ElementKind> {
   readonly id: string;
   readonly kind: K;
   /** The element's label; `text` in the save file. */
@@ -56,7 +61,7 @@ export interface IstarElement<K extends ElementKind = ElementKind> {
 export type IstarActor = IstarElement<ActorKind>;
 export type IstarNode = IstarElement<NodeKind>;
 
-export interface IstarLink<K extends LinkKind = LinkKind> {
+export interface IstarLink<K extends string = LinkKind> {
   readonly id: string;
   readonly kind: K;
   readonly source: string;
@@ -80,10 +85,17 @@ export interface Diagram {
 /**
  * An immutable iStar model. Maps preserve insertion order, which is the order elements and
  * links are written back to disk.
+ *
+ * `EK`/`LK` are the element and link kind unions; they default to iStar 2.0's.
  */
-export interface IstarModel {
-  readonly elements: ReadonlyMap<string, IstarElement>;
-  readonly links: ReadonlyMap<string, IstarLink>;
+export interface IstarModel<EK extends string = ElementKind, LK extends string = LinkKind> {
+  readonly elements: ReadonlyMap<string, IstarElement<EK>>;
+  readonly links: ReadonlyMap<string, IstarLink<LK>>;
+  /**
+   * The metamodel the model was read or created with. Absent means iStar 2.0 (`ISTAR_2_0`).
+   * Constraints, operations and serialization use it unless given another one.
+   */
+  readonly metamodel?: Metamodel<EK, LK>;
   readonly diagram?: Diagram;
   readonly tool?: string;
   readonly istar?: string;
@@ -100,27 +112,59 @@ export const ISTAR_VERSION = '2.0';
 
 export const DEFAULT_DIAGRAM: Diagram = { width: 2000, height: 1300 };
 
-export function createEmptyModel(diagram: Diagram = DEFAULT_DIAGRAM): IstarModel {
+/** A model of any dialect, for code that handles every kind generically. */
+export type AnyIstarModel = IstarModel<string, string>;
+
+export function createEmptyModel(diagram?: Diagram): IstarModel;
+export function createEmptyModel<EK extends string, LK extends string>(
+  diagram: Diagram | undefined,
+  options: { metamodel: Metamodel<EK, LK> },
+): IstarModel<EK, LK>;
+export function createEmptyModel(
+  diagram: Diagram = DEFAULT_DIAGRAM,
+  options: { metamodel?: AnyMetamodel } = {},
+): AnyIstarModel {
   return {
     elements: new Map(),
     links: new Map(),
     diagram,
     tool: PISTAR_TOOL,
     istar: ISTAR_VERSION,
+    ...(options.metamodel && options.metamodel !== ISTAR_2_0
+      ? { metamodel: options.metamodel }
+      : {}),
   };
 }
 
-export function isActor(element: IstarElement | undefined): element is IstarActor {
-  return element !== undefined && isActorKind(element.kind);
+/** The metamodel a model uses: its own, or iStar 2.0. */
+export function metamodelOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+): Metamodel<EK, LK> {
+  return model.metamodel ?? (ISTAR_2_0 as unknown as Metamodel<EK, LK>);
 }
 
-export function isNode(element: IstarElement | undefined): element is IstarNode {
-  return element !== undefined && !isActorKind(element.kind);
+/** True for actor-category elements; pass the metamodel for extended actor kinds. */
+export function isActor(
+  element: IstarElement<string> | undefined,
+  metamodel: AnyMetamodel = ISTAR_2_0,
+): element is IstarActor {
+  return element !== undefined && isActorKindIn(metamodel, element.kind);
+}
+
+/** True for node-category elements; pass the metamodel for extended node kinds. */
+export function isNode(
+  element: IstarElement<string> | undefined,
+  metamodel: AnyMetamodel = ISTAR_2_0,
+): element is IstarNode {
+  return element !== undefined && !isActorKindIn(metamodel, element.kind);
 }
 
 /** Inner elements of an actor, in model order. */
-export function childrenOf(model: IstarModel, actorId: string): IstarElement[] {
-  const result: IstarElement[] = [];
+export function childrenOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  actorId: string,
+): IstarElement<EK>[] {
+  const result: IstarElement<EK>[] = [];
   for (const element of model.elements.values()) {
     if (element.parent === actorId) result.push(element);
   }
@@ -128,8 +172,11 @@ export function childrenOf(model: IstarModel, actorId: string): IstarElement[] {
 }
 
 /** Links that have the element as source or target. */
-export function linksOf(model: IstarModel, elementId: string): IstarLink[] {
-  const result: IstarLink[] = [];
+export function linksOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  elementId: string,
+): IstarLink<LK>[] {
+  const result: IstarLink<LK>[] = [];
   for (const link of model.links.values()) {
     if (link.source === elementId || link.target === elementId) result.push(link);
   }
@@ -137,14 +184,15 @@ export function linksOf(model: IstarModel, elementId: string): IstarLink[] {
 }
 
 /** For a dependum, the two halves of its dependency: depender → dependum → dependee. */
-export function dependencyLinksOf(
-  model: IstarModel,
+export function dependencyLinksOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
   dependumId: string,
-): { inbound?: IstarLink; outbound?: IstarLink } {
-  let inbound: IstarLink | undefined;
-  let outbound: IstarLink | undefined;
+): { inbound?: IstarLink<LK>; outbound?: IstarLink<LK> } {
+  const metamodel = metamodelOf(model) as AnyMetamodel;
+  let inbound: IstarLink<LK> | undefined;
+  let outbound: IstarLink<LK> | undefined;
   for (const link of model.links.values()) {
-    if (link.kind !== 'istar.DependencyLink') continue;
+    if (metamodel.links.get(link.kind)?.category !== 'dependency') continue;
     if (link.target === dependumId && !inbound) inbound = link;
     if (link.source === dependumId && !outbound) outbound = link;
   }

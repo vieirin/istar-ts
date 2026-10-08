@@ -8,8 +8,20 @@ export interface Fixture {
   text: string;
 }
 
-/** Every file under fixtures/, recursively. Names contain spaces and parentheses. */
+/**
+ * Every file under fixtures/, recursively, except `fixtures/extensions/` (models of extended
+ * metamodels, which iStar 2.0 can't read). Names contain spaces and parentheses.
+ */
 export function loadFixtures(): Fixture[] {
+  return loadAll().filter((f) => !f.name.startsWith('extensions/'));
+}
+
+/** Models under fixtures/extensions/, which need their extension to load. */
+export function loadExtensionFixtures(): Fixture[] {
+  return loadAll().filter((f) => f.name.startsWith('extensions/'));
+}
+
+function loadAll(): Fixture[] {
   return readdirSync(FIXTURES_DIR, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => {
