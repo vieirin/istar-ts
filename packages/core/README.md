@@ -171,6 +171,83 @@ const modelIssues = validateModelProperties(model, [resourceSchema]);
 `read` / `validate` accept `customProperties`, a full element/link, or `undefined`. `write` merges
 patches, preserves unknown keys, and serializes typed values back to strings.
 
+## Extending the metamodel
+
+Everything above uses iStar 2.0, which is `ISTAR_2_0`, the default metamodel. Dialects that add
+constructs, such as [piStar-ext](https://ceur-ws.org/Vol-2641/paper_06.pdf)'s iStar4RationalAgents
+with its Planning and Plan nodes, are new metamodels built with `extendMetamodel`:
+
+```ts
+import { ISTAR_2_0, defineMetamodelExtension, extendMetamodel, parsePistar } from '@istar-ts/core';
+
+const rationalAgents = defineMetamodelExtension({
+  name: 'rationalAgents',
+  elements: [
+    // Follows the Task rules: it can refine and be refined, be a dependum, need resources…
+    { kind: 'rationalAgents.Planning', behavesLike: 'istar.Task', pistarType: 'istar.Planning' },
+    // A node with no rules of its own: only links that name it accept it.
+    { kind: 'rationalAgents.Plan', category: 'node' },
+  ],
+  links: [
+    {
+      kind: 'rationalAgents.GeneratesLink',
+      label: 'Generates',
+      rules: { sources: ['rationalAgents.Planning'], targets: ['rationalAgents.Plan'] },
+    },
+    { kind: 'rationalAgents.AlternativeLink', behavesLike: 'istar.OrRefinementLink' },
+  ],
+});
+
+const RATIONAL_AGENTS = extendMetamodel(ISTAR_2_0, rationalAgents);
+const model = parsePistar(text, { metamodel: RATIONAL_AGENTS });
+```
+
+- **Element kinds** have a `category` (`node` or `actor`), a `label`, a `size` and, for nodes,
+  `NodeKindInfo`. `behavesLike` names an existing kind whose link rules the new kind follows,
+  and also sets its category and defaults.
+- **Link kinds** either `behavesLike` an existing link kind (its rules, and its meaning for the
+  other rules: an Alternative counts as an OR-refinement, so it can't be mixed with AND), or
+  declare `rules`:
+  - `sources` / `targets`: kind names or the categories `node`, `actor`, `*`. A kind name also
+    accepts kinds that behave like it.
+  - `sameActor` (default true), `allowDependum` / `allowSelf` (default false), and `unique`
+    (`'kind'` by default, `'any'`, or `false`).
+
+  Either way, an optional `check(context)` predicate runs last. Dependency-category kinds must
+  behave like `istar.DependencyLink`; `addDependency({ …, linkKind })` creates them.
+
+- **Names.** Kinds are namespaced (`rationalAgents.Plan`). `istar.` is reserved for iStar 2.0, and a
+  name or `pistarType` that collides with an existing one throws `MetamodelError`. Extensions
+  stack, and a later one may build on an earlier one's kinds.
+- **The model remembers its metamodel.** `parsePistar`, `createEmptyModel(undefined, { metamodel })`
+  and `createModelStore(undefined, { metamodel })` associate it, and every operation and store
+  snapshot (undo/redo included) keeps it, so `canLink`, `validateModel`, the store and `toPistar`
+  need no extra argument. The association lives beside the model (`metamodelOf`), never in it:
+  models keep their shape, and nothing reaches JSON or disk. A model rebuilt with an object
+  spread loses it; `withMetamodel(model, metamodel)` restores it.
+- **Types.** `ElementKind`, `LinkKind` and the other iStar 2.0 exports are unchanged.
+  `IstarModel<EK, LK>`, `ModelStore<EK, LK>` and `Metamodel<EK, LK>` default to them, and
+  `extendMetamodel` types the new kinds (`ElementKindOf<typeof RATIONAL_AGENTS>`).
+
+### On disk: `pistarType`
+
+A kind is written with its name as `type` (`"type": "rationalAgents.Plan"`) unless it declares
+`pistarType`. Each choice has a cost:
+
+| Declaration                    | Written as            | Who can open the file                                                   |
+| ------------------------------ | --------------------- | ----------------------------------------------------------------------- |
+| `pistarType: 'istar.Planning'` | `istar.Planning`      | istar-ts with the extension, and piStar-ext with the same construct     |
+| no `pistarType`                | `rationalAgents.Plan` | istar-ts with the extension only; plain piStar rejects the unknown type |
+
+piStar-ext writes its new constructs as `istar.<Name>`, so use `pistarType` to exchange files with
+it. Note that piStar-ext keeps the construct _definitions_ (name, shape, source and target kinds)
+only in the browser's localStorage, not in the model file. To read a piStar-ext file, the host must
+supply the matching extension, otherwise its unknown types throw `PistarParseError`, as with any
+unknown type. `toPistar` likewise throws `PistarWriteError` for a kind its metamodel doesn't know,
+rather than writing a type that can't be read back.
+
+See [docs/metamodel-extensions.md](../../docs/metamodel-extensions.md) for the design.
+
 ## Credits
 
 The metamodel, link constraints, element shapes, and file format are derived from

@@ -223,6 +223,72 @@ For a fully custom form set `inspector`, built from `InspectorField`, `PropertyF
 `registry` prop. `defaultPropertiesFor(registry, kind, model)` merges schema defaults with
 `defaultProperties` (preset wins on key clashes).
 
+### New element and link kinds
+
+An `IstarExtension` can bring new kinds as well as presentation. Its `metamodel` part is a core
+metamodel extension (see `@istar-ts/core`, "Extending the metamodel"); `elements` / `links` say how
+the kinds look, like piStar-ext's "Shape" and "Kind of Line" fields:
+
+```tsx
+import { ISTAR_2_0, parsePistar } from '@istar-ts/core';
+import { IstarCanvas, LINE_DASHES, metamodelWithExtensions, useIstarStore } from '@istar-ts/react';
+import type { IstarExtension } from '@istar-ts/react';
+
+const rationalAgents: IstarExtension<string, string> = {
+  name: 'rationalAgents',
+  metamodel: {
+    name: 'rationalAgents',
+    elements: [
+      { kind: 'rationalAgents.Planning', behavesLike: 'istar.Task', pistarType: 'istar.Planning' },
+      { kind: 'rationalAgents.Plan', category: 'node' },
+    ],
+    links: [
+      {
+        kind: 'rationalAgents.GeneratesLink',
+        label: 'Generates',
+        rules: { sources: ['rationalAgents.Planning'], targets: ['rationalAgents.Plan'] },
+      },
+    ],
+  },
+  elements: {
+    // SVG path data, scaled to the element (no viewBox needed).
+    'rationalAgents.Planning': {
+      shape: { path: 'M 0 0 L 80 0 L 100 20 L 80 40 L 0 40 L 14 20 Z' },
+    },
+  },
+  links: {
+    'rationalAgents.GeneratesLink': {
+      line: { dash: LINE_DASHES.dotted, marker: 'm 10,-6 l -10,6 10,6' },
+    },
+  },
+};
+
+const extensions = [rationalAgents];
+const metamodel = metamodelWithExtensions(extensions, ISTAR_2_0);
+
+function Editor({ text }: { text: string }) {
+  const { store } = useIstarStore(() => parsePistar(text, { metamodel }));
+  return <IstarCanvas store={store} extensions={extensions} />;
+}
+```
+
+- **Defaults.** The canvas completes its registry for the model's metamodel
+  (`registryForMetamodel`). Every extended kind gets a palette entry after the built-in ones, its
+  label and size, and the default components. Extended node kinds that can be dependums join the
+  Dependency menu.
+- **Nodes.** `shape` draws the kind with SVG path data, scaled to the element (`pathBounds`
+  computes the drawing's box without a DOM). Without a shape, an extended node is drawn as piStar's
+  default node: a dashed box with its «stereotype» (set `stereotype` to change or hide it). An
+  extended actor kind looks like the actor it behaves like, or is a dashed circle.
+- **Links.** `line` sets the `dash` (`LINE_DASHES`: piStar-ext's dashed, dotted, continuous) and
+  the target `marker` (path data, JointJS convention, as piStar-ext stores it). Without one, an
+  extended link is drawn like the kind it behaves like, or as a continuous line with an open arrow.
+- **Constraints.** The canvas checks connections with the same `canLink` as `@istar-ts/core`, so
+  extended rules apply while dragging, and rejected links say why.
+
+The playground's "iStar4RationalAgents" extension (`examples/playground/src/extensions/`) and the
+`fixtures/extensions/rationalAgents.txt` example show it end to end.
+
 ### Palette
 
 Palette entries carry an `icon` (the default registry draws piStar-like previews, exported as

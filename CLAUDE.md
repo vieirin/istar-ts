@@ -43,6 +43,10 @@ pnpm dev          # playground
   (goal-controller included); `customProperties` values stay strings on disk; unknown JSON keys
   must survive a round trip. Modeller-specific behaviour goes in an `IstarExtension`
   (`extensions` prop) — see `examples/playground/src/extensions/`.
+- The metamodel is a value: `ISTAR_2_0` by default, `extendMetamodel` for new element/link kinds
+  (design: `docs/metamodel-extensions.md`). Look kinds up in the model's metamodel
+  (`metamodelOf`) instead of comparing against `istar.*` names or `isActorKind`; keep iStar 2.0
+  overloads last and the built-in kind unions unchanged.
 - Where upstream behaviour is ambiguous, match what the piStar web tool does and leave a
   comment saying so.
 - Commit after each step with build + tests passing.

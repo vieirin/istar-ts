@@ -11,6 +11,11 @@ TypeScript libraries for [iStar 2.0](https://istarwiki.org/) goal models, ported
 Files saved by the piStar web tool load and save byte-for-byte compatibly, including arbitrary
 `customProperties` and keys the library does not know about.
 
+Both packages default to iStar 2.0 exactly as the piStar tool implements it. Dialects that add
+element or link kinds (such as piStar-ext's iStar4RationalAgents) are supported through
+`extendMetamodel`: see "Extending the metamodel" in the package READMEs and
+[docs/metamodel-extensions.md](docs/metamodel-extensions.md).
+
 ## Development
 
 ```sh
