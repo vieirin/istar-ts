@@ -1,4 +1,4 @@
-import type { IstarModel, PropertySchema } from '@istar-ts/core';
+import type { AnyIstarModel, PropertySchema } from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector } from '@istar-ts/react';
 import type { ReactElement } from 'react';
@@ -7,7 +7,7 @@ export function Sidebar({
   model,
   schemas,
 }: {
-  readonly model: IstarModel;
+  readonly model: AnyIstarModel;
   /** Property schemas contributed by the active extension, if any. */
   readonly schemas: readonly PropertySchema[];
 }): ReactElement {

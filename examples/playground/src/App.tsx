@@ -1,11 +1,19 @@
-import type { PropertySchema } from '@istar-ts/core';
-import { createEmptyModel, parsePistar, PistarParseError, toPistar } from '@istar-ts/core';
+import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
+import {
+  createEmptyModel,
+  inheritSourceLayout,
+  parsePistar,
+  PistarParseError,
+  toPistar,
+  withMetamodel,
+} from '@istar-ts/core';
 import type { IstarExtension } from '@istar-ts/react';
-import { IstarCanvas, useIstarStore } from '@istar-ts/react';
+import { IstarCanvas, metamodelWithExtensions, useIstarStore } from '@istar-ts/react';
 import type { ChangeEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
 import { demoIssuesFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
+import { rationalAgentsExtension } from './extensions/rationalAgents';
 import { Sidebar } from './Sidebar';
 
 const fixtureModules = import.meta.glob('../../../fixtures/**/*.txt', {
@@ -29,22 +37,86 @@ const initialFixturePath = defaultFixturePath() ?? fixturePaths[0] ?? '';
  * Optional extensions. The default is a plain piStar editor; an extension adapts it to another
  * modeller without changing the libraries.
  */
-const EXTENSIONS: Record<string, { extensions: IstarExtension[]; schemas: PropertySchema[] }> = {
-  none: { extensions: [], schemas: [] },
-  'goal-controller': { extensions: [goalControllerExtension], schemas: goalControllerSchemas },
-  mutrose: { extensions: [mutroseExtension], schemas: mutroseSchemas },
+interface ExtensionSet {
+  readonly extensions: readonly IstarExtension<string, string>[];
+  readonly schemas: readonly PropertySchema[];
+  /** The metamodel models are read and created with: iStar 2.0 plus the extensions' kinds. */
+  readonly metamodel: AnyMetamodel;
+}
+
+function extensionSet(
+  extensions: readonly IstarExtension<string, string>[],
+  schemas: readonly PropertySchema[],
+): ExtensionSet {
+  return { extensions, schemas, metamodel: metamodelWithExtensions(extensions) };
+}
+
+const EXTENSIONS: Record<string, ExtensionSet> = {
+  none: extensionSet([], []),
+  'goal-controller': extensionSet(
+    [goalControllerExtension as IstarExtension<string, string>],
+    goalControllerSchemas,
+  ),
+  mutrose: extensionSet([mutroseExtension as IstarExtension<string, string>], mutroseSchemas),
+  // A metamodel extension: new element and link kinds, not just new presentation.
+  rationalAgents: extensionSet([rationalAgentsExtension], []),
 };
+
+/** Examples under fixtures/extensions/<name>.txt need the extension of that name. */
+function extensionForPath(path: string): string | undefined {
+  const match = /\/extensions\/([^/]+)\.txt$/.exec(path);
+  return match && match[1] && EXTENSIONS[match[1]] ? match[1] : undefined;
+}
+
+/** Kinds of `model` that `metamodel` doesn't know. */
+function unknownKinds(model: AnyIstarModel, metamodel: AnyMetamodel): string[] {
+  const unknown = new Set<string>();
+  for (const e of model.elements.values()) if (!metamodel.elements.has(e.kind)) unknown.add(e.kind);
+  for (const l of model.links.values()) if (!metamodel.links.has(l.kind)) unknown.add(l.kind);
+  return [...unknown];
+}
 
 export default function App(): ReactElement {
   const topChromeRef = useRef<HTMLDivElement>(null);
-  const { store, model } = useIstarStore(createEmptyModel);
+  const { store, model } = useIstarStore<string, string>(() => createEmptyModel());
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [extensionId, setExtensionId] = useState('none');
+  const [extensionId, setExtensionIdState] = useState(
+    () => extensionForPath(initialFixturePath) ?? 'none',
+  );
   const [bar, setBar] = useState<'left' | 'top' | 'bottom'>('left');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [links, setLinks] = useState<'straight' | 'curved'>('straight');
   const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
+
+  /**
+   * Switching extensions keeps the current model, under the new metamodel, unless it uses
+   * kinds the new one doesn't have.
+   */
+  const setExtensionId = (id: string): void => {
+    const next = EXTENSIONS[id] ?? EXTENSIONS.none!;
+    const current = store.getModel();
+    const missing = unknownKinds(current, next.metamodel);
+    if (missing.length > 0) {
+      setParseError(`The current model uses ${missing.join(', ')}, which this extension lacks.`);
+      return;
+    }
+    setParseError(null);
+    // A new model object (the store only re-renders on a new snapshot), keeping key order.
+    store.load(withMetamodel(inheritSourceLayout(current, { ...current }), next.metamodel));
+    setExtensionIdState(id);
+  };
+
+  /** Parses with the extension a path needs (switching to it), or the active one. */
+  const parseFor = useCallback(
+    (text: string, path?: string): AnyIstarModel => {
+      const id = (path && extensionForPath(path)) || extensionId;
+      if (id !== extensionId) setExtensionIdState(id);
+      const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
+      return parsePistar(text, { metamodel });
+    },
+    [extensionId],
+  );
 
   const loadFixture = useCallback(
     async (path: string): Promise<void> => {
@@ -53,7 +125,7 @@ export default function App(): ReactElement {
       setParseError(null);
       try {
         const text = (await load()) as string;
-        store.load(parsePistar(text));
+        store.load(parseFor(text, path));
         setSelectedPath(path);
       } catch (error) {
         if (error instanceof PistarParseError) {
@@ -63,7 +135,7 @@ export default function App(): ReactElement {
         }
       }
     },
-    [store],
+    [parseFor, store],
   );
 
   useEffect(() => {
@@ -74,7 +146,10 @@ export default function App(): ReactElement {
       if (!load) return;
       try {
         const text = (await load()) as string;
-        if (!cancelled) store.load(parsePistar(text));
+        // The initial extension state already matches this path (see useState above).
+        const id = extensionForPath(initialFixturePath) ?? 'none';
+        const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
+        if (!cancelled) store.load(parsePistar(text, { metamodel }));
       } catch (error) {
         if (cancelled) return;
         if (error instanceof PistarParseError) {
@@ -123,7 +198,7 @@ export default function App(): ReactElement {
     if (!file) return;
     setParseError(null);
     try {
-      store.load(parsePistar(await file.text()));
+      store.load(parseFor(await file.text()));
       setSelectedPath('');
     } catch (error) {
       if (error instanceof PistarParseError) {
@@ -145,7 +220,7 @@ export default function App(): ReactElement {
   };
 
   const onNew = (): void => {
-    store.load(createEmptyModel());
+    store.load(createEmptyModel(undefined, { metamodel: active.metamodel }));
     setSelectedPath('');
     setParseError(null);
   };
@@ -173,6 +248,7 @@ export default function App(): ReactElement {
                 <option value="none">None (piStar)</option>
                 <option value="goal-controller">goal-controller</option>
                 <option value="mutrose">MutRoSe-shaped</option>
+                <option value="rationalAgents">iStar4RationalAgents (new kinds)</option>
               </select>
             </label>
             <label>

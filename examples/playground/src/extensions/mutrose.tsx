@@ -91,9 +91,11 @@ export const mutroseSchemas = [mutroseGoalProperties, mutroseTaskProperties];
 
 /** Demo LSP-style issues for the first goal in a model (playground only). */
 export function demoIssuesFor(
-  model: IstarModel,
+  model: IstarModel<string, string>,
 ): { id: string; severity: 'error' | 'warning'; message: string }[] {
-  const goal = [...model.elements.values()].find((el: IstarElement) => el.kind === 'istar.Goal');
+  const goal = [...model.elements.values()].find(
+    (el: IstarElement<string>) => el.kind === 'istar.Goal',
+  );
   if (!goal) return [];
   return [
     {
