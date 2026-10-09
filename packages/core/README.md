@@ -225,6 +225,9 @@ const model = parsePistar(text, { metamodel: RATIONAL_AGENTS });
   need no extra argument. The association lives beside the model (`metamodelOf`), never in it:
   models keep their shape, and nothing reaches JSON or disk. A model rebuilt with an object
   spread loses it; `withMetamodel(model, metamodel)` restores it.
+- **Predicates.** `isActor` / `isNode` answer for iStar 2.0 and take one argument, so they stay
+  safe as `filter` callbacks. For extended kinds use `isActorIn(metamodel)` / `isNodeIn(metamodel)`,
+  which return a predicate: `elements.filter(isActorIn(metamodelOf(model)))`.
 - **Types.** `ElementKind`, `LinkKind` and the other iStar 2.0 exports are unchanged.
   `IstarModel<EK, LK>`, `ModelStore<EK, LK>` and `Metamodel<EK, LK>` default to them, and
   `extendMetamodel` types the new kinds (`ElementKindOf<typeof RATIONAL_AGENTS>`).

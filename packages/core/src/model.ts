@@ -172,20 +172,35 @@ export function metamodelOf<EK extends string, LK extends string>(
   return (metamodels.get(model) ?? ISTAR_2_0) as unknown as Metamodel<EK, LK>;
 }
 
-/** True for actor-category elements; pass the metamodel for extended actor kinds. */
-export function isActor(
-  element: IstarElement<string> | undefined,
-  metamodel: AnyMetamodel = ISTAR_2_0,
-): element is IstarActor {
-  return element !== undefined && isActorKindIn(metamodel, element.kind);
+/**
+ * True for iStar 2.0 actors (Actor, Agent, Role). One argument, so it is safe as an array
+ * callback (`elements.filter(isActor)`). For extended actor kinds use `isActorIn(metamodel)`.
+ */
+export function isActor(element: IstarElement<string> | undefined): element is IstarActor {
+  return element !== undefined && isActorKindIn(ISTAR_2_0, element.kind);
 }
 
-/** True for node-category elements; pass the metamodel for extended node kinds. */
-export function isNode(
-  element: IstarElement<string> | undefined,
-  metamodel: AnyMetamodel = ISTAR_2_0,
-): element is IstarNode {
-  return element !== undefined && !isActorKindIn(metamodel, element.kind);
+/** True for iStar 2.0 intentional elements. For extended kinds use `isNodeIn(metamodel)`. */
+export function isNode(element: IstarElement<string> | undefined): element is IstarNode {
+  return element !== undefined && !isActorKindIn(ISTAR_2_0, element.kind);
+}
+
+/**
+ * A predicate for actor-category elements of `metamodel`, extended actor kinds included:
+ * `elements.filter(isActorIn(metamodelOf(model)))`.
+ */
+export function isActorIn(
+  metamodel: AnyMetamodel,
+): (element: IstarElement<string> | undefined) => boolean {
+  return (element) => element !== undefined && isActorKindIn(metamodel, element.kind);
+}
+
+/** A predicate for node-category elements of `metamodel`, extended node kinds included. */
+export function isNodeIn(
+  metamodel: AnyMetamodel,
+): (element: IstarElement<string> | undefined) => boolean {
+  return (element) =>
+    element !== undefined && metamodel.elements.get(element.kind)?.category === 'node';
 }
 
 /** Inner elements of an actor, in model order. */

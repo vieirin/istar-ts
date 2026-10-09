@@ -40,12 +40,26 @@ function sameTool(a: Tool | null, b: Tool): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** As an array callback the extra argument is an index: anything but a metamodel means iStar 2.0. */
+function asMetamodel(given: unknown): AnyMetamodel {
+  return typeof given === 'object' && given !== null && 'elements' in given
+    ? (given as AnyMetamodel)
+    : ISTAR_2_0;
+}
+
 /** The palette entry that produces `tool`, if any (used for the status hint). */
 export function paletteEntryFor(
   registry: IstarRegistry,
   tool: Tool,
-  metamodel: AnyMetamodel = ISTAR_2_0,
+  metamodel: AnyMetamodel,
+): PaletteEntry | undefined;
+export function paletteEntryFor(registry: IstarRegistry, tool: Tool): PaletteEntry | undefined;
+export function paletteEntryFor(
+  registry: IstarRegistry,
+  tool: Tool,
+  given?: AnyMetamodel,
 ): PaletteEntry | undefined {
+  const metamodel = asMetamodel(given);
   for (const slots of paletteSections(registry, metamodel)) {
     for (const slot of slots) {
       const items = slot.type === 'item' ? [slot.item] : slot.items;
@@ -61,10 +75,11 @@ export function paletteEntryFor(
  * (default iStar 2.0) tells dependency kinds apart and draws icons for extended kinds whose
  * entries have none.
  */
-export function paletteSections(
-  registry: IstarRegistry,
-  metamodel: AnyMetamodel = ISTAR_2_0,
-): Slot[][] {
+export function paletteSections(registry: IstarRegistry, metamodel: AnyMetamodel): Slot[][];
+// The one-argument signature comes last, so `registries.map(paletteSections)` types as before.
+export function paletteSections(registry: IstarRegistry): Slot[][];
+export function paletteSections(registry: IstarRegistry, given?: AnyMetamodel): Slot[][] {
+  const metamodel = asMetamodel(given);
   const items: Item[] = [];
   const any = registry as unknown as AnyIstarRegistry;
   const elementIconFor = (kind: string): ReactNode => {

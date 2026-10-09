@@ -105,8 +105,16 @@ export interface ElementIconOptions {
  */
 export function elementIcon(
   kind: ElementKind | (string & {}),
-  options: ElementIconOptions = {},
+  options: ElementIconOptions,
+): ReactElement;
+// The one-argument signature comes last, so `kinds.map(elementIcon)` types as before.
+export function elementIcon(kind: ElementKind | (string & {})): ReactElement;
+export function elementIcon(
+  kind: ElementKind | (string & {}),
+  given?: ElementIconOptions,
 ): ReactElement {
+  // As an array callback the second argument is an index: ignore anything but options.
+  const options: ElementIconOptions = typeof given === 'object' && given !== null ? given : {};
   if (options.actor) {
     return (
       <Icon>
@@ -206,8 +214,15 @@ function scaleDash(dash: string): string {
 /** A small dependum between two line halves, with the dependency "D". */
 export function dependencyIcon(
   dependum: ElementKind | (string & {}),
-  options: { readonly shape?: ShapeSpec } = {},
+  options: { readonly shape?: ShapeSpec },
+): ReactElement;
+// The one-argument signature comes last, so `kinds.map(dependencyIcon)` types as before.
+export function dependencyIcon(dependum: ElementKind | (string & {})): ReactElement;
+export function dependencyIcon(
+  dependum: ElementKind | (string & {}),
+  given?: { readonly shape?: ShapeSpec },
 ): ReactElement {
+  const options = typeof given === 'object' && given !== null ? given : {};
   return (
     <Icon>
       <path d="M 1 12 H 39" style={lineStyle} />

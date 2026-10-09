@@ -15,6 +15,9 @@ import {
   IstarCanvas,
   LINE_DASHES,
   defaultRegistry,
+  dependencyIcon,
+  elementIcon,
+  paletteSections,
   pathBounds,
   registryForMetamodel,
 } from '../src';
@@ -171,5 +174,16 @@ describe('pathBounds', () => {
   test('empty or malformed data has no bounds', () => {
     expect(pathBounds('')).toBeUndefined();
     expect(pathBounds('12 34')).toBeUndefined();
+  });
+});
+
+describe('helpers stay safe as array callbacks', () => {
+  test('elementIcon, dependencyIcon and paletteSections ignore the index', () => {
+    const kinds = ['istar.Goal', 'istar.Task'] as const;
+    expect(kinds.map(elementIcon)).toHaveLength(2);
+    expect(kinds.map(dependencyIcon)).toHaveLength(2);
+    const sections = [defaultRegistry].map(paletteSections);
+    expect(sections[0]).toEqual(paletteSections(defaultRegistry));
+    expectTypeOf(sections).toEqualTypeOf<ReturnType<typeof paletteSections>[]>();
   });
 });

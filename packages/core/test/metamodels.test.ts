@@ -3,6 +3,8 @@ import type {
   ActorKind,
   ElementKind,
   ElementKindOf,
+  IstarElement,
+  ModelIssue,
   IstarModel,
   LinkKind,
   LinkKindOf,
@@ -27,6 +29,9 @@ import {
   elementKindDefinition,
   extendMetamodel,
   isActor,
+  isActorIn,
+  isNode,
+  isNodeIn,
   metamodelOf,
   parsePistar,
   prop,
@@ -86,6 +91,35 @@ describe('ISTAR_2_0', () => {
     expectTypeOf(createEmptyModel()).toEqualTypeOf<IstarModel>();
     expectTypeOf(createModelStore().getModel()).toEqualTypeOf<IstarModel>();
     expectTypeOf(ISTAR_2_0).toEqualTypeOf<Metamodel>();
+  });
+
+  test('predicates and one-argument functions stay safe as array callbacks', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Agent', x: 0, y: 0 });
+    store.addElement({ kind: 'istar.Goal', x: 0, y: 0, parent: actor.id });
+    const elements = [...store.getModel().elements.values()];
+    // filter passes (element, index, array): the index must not be read as a metamodel.
+    const actors = elements.filter(isActor);
+    expectTypeOf(actors).toEqualTypeOf<IstarElement<ActorKind>[]>();
+    expect(actors.map((e) => e.kind)).toEqual(['istar.Agent']);
+    expect(elements.filter(isNode).map((e) => e.kind)).toEqual(['istar.Goal']);
+    expect([store.getModel()].map(validateModel)).toEqual([[]]);
+    expectTypeOf([store.getModel()].map(validateModel)).toEqualTypeOf<ModelIssue[][]>();
+  });
+
+  test('isActorIn / isNodeIn know extended kinds', () => {
+    const m = extendMetamodel(RATIONAL_AGENTS, {
+      name: 'org',
+      elements: [{ kind: 'org.Team', behavesLike: 'istar.Agent' }],
+    });
+    const store = createModelStore(undefined, { metamodel: m });
+    const team = store.addElement({ kind: 'org.Team', x: 0, y: 0 });
+    const plan = store.addElement({ kind: 'rationalAgents.Plan', x: 0, y: 0, parent: team.id });
+    const elements = [...store.getModel().elements.values()];
+    expect(elements.filter(isActorIn(m)).map((e) => e.id)).toEqual([team.id]);
+    expect(elements.filter(isNodeIn(m)).map((e) => e.id)).toEqual([plan.id]);
+    // The one-argument forms keep the iStar 2.0 answer.
+    expect(elements.filter(isActor)).toEqual([]);
   });
 
   test('function references and option-only calls type as before', () => {
@@ -499,7 +533,8 @@ describe('canLink with extended kinds', () => {
     const store = createModelStore(undefined, { metamodel: m });
     const team = store.addElement({ kind: 'org.Team', x: 0, y: 0 });
     const role = store.addElement({ kind: 'istar.Role', x: 400, y: 0 });
-    expect(isActor(team, m)).toBe(true);
+    expect(isActorIn(m)(team)).toBe(true);
+    expect(isActor(team)).toBe(false);
     expect(store.canLink(team, role, 'istar.ParticipatesInLink')).toEqual({ ok: true });
     const dep = store.addDependency({
       depender: team.id,

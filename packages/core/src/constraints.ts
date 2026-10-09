@@ -626,11 +626,22 @@ export interface ModelIssue<LK extends string = LinkKind> {
  * first (each checked before its own links are added), then the remaining links in file
  * order, each against the graph built so far. Invalid links are reported, not removed.
  */
+export function validateModel<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  options: CanLinkOptions<EK, LK>,
+): ModelIssue<LK>[];
+export function validateModel<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+): ModelIssue<LK>[];
+// 0.7.0's exact signature comes last, so `models.map(validateModel)` types as before.
+export function validateModel(model: IstarModel): ModelIssue[];
 export function validateModel<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
-  options: CanLinkOptions<EK, LK> = {},
+  options?: CanLinkOptions<EK, LK>,
 ): ModelIssue<LK>[] {
-  const metamodel = (options.metamodel ?? metamodelOf(model)) as unknown as AnyMetamodel;
+  // As an array callback the second argument is an index: ignore anything but options.
+  const given = typeof options === 'object' && options !== null ? options.metamodel : undefined;
+  const metamodel = (given ?? metamodelOf(model)) as unknown as AnyMetamodel;
   const any = model as unknown as AnyIstarModel;
   const issues: ModelIssue<LK>[] = [];
   const accepted = new Map<string, IstarLink<string>>();
