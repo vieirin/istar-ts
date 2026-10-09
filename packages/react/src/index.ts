@@ -38,6 +38,7 @@ export type {
   AnyIstarRegistry,
   InspectorProps,
   IstarExtension,
+  LinkLabelProps,
   LinkLineStyle,
   IstarRegistry,
   LinkActions,

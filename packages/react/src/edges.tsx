@@ -9,7 +9,7 @@ import type { AnyMetamodel, LinkKind } from '@istar-ts/core';
 import { LINK_KINDS, effectiveLinkKind } from '@istar-ts/core';
 import type { AnyIstarRegistry, IstarRegistry } from './registry';
 import type { EdgeProps, EdgeTypes, InternalNode } from '@xyflow/react';
-import { BaseEdge, useInternalNode } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, useInternalNode } from '@xyflow/react';
 import type { ComponentType, ReactElement } from 'react';
 import { memo } from 'react';
 import { useCanvasOptions } from './canvas-options';
@@ -296,7 +296,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   selected,
 }: EdgeProps<IstarFlowEdge>): ReactElement | null {
   const { model, metamodel, registry } = useIstarEditor();
-  const { linkShape } = useCanvasOptions();
+  const { linkShape, linkNames } = useCanvasOptions();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   const link = data ? model.links.get(data.linkId) : undefined;
@@ -320,6 +320,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const beforeEnd = points[points.length - 2]!;
   const backAngle = (Math.atan2(beforeEnd.y - end.y, beforeEnd.x - end.x) * 180) / Math.PI;
   const style = resolveLinkStyle(metamodel, registry, link.kind);
+  const LabelComponent = (registry as unknown as AnyIstarRegistry).links[link.kind]?.labelComponent;
   const marker = style.marker;
   const middle = pointAlong(points, 0.5);
 
@@ -346,10 +347,41 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
           transform={`translate(${middle.x} ${middle.y}) rotate(${middle.angle})`}
         />
       )}
-      {style.changeableLabel && link.label && (
+      {!LabelComponent && style.changeableLabel && link.label && (
         <LinkLabel at={pointAlong(points, 0.4)} text={link.label} className="is-contribution" />
       )}
-      {style.label && <LinkLabel at={middle} text={style.label} className="is-actor-link" />}
+      {!LabelComponent && style.label && (
+        <LinkLabel at={middle} text={style.label} className="is-actor-link" />
+      )}
+      {!LabelComponent && linkNames && link.name && (
+        <LinkLabel
+          // Below a fixed label at the middle, so both stay readable.
+          at={style.label ? { x: middle.x, y: middle.y + 15 } : middle}
+          text={link.name}
+          className="is-name"
+        />
+      )}
+      {LabelComponent && (
+        <EdgeLabelRenderer>
+          <div
+            className="istar-link-label-slot nodrag nopan"
+            data-link={link.id}
+            style={{ transform: `translate(-50%, -50%) translate(${middle.x}px, ${middle.y}px)` }}
+          >
+            <LabelComponent
+              link={link}
+              model={model}
+              metamodel={metamodel}
+              selected={selected === true}
+              labels={{
+                ...(style.label ? { fixed: style.label } : {}),
+                ...(style.changeableLabel && link.label ? { value: link.label } : {}),
+                ...(link.name ? { name: link.name } : {}),
+              }}
+            />
+          </div>
+        </EdgeLabelRenderer>
+      )}
     </g>
   );
 });

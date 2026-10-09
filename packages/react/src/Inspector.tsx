@@ -434,6 +434,7 @@ export function DefaultLinkInspector({
   const info = metamodel.links.get(target.kind)?.info;
   const values = info?.changeableLabel ? (info.possibleLabels ?? CONTRIBUTION_LABELS) : undefined;
   const labelId = useId();
+  const nameId = useId();
   const typed = useTypedProperties(schema, target, actions);
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const source = model.elements.get(target.source)?.name ?? target.source;
@@ -444,6 +445,15 @@ export function DefaultLinkInspector({
       <p className="istar-inspector-endpoints">
         {source} → {destination}
       </p>
+      {/* piStar's properties panel shows a Name for links too (it isn't drawn on the canvas). */}
+      <InspectorField label="Name" htmlFor={nameId}>
+        <CommitText
+          id={nameId}
+          value={target.name ?? ''}
+          readOnly={readOnly}
+          onCommit={(name) => actions.setName(name === '' ? undefined : name)}
+        />
+      </InspectorField>
       {values && (
         <InspectorField
           label={metamodel.links.get(target.kind)?.label ?? 'Value'}

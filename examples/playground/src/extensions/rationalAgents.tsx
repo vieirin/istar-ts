@@ -1,5 +1,6 @@
-import type { IstarExtension } from '@istar-ts/react';
+import type { IstarExtension, LinkLabelProps } from '@istar-ts/react';
 import { LINE_DASHES } from '@istar-ts/react';
+import type { ReactElement } from 'react';
 
 /**
  * iStar4RationalAgents, the dialect piStar-ext was demonstrated with (Gonçalves et al.,
@@ -17,6 +18,27 @@ import { LINE_DASHES } from '@istar-ts/react';
 const PLANNING_PATH = 'M 0 0 L 80 0 L 100 20 L 80 40 L 0 40 L 14 20 Z';
 /** Plan's symbol: a document with a folded corner. */
 const PLAN_PATH = 'M 0 0 L 75 0 L 90 15 L 90 50 L 0 50 Z M 75 0 L 75 15 L 90 15';
+
+/**
+ * piStar-ext's link label: the cell's `extension` block (kept as an unknown key on the link)
+ * composed as `<<stereotype>>` over `{tag=value}`, as piStar-ext draws it.
+ */
+function PistarExtLinkLabel({ link, labels }: LinkLabelProps): ReactElement | null {
+  const ext = (link.extra?.extension ?? {}) as {
+    stereotype?: string;
+    selectedTaggedValue?: string;
+    taggedValue?: string;
+  };
+  const lines = [
+    ext.stereotype ? `<<${ext.stereotype}>>` : '',
+    ext.selectedTaggedValue
+      ? `{${ext.selectedTaggedValue}${ext.taggedValue ? `=${ext.taggedValue}` : ''}}`
+      : '',
+    labels.name ?? '',
+  ].filter(Boolean);
+  if (lines.length === 0) return null;
+  return <div className="pg-link-stereotype">{lines.join('\n')}</div>;
+}
 
 export const rationalAgentsExtension: IstarExtension<string, string> = {
   name: 'rationalAgents',
@@ -59,6 +81,7 @@ export const rationalAgentsExtension: IstarExtension<string, string> = {
   },
   links: {
     'rationalAgents.GeneratesLink': {
+      labelComponent: PistarExtLinkLabel,
       line: {
         dash: LINE_DASHES.dotted,
         marker: 'm 1,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0',

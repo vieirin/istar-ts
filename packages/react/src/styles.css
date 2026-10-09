@@ -434,6 +434,18 @@
   paint-order: stroke;
   pointer-events: none;
 }
+.istar-link-label.is-name {
+  font-style: italic;
+}
+/* A link kind's labelComponent, drawn as HTML at the link's middle. */
+.istar-link-label-slot {
+  position: absolute;
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--istar-text);
+  white-space: pre;
+  text-align: center;
+}
 .istar-link-label.is-contribution {
   font-weight: bold;
   font-size: 12px;

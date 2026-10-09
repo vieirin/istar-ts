@@ -205,6 +205,30 @@ export interface LinkKindConfig<K extends string = LinkKind, DK extends string =
    * like the kind it behaves like, or as a continuous line with an open arrow.
    */
   readonly line?: LinkLineStyle;
+  /**
+   * Draws the link's label: an HTML component placed at the link's middle (React Flow's edge
+   * label layer), e.g. for piStar-ext's `<<stereotype>> {tag = value}`. It replaces the default
+   * labels (the fixed "is-a", the contribution value and, with `linkNames`, the name), which it
+   * receives in `labels` to draw as it likes. Default: none, the built-in labels as in piStar.
+   */
+  readonly labelComponent?: ComponentType<LinkLabelProps>;
+}
+
+/** Props of a link kind's `labelComponent`. */
+export interface LinkLabelProps {
+  readonly link: IstarLink<string>;
+  readonly model: IstarModel<string, string>;
+  readonly metamodel: AnyMetamodel;
+  readonly selected: boolean;
+  /** The texts the default label would draw. */
+  readonly labels: {
+    /** The kind's fixed label ("is-a", "participates-in"). */
+    readonly fixed?: string;
+    /** The selectable value (a contribution's make/help/hurt/break). */
+    readonly value?: string;
+    /** The link's `name`, if set. */
+    readonly name?: string;
+  };
 }
 
 export interface LinkToolEntry<DK extends string = NodeKind> extends PaletteEntry {

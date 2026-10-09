@@ -104,6 +104,11 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
    */
   readonly linkShape?: LinkShape;
   /**
+   * Draw each link's `name` at its middle. Default `false`: piStar shows link names only in its
+   * properties panel. Links of kinds with a registry `labelComponent` leave this to it.
+   */
+  readonly linkNames?: boolean;
+  /**
    * `'dark'` switches the canvas, palette, inspector and React Flow's controls to a dark theme
    * (the `istar-dark` class; theme variables can still be overridden). Default `'light'`.
    */
@@ -271,7 +276,10 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
     />
   );
   const dark = props.colorMode === 'dark';
-  const options = useMemo(() => ({ linkShape: props.linkShape ?? 'straight' }), [props.linkShape]);
+  const options = useMemo(
+    () => ({ linkShape: props.linkShape ?? 'straight', linkNames: props.linkNames ?? false }),
+    [props.linkShape, props.linkNames],
+  );
   return (
     <CanvasOptionsProvider value={options}>
       <div

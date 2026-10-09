@@ -289,6 +289,38 @@ function Editor({ text }: { text: string }) {
 The playground's "iStar4RationalAgents" extension (`examples/playground/src/extensions/`) and the
 `fixtures/extensions/rationalAgents.txt` example show it end to end.
 
+### Link labels
+
+By default links are labelled as in piStar: Is-A and Participates-In links show their fixed text, and
+contributions show their value. piStar keeps a link's `name` only in its properties panel. Here the
+default inspector edits it as well, and `<IstarCanvas linkNames />` also draws it on the canvas.
+
+For anything else, such as piStar-ext's `<<stereotype>> {tag = value}`, give the link kind a
+`labelComponent`, either through an extension or in the registry. It is drawn as HTML at the link's
+middle, replaces the default labels for that kind, and receives the texts they would show:
+
+```tsx
+import type { IstarExtension, LinkLabelProps } from '@istar-ts/react';
+
+function Stereotyped({ link, labels }: LinkLabelProps) {
+  const stereotype = link.customProperties?.stereotype;
+  return (
+    <span>
+      {stereotype && `<<${stereotype}>> `}
+      {labels.value ?? labels.fixed}
+    </span>
+  );
+}
+
+const stereotypes: IstarExtension = {
+  name: 'stereotypes',
+  links: { 'istar.ContributionLink': { labelComponent: Stereotyped } },
+};
+```
+
+Extended link kinds (see "New element and link kinds") take a `labelComponent` the same way. The
+playground's iStar4RationalAgents demo uses one to draw piStar-ext's `extension` block on a link.
+
 ### Palette
 
 Palette entries carry an `icon` (the default registry draws piStar-like previews, exported as

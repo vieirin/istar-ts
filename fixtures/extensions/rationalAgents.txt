@@ -117,7 +117,13 @@
       "id": "l2",
       "type": "rationalAgents.GeneratesLink",
       "source": "p1",
-      "target": "x1"
+      "target": "x1",
+      "extension": {
+        "stereotype": "plans",
+        "selectedStereotype": "plans",
+        "taggedValue": "2 days",
+        "selectedTaggedValue": "horizon"
+      }
     },
     {
       "id": "l3",
