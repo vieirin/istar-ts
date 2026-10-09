@@ -131,13 +131,33 @@ export function withMetamodel<EK extends string, LK extends string>(
   return model as unknown as IstarModel<EK, LK>;
 }
 
+/**
+ * For models whose file declares part of their metamodel (see `withFileMetamodel`): the
+ * metamodel the host supplied, without the file's kinds.
+ */
+const hostMetamodels = new WeakMap<object, AnyMetamodel>();
+
+/** @internal Records the host part of a model's metamodel (used by serialization). */
+export function setHostMetamodel(model: object, metamodel: AnyMetamodel | undefined): void {
+  if (metamodel) hostMetamodels.set(model, metamodel);
+  else hostMetamodels.delete(model);
+}
+
+/** @internal The host part of a model's metamodel, if the file declares the rest. */
+export function hostMetamodelOf(model: object): AnyMetamodel | undefined {
+  return hostMetamodels.get(model);
+}
+
 /** Gives `to` the metamodel of `from` (used for every model an operation derives). */
 export function inheritMetamodel<M extends IstarModel<string, string>>(
   from: IstarModel<string, string>,
   to: M,
 ): M {
+  if (from === to) return to;
   const metamodel = metamodels.get(from);
-  if (metamodel && from !== to) metamodels.set(to, metamodel);
+  if (metamodel) metamodels.set(to, metamodel);
+  const host = hostMetamodels.get(from);
+  if (host) hostMetamodels.set(to, host);
   return to;
 }
 

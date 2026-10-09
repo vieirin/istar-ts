@@ -187,3 +187,27 @@ describe('helpers stay safe as array callbacks', () => {
     expectTypeOf(sections).toEqualTypeOf<ReturnType<typeof paletteSections>[]>();
   });
 });
+
+describe('a model file declaring its own constructs', () => {
+  test('draws them with the shapes and lines the file gives', () => {
+    const text = readFileSync(
+      join(import.meta.dirname, '../../../fixtures/extensions/fileMetamodel.txt'),
+      'utf8',
+    );
+    const store = createModelStore(parsePistar(text, { fileMetamodel: true }));
+    const { container } = render(
+      <div style={{ width: 1200, height: 800 }}>
+        <IstarCanvas store={store} />
+      </div>,
+    );
+    const planning = container.querySelector('.react-flow__node[data-id="p1"]')!;
+    expect(
+      planning.querySelector(
+        '.istar-shape path[d="M 0 0 L 80 0 L 100 20 L 80 40 L 0 40 L 14 20 Z"]',
+      ),
+    ).toBeTruthy();
+    const generates = container.querySelector('.react-flow__edge[data-id="l2"] .istar-link-line');
+    expect((generates as SVGElement).style.strokeDasharray).toBe('1,3');
+    expect(screen.getByRole('button', { name: 'Planning' })).toBeTruthy();
+  });
+});

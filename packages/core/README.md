@@ -251,6 +251,59 @@ rather than writing a type that can't be read back.
 
 See [docs/metamodel-extensions.md](../../docs/metamodel-extensions.md) for the design.
 
+## A model's own metamodel
+
+A file can declare the constructs it adds to iStar in a top-level `"metamodel"` block, so they
+travel with the model. piStar-ext's "Add new" keeps them only in the browser's localStorage. The
+block has the shape `extendMetamodel` takes, as JSON: no `check` predicates, and presentation hints
+(`shape`, `textBox`, `line`), which `@istar-ts/react` draws.
+
+```json
+"metamodel": {
+  "name": "iStar4RationalAgents",
+  "elements": [
+    { "kind": "ra4.Planning", "behavesLike": "istar.Task", "pistarType": "istar.Planning",
+      "shape": { "path": "M 0 0 L 80 0 L 100 20 L 80 40 L 0 40 L 14 20 Z" } },
+    { "kind": "ra4.Plan", "category": "node" }
+  ],
+  "links": [
+    { "kind": "ra4.GeneratesLink", "label": "Generates",
+      "rules": { "sources": ["ra4.Planning"], "targets": ["ra4.Plan"] }, "line": { "dash": "1,3" } }
+  ]
+}
+```
+
+```ts
+import { fileMetamodelOf, parsePistar, toPistar, withFileMetamodel } from '@istar-ts/core';
+
+// Read: the file's constructs extend `metamodel` (iStar 2.0 by default) before parsing.
+const model = parsePistar(text, { fileMetamodel: true, metamodel: hostMetamodel });
+
+fileMetamodelOf(model); // the block (only the file's constructs, never the host's)
+
+// "Add new": constructs added at run time join the file and are written with it.
+const extended = withFileMetamodel(model, { ...fileMetamodelOf(model)!, elements: [...] });
+toPistar(extended); // writes the "metamodel" block
+```
+
+- **Opt-in.** Without `fileMetamodel: true`, the block is kept as an unknown key and not applied, as
+  before, so no existing caller changes.
+- **Collisions throw `MetamodelError`, naming the kind:**
+  - a kind or `pistarType` the base or host metamodel already has;
+  - the reserved `istar.` prefix;
+  - a kind declared twice in the block.
+
+  `validateFileMetamodel(block)` reports malformed blocks with their path
+  (`metamodel.elements[1].kind must be a string`).
+
+- **Round trip.** The block is written back exactly as read, including keys this library doesn't
+  know (hosts keep dialect data, such as stereotypes or groupers, beside it). A model without one
+  writes none.
+- **`withFileMetamodel(model, block | null)`** replaces the file's constructs (or removes them with
+  `null`). It keeps the host's, and refuses to drop a kind the model still uses. Load the result
+  into a store (`store.load` or `store.replace`) to keep editing.
+- `pistarType` works as for any extension, so `istar.<Name>` types on disk still read.
+
 ## Credits
 
 The metamodel, link constraints, element shapes, and file format are derived from

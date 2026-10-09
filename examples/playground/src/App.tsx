@@ -1,10 +1,14 @@
 import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
 import {
   createEmptyModel,
+  fileMetamodelOf,
   inheritSourceLayout,
+  metamodelOf,
+  MetamodelError,
   parsePistar,
   PistarParseError,
   toPistar,
+  withFileMetamodel,
   withMetamodel,
 } from '@istar-ts/core';
 import type { IstarExtension } from '@istar-ts/react';
@@ -96,14 +100,26 @@ export default function App(): ReactElement {
   const setExtensionId = (id: string): void => {
     const next = EXTENSIONS[id] ?? EXTENSIONS.none!;
     const current = store.getModel();
-    const missing = unknownKinds(current, next.metamodel);
-    if (missing.length > 0) {
-      setParseError(`The current model uses ${missing.join(', ')}, which this extension lacks.`);
+    // A new model object (the store only re-renders on a new snapshot), keeping key order, under
+    // the new extensions plus whatever constructs the file declares itself.
+    let switched: AnyIstarModel = withMetamodel(
+      inheritSourceLayout(current, { ...current }),
+      next.metamodel,
+    );
+    const file = fileMetamodelOf(current);
+    try {
+      if (file) switched = withFileMetamodel(switched, file);
+      const missing = unknownKinds(switched, metamodelOf(switched));
+      if (missing.length > 0) {
+        setParseError(`The current model uses ${missing.join(', ')}, which this extension lacks.`);
+        return;
+      }
+    } catch (error) {
+      setParseError((error as Error).message);
       return;
     }
     setParseError(null);
-    // A new model object (the store only re-renders on a new snapshot), keeping key order.
-    store.load(withMetamodel(inheritSourceLayout(current, { ...current }), next.metamodel));
+    store.load(switched);
     setExtensionIdState(id);
   };
 
@@ -113,7 +129,8 @@ export default function App(): ReactElement {
       const id = (path && extensionForPath(path)) || extensionId;
       if (id !== extensionId) setExtensionIdState(id);
       const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
-      return parsePistar(text, { metamodel });
+      // Files may declare their own constructs (a top-level "metamodel" block).
+      return parsePistar(text, { metamodel, fileMetamodel: true });
     },
     [extensionId],
   );
@@ -128,7 +145,7 @@ export default function App(): ReactElement {
         store.load(parseFor(text, path));
         setSelectedPath(path);
       } catch (error) {
-        if (error instanceof PistarParseError) {
+        if (error instanceof PistarParseError || error instanceof MetamodelError) {
           setParseError(error.message);
         } else {
           throw error;
@@ -149,10 +166,10 @@ export default function App(): ReactElement {
         // The initial extension state already matches this path (see useState above).
         const id = extensionForPath(initialFixturePath) ?? 'none';
         const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
-        if (!cancelled) store.load(parsePistar(text, { metamodel }));
+        if (!cancelled) store.load(parsePistar(text, { metamodel, fileMetamodel: true }));
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof PistarParseError) {
+        if (error instanceof PistarParseError || error instanceof MetamodelError) {
           setParseError(error.message);
         } else {
           throw error;
@@ -201,7 +218,7 @@ export default function App(): ReactElement {
       store.load(parseFor(await file.text()));
       setSelectedPath('');
     } catch (error) {
-      if (error instanceof PistarParseError) {
+      if (error instanceof PistarParseError || error instanceof MetamodelError) {
         setParseError(error.message);
       } else {
         throw error;

@@ -2,6 +2,21 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.11.0
+
+- **A model's own metamodel (core):** files can declare their constructs in a top-level
+  `"metamodel"` block (the `MetamodelExtension` shape, as JSON, with `shape` / `textBox` / `line`
+  presentation hints).
+  - `parsePistar(json, { fileMetamodel: true })` applies it on top of the host's metamodel.
+  - `fileMetamodelOf(model)` returns it.
+  - `withFileMetamodel(model, block)` adds or replaces constructs at run time.
+  - `toPistar` writes the block byte for byte, unknown keys included.
+  - `validateFileMetamodel` reports malformed blocks by path, and collisions throw
+    `MetamodelError`.
+  - Without the option, files read as before.
+- **react:** kinds whose metamodel definition carries `shape`, `textBox` or `line` are drawn with
+  them by default (registry overrides still win).
+
 ## 0.10.1
 
 - **Fix:** label fitting ellipsized a too-wide header line (e.g. `<<utility-based>>`) at full size

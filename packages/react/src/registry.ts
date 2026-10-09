@@ -603,6 +603,9 @@ export function registryForMetamodel<EK extends string, LK extends string>(
       size: definition.size,
       component: actor ? DefaultActorComponent : DefaultElementComponent,
       resizable: !actor,
+      // Presentation the metamodel carries (e.g. from a file's own "metamodel" block).
+      ...(definition.shape ? { shape: definition.shape } : {}),
+      ...(definition.textBox ? { textBox: definition.textBox } : {}),
       palette: {
         label: definition.label,
         title: actor
@@ -629,6 +632,7 @@ export function registryForMetamodel<EK extends string, LK extends string>(
     links[definition.kind] = {
       kind: definition.kind,
       label: definition.label,
+      ...(definition.line ? { line: definition.line } : {}),
       palette:
         definition.category === 'dependency'
           ? [...meta.elements.values()]

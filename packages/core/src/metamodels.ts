@@ -27,6 +27,26 @@ import {
 } from './metamodel';
 
 export type ElementCategory = 'actor' | 'node';
+
+/**
+ * Presentation hints a kind may carry, as data (core never draws). `@istar-ts/react` uses them as
+ * the defaults for the kind: a shape as SVG path data, the label's text box, a link's line.
+ */
+export interface KindShape {
+  readonly path: string;
+  readonly viewBox?: string;
+}
+export interface KindTextBox {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+export interface KindLine {
+  readonly dash?: string;
+  readonly marker?: string | false;
+  readonly markerFilled?: boolean;
+}
 export type LinkCategory = 'actor' | 'node' | 'dependency';
 
 /** A resolved element kind of a metamodel. */
@@ -45,6 +65,9 @@ export interface ElementKindDefinition<K extends string = string> {
   readonly pistarType: string;
   /** Name of the extension that declared it; absent for iStar 2.0 kinds. */
   readonly extension?: string;
+  /** Presentation hints (drawn by `@istar-ts/react`). */
+  readonly shape?: KindShape;
+  readonly textBox?: KindTextBox;
 }
 
 /**
@@ -86,6 +109,8 @@ export interface LinkKindDefinition<K extends string = string> {
   readonly check?: (context: LinkRuleContext) => LinkCheck;
   readonly pistarType: string;
   readonly extension?: string;
+  /** Presentation hint (drawn by `@istar-ts/react`). */
+  readonly line?: KindLine;
 }
 
 /** A metamodel: the element and link kinds a model may use, and their rules. */
@@ -196,6 +221,9 @@ export interface ElementKindDeclaration<K extends string = string> {
    * constructs as `istar.<Name>`, so `pistarType: 'istar.Planning'` reads its files.
    */
   readonly pistarType?: string;
+  /** Presentation hints, kept as data for renderers (`@istar-ts/react` draws them). */
+  readonly shape?: KindShape;
+  readonly textBox?: KindTextBox;
 }
 
 export interface LinkKindDeclaration<K extends string = string> {
@@ -212,6 +240,8 @@ export interface LinkKindDeclaration<K extends string = string> {
   /** Default: that of `behavesLike`, else none (no fixed label, no changeable value). */
   readonly info?: LinkKindInfo;
   readonly pistarType?: string;
+  /** Presentation hint, kept as data for renderers (`@istar-ts/react` draws it). */
+  readonly line?: KindLine;
 }
 
 /** A named set of new kinds, applied to a metamodel with `extendMetamodel`. */
@@ -340,6 +370,8 @@ export function extendMetamodel<
       ...(parent ? { behavesLike: parent.kind } : {}),
       pistarType: type,
       extension: extension.name,
+      ...(declaration.shape ? { shape: declaration.shape } : {}),
+      ...(declaration.textBox ? { textBox: declaration.textBox } : {}),
     };
     elements.set(kind, definition);
     elementsByType.set(type, kind);
@@ -407,6 +439,7 @@ export function extendMetamodel<
       ...(declaration.check ? { check: declaration.check } : {}),
       pistarType: type,
       extension: extension.name,
+      ...(declaration.line ? { line: declaration.line } : {}),
     };
     links.set(kind, definition);
     linksByType.set(type, kind);

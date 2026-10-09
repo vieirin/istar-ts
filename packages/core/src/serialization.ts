@@ -7,7 +7,13 @@
  */
 import type { ElementKind, LinkKind } from './metamodel';
 import type { AnyMetamodel, Metamodel } from './metamodels';
-import { ISTAR_2_0 } from './metamodels';
+import { ISTAR_2_0, MetamodelError, extendMetamodel } from './metamodels';
+import type { FileMetamodel } from './file-metamodel';
+import {
+  FILE_METAMODEL_KEY,
+  fileMetamodelExtension,
+  validateFileMetamodel,
+} from './file-metamodel';
 import type {
   CustomProperties,
   Diagram,
@@ -18,7 +24,13 @@ import type {
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf, metamodelOf, withMetamodel } from './model';
+import {
+  dependencyLinksOf,
+  hostMetamodelOf,
+  metamodelOf,
+  setHostMetamodel,
+  withMetamodel,
+} from './model';
 import type { AnyIstarModel } from './model';
 
 // ---------------------------------------------------------------------------------------------
@@ -165,6 +177,12 @@ function asArray(value: unknown, where: string): unknown[] {
  */
 export interface ParsePistarOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
   /**
+   * Read the file's own `"metamodel"` block (see `FileMetamodel`) and parse with `metamodel`
+   * (or iStar 2.0) extended by it. Default false: the block is kept as an unknown key and not
+   * applied, as before. A block whose kinds collide with the metamodel throws `MetamodelError`.
+   */
+  readonly fileMetamodel?: boolean;
+  /**
    * The metamodel whose kinds the file may use. Default iStar 2.0: any other `type` throws,
    * as in the piStar tool. The parsed model remembers it (see `metamodelOf`).
    */
@@ -172,6 +190,11 @@ export interface ParsePistarOptions<EK extends string = ElementKind, LK extends 
 }
 
 // The iStar 2.0 overload comes last, so `parsePistar` passed as a callback types as before.
+// With the file's own metamodel, kinds are only known at run time.
+export function parsePistar(
+  input: string | PistarFile | Record<string, unknown>,
+  options: ParsePistarOptions<string, string> & { readonly fileMetamodel: true },
+): IstarModel<string, string>;
 export function parsePistar<EK extends string, LK extends string>(
   input: string | PistarFile | Record<string, unknown>,
   options: ParsePistarOptions<EK, LK> & { readonly metamodel: Metamodel<EK, LK> },
@@ -185,7 +208,7 @@ export function parsePistar(
   input: string | PistarFile | Record<string, unknown>,
   options: ParsePistarOptions<string, string> = {},
 ): AnyIstarModel {
-  const metamodel: AnyMetamodel = options.metamodel ?? ISTAR_2_0;
+  let metamodel: AnyMetamodel = options.metamodel ?? ISTAR_2_0;
   const categoryOf = (kind: string): string | undefined => metamodel.elements.get(kind)?.category;
   let json: unknown;
   if (typeof input === 'string') {
@@ -198,6 +221,14 @@ export function parsePistar(
     json = structuredClone(input);
   }
   if (!isRecord(json)) throw new PistarParseError('a piStar model must be a JSON object');
+
+  // The file's own constructs extend the host's metamodel before anything is read with it.
+  let host: AnyMetamodel | undefined;
+  if (options.fileMetamodel && json[FILE_METAMODEL_KEY] !== undefined) {
+    const block = validateFileMetamodel(json[FILE_METAMODEL_KEY]);
+    host = metamodel;
+    metamodel = extendMetamodel(metamodel, fileMetamodelExtension(block));
+  }
 
   const display = isRecord(json.display) ? json.display : {};
   const usedDisplay = new Set<string>();
@@ -334,6 +365,8 @@ export function parsePistar(
     ...optional('extra', extraOf(json, TOP_LEVEL_KEY_SET)),
   };
   layouts.set(model, { keys: Object.keys(json), display: Object.keys(display) });
+  // The block stays in `extra`, so it is written back exactly as read.
+  setHostMetamodel(model, host);
   return withMetamodel(model, metamodel);
 }
 
@@ -506,4 +539,62 @@ export function toPistar<EK extends string, LK extends string>(
   options?: ToPistarOptions,
 ): string {
   return JSON.stringify(toPistarObject(model, options), null, 2);
+}
+
+// ---------------------------------------------------------------------------------------------
+// A model's own metamodel
+
+/**
+ * The constructs the model's file declares in its `"metamodel"` block, when they were applied
+ * (read with `fileMetamodel: true`, or set with `withFileMetamodel`); `undefined` otherwise.
+ * Kinds the host supplied are never part of it.
+ */
+export function fileMetamodelOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+): FileMetamodel | undefined {
+  if (!hostMetamodelOf(model)) return undefined;
+  return model.extra?.[FILE_METAMODEL_KEY] as FileMetamodel | undefined;
+}
+
+/**
+ * A copy of `model` whose file declares `block` (`null` removes the block): its metamodel is the
+ * host's extended by `block`, and `toPistar` writes the block. This is how a tool's "Add new"
+ * construct joins a model. Throws `MetamodelError` if the block is malformed, collides with the
+ * host's kinds, or leaves out a kind the model still uses.
+ */
+export function withFileMetamodel<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  block: FileMetamodel | null,
+): IstarModel<string, string> {
+  const any = model as unknown as AnyIstarModel;
+  const host = hostMetamodelOf(any) ?? (metamodelOf(any) as unknown as AnyMetamodel);
+  let next: AnyMetamodel = host;
+  if (block) {
+    validateFileMetamodel(block);
+    next = extendMetamodel(host, fileMetamodelExtension(block));
+  }
+  for (const element of any.elements.values()) {
+    if (!next.elements.has(element.kind)) {
+      throw new MetamodelError(
+        `element "${element.id}" uses kind "${element.kind}", which the new metamodel lacks`,
+      );
+    }
+  }
+  for (const link of any.links.values()) {
+    if (!next.links.has(link.kind)) {
+      throw new MetamodelError(
+        `link "${link.id}" uses kind "${link.kind}", which the new metamodel lacks`,
+      );
+    }
+  }
+  const { [FILE_METAMODEL_KEY]: _previous, ...others } = any.extra ?? {};
+  // Replacing keeps the block's place among the top-level keys.
+  const extra = block ? { ...any.extra, [FILE_METAMODEL_KEY]: structuredClone(block) } : others;
+  const { extra: _extra, ...rest } = any;
+  const result: AnyIstarModel = inheritSourceLayout(any, {
+    ...rest,
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
+  });
+  setHostMetamodel(result, block ? host : undefined);
+  return withMetamodel(result, next);
 }

@@ -290,7 +290,10 @@ describe('serialization with an extended metamodel', () => {
   });
 
   test.each(fixtures.map((f) => [f.name, f] as const))('round-trips byte for byte: %s', (_n, f) => {
-    const model = parsePistar(f.text, { metamodel: RATIONAL_AGENTS });
+    // A file with its own "metamodel" block describes itself; the others need the extension.
+    const model = f.text.includes('\n  "metamodel": {')
+      ? parsePistar(f.text, { fileMetamodel: true })
+      : parsePistar(f.text, { metamodel: RATIONAL_AGENTS });
     expect(toPistar(model)).toBe(f.text);
   });
 
