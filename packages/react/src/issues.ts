@@ -1,6 +1,12 @@
+import type { GoalDiagnostic } from '@istar-ts/core';
+
 /**
  * Host-owned annotations for elements/links (e.g. LSP diagnostics from a VS Code webview).
  * Orthogonal to the model and to PropertySchema validation — never written to disk.
+ *
+ * `ElementIssue` is the element-level subset of `GoalDiagnostic` (`id` is its `elementId`; no
+ * property `key`, `source` or `range`). The `issues` prop takes them as before; they are merged
+ * with the other diagnostics (see `issueToDiagnostic`).
  */
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
@@ -39,4 +45,24 @@ export function worstSeverity(
     if (issue.severity === 'warning') worst = 'warning';
   }
   return worst;
+}
+
+/** An issue as a diagnostic: `{ id, severity, message }` → `{ elementId, severity, message }`. */
+export function issueToDiagnostic(issue: ElementIssue): GoalDiagnostic {
+  return { elementId: issue.id, severity: issue.severity, message: issue.message };
+}
+
+/**
+ * A diagnostic as an issue, for components written against `issues`. Hints read as `info`; a
+ * property's diagnostic is prefixed with its key.
+ */
+export function diagnosticToIssue(diagnostic: GoalDiagnostic): ElementIssue {
+  return {
+    id: diagnostic.elementId,
+    severity: diagnostic.severity === 'hint' ? 'info' : diagnostic.severity,
+    message:
+      diagnostic.key === undefined
+        ? diagnostic.message
+        : `${diagnostic.key}: ${diagnostic.message}`,
+  };
 }

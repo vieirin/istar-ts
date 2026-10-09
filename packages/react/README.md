@@ -62,8 +62,9 @@ export function Controlled() {
 `<IstarCanvas>` props include `registry`, `readOnly`, `palette` (`'left'` by default, `'top'` or `'bottom'` for a piStar-style bar, or `false`), `aside`, `extensions`,
 `controls` (zoom buttons), `background` (dotted grid, off by default: piStar's paper is plain),
 `fitView` (on by default; waits until the container has a usable size, so a canvas mounted in a
-panel that is still opening is fitted once it has room), `issues` (host-owned annotations such as
-LSP diagnostics — see below), `onSelectionChange`, `linkShape` (`'straight'` by default, or
+panel that is still opening is fitted once it has room), `diagnostics` and `issues` (findings
+from LSPs, validators and other analysers; see Diagnostics below), `diagnosticBadges`,
+`onSelectionChange`, `linkShape` (`'straight'` by default, or
 `'curved'` for Bézier links that leave each node perpendicular to its side), `colorMode`
 (`'light'` or `'dark'`, see Theming), `minimap` and `panOnShiftScroll`.
 
@@ -95,21 +96,68 @@ canvas.current?.zoomIn();
 canvas.current?.zoomOut();
 ```
 
-### Host-owned issues (LSP / external diagnostics)
+### Diagnostics
 
-Pass `issues` to show annotations that are **not** part of the saved model (for example diagnostics
-from an LSP in a VS Code webview). Each item is `{ id, severity, message }` where `id` is an
-element or link id. They are exposed on `ElementComponentProps.issues` / `InspectorProps.issues`
-and via `useIstarEditor().issuesById`. Use `<ElementIssuesBadge issues={…} />` for a small severity
-marker with a hover tooltip.
+Diagnostics are findings about elements and links that are **not** part of the saved model and
+are never written to disk. Any analyser can publish them: an LSP server, a model checker, a
+simulation, an LLM critic. Each one is a `GoalDiagnostic` (from `@istar-ts/core`, re-exported
+here). They are anchored by element id, not by text position:
+
+```ts
+{
+  elementId: string;   // an element or link id
+  key?: string;        // the custom property it is about
+  severity: 'error' | 'warning' | 'info' | 'hint';
+  message: string;
+  source?: string;     // who published it
+  range?: { start: { line, character }; end: { line, character } };
+  code?: string;
+  data?: unknown;
+}
+```
+
+Publish per source to a `DiagnosticsStore`. Each `publish(source, list)` replaces only that
+source's set, as an LSP `publishDiagnostics` does. The editor then shows the union of all sources,
+deduplicated by `(elementId, key, message)` and keeping the worst severity:
 
 ```tsx
-<IstarCanvas
-  store={store}
-  issues={[{ id: goalId, severity: 'error', message: 'Missing QueriedProperty' }]}
-  extensions={[mutroseExtension]}
-/>
+const diagnostics = useDiagnosticsStore(); // or createDiagnosticsStore() outside React
+
+// MutRoSe's webview message ({ nodeId, severity, message }), in one line:
+diagnostics.publish('mutrose', fromNodeIdDiagnostics(message.diagnostics));
+// LSP diagnostics carrying data.elementId (or data.nodeId) and data.key:
+diagnostics.publish('goal-language', fromLspDiagnostics(lspDiagnostics));
+// Range-anchored ones: map the range to an element once, in the host.
+diagnostics.publish(
+  'lsp',
+  fromLspDiagnostics(list, { elementIdFor: (d) => idAtLine(d.range!.start.line) }),
+);
+diagnostics.clear('prism'); // one source; clear() for all
+
+<IstarCanvas store={store} diagnostics={diagnostics} />;
 ```
+
+`diagnostics` also accepts a plain `GoalDiagnostic[]`. Pass `severityNumbering: 'vscode'` to
+`fromLspDiagnostics` for `vscode.Diagnostic` objects, whose severities count from 0. istar-ts
+contains no LSP client.
+
+Diagnostics show up in three places:
+
+- **Badges.** Default element components and link labels draw a badge with the worst severity;
+  hovering lists the messages with their source. A badge your own component draws (as before
+  0.12) replaces the default one. Use `diagnosticBadges={false}` to turn them off.
+- **Inspector.** The default inspector lists element-level diagnostics at the top, and property
+  diagnostics under that property's row (schema or free-form), matched by `key`. A key without
+  a row is listed at the top with its key.
+- **Custom UI.** Components, inspectors and link `labelComponent`s receive `diagnostics`.
+  `useElementDiagnostics(id)` returns them for any id. `useGoalDiagnostics()` returns the merged
+  list, `byElement`, and `publish` / `clear` for producers inside the editor. `<DiagnosticList>`
+  and `<ElementIssuesBadge diagnostics={…} />` are the default building blocks.
+
+The older `issues` prop (`{ id, severity, message }`, an `ElementIssue`) still works. It is the
+element-level subset of a diagnostic and is merged with the rest. Components that read
+`props.issues` (or `useIstarEditor().issuesById`) see every diagnostic as an issue: hints read as
+`info`, and property diagnostics are prefixed with their key.
 
 Property schemas (`defineProperties`) remain for inspector UX only; they do not replace an external
 validator such as an LSP.

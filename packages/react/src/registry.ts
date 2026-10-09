@@ -22,6 +22,7 @@ import type {
   PropertySchema,
   PropertyShape,
   Size,
+  GoalDiagnostic,
 } from '@istar-ts/core';
 import {
   ISTAR_2_0,
@@ -67,6 +68,11 @@ export interface ElementComponentProps {
    * pass an `issues` prop, or none apply to this id. Never written to the model.
    */
   readonly issues: readonly ElementIssue[];
+  /**
+   * This element's diagnostics from every source (see `GoalDiagnostic`). Always passed by the
+   * canvas; optional so components can still be rendered without it.
+   */
+  readonly diagnostics?: readonly GoalDiagnostic[];
 }
 
 export interface InspectorProps<T extends IstarElement | IstarLink = IstarElement> {
@@ -78,6 +84,8 @@ export interface InspectorProps<T extends IstarElement | IstarLink = IstarElemen
   readonly schema?: PropertySchema;
   /** Host-owned issues for this target (e.g. LSP diagnostics). */
   readonly issues: readonly ElementIssue[];
+  /** This target's diagnostics from every source; always passed by `IstarInspector`. */
+  readonly diagnostics?: readonly GoalDiagnostic[];
 }
 
 export interface LinkActions {
@@ -254,6 +262,8 @@ export interface LinkLabelProps {
     /** The kind's `labelHeader` lines, if any. */
     readonly header?: readonly string[];
   };
+  /** The link's diagnostics (the canvas also draws a badge beside the label unless disabled). */
+  readonly diagnostics?: readonly GoalDiagnostic[];
 }
 
 export interface LinkToolEntry<DK extends string = NodeKind> extends PaletteEntry {

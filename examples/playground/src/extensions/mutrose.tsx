@@ -1,13 +1,13 @@
-import type { IstarElement, IstarModel } from '@istar-ts/core';
-import { defineProperties, prop } from '@istar-ts/core';
+import type { GoalDiagnostic, IstarElement, IstarModel } from '@istar-ts/core';
+import { defineProperties, fromNodeIdDiagnostics, prop } from '@istar-ts/core';
 import type { ElementComponentProps, IstarExtension } from '@istar-ts/react';
-import { DefaultElementComponent, ElementIssuesBadge, useTypedProperties } from '@istar-ts/react';
+import { DefaultElementComponent, useTypedProperties } from '@istar-ts/react';
 import type { ReactElement } from 'react';
 
 /**
  * MutRoSe-shaped playground extension: GoalType / task Location+Params schemas, GoalType
- * coloring, G#/AT# naming, and a trimmed palette. LSP-style issues are demonstrated via the
- * canvas `issues` prop in App — not hardcoded here.
+ * coloring, G#/AT# naming, and a trimmed palette. LSP-style diagnostics are demonstrated via the
+ * canvas `diagnostics` prop in App — not hardcoded here.
  *
  * Nothing here is part of @istar-ts/*; it only uses the public extension API.
  */
@@ -45,7 +45,6 @@ function GoalNode(props: ElementComponentProps): ReactElement {
   return (
     <div className="pg-mutrose-goal" data-goal-type={goalType}>
       <DefaultElementComponent {...props} />
-      <ElementIssuesBadge issues={props.issues} />
     </div>
   );
 }
@@ -54,7 +53,6 @@ function TaskNode(props: ElementComponentProps): ReactElement {
   return (
     <div className="pg-mutrose-task">
       <DefaultElementComponent {...props} />
-      <ElementIssuesBadge issues={props.issues} />
     </div>
   );
 }
@@ -90,18 +88,32 @@ export const mutroseExtension: IstarExtension = {
 export const mutroseSchemas = [mutroseGoalProperties, mutroseTaskProperties];
 
 /** Demo LSP-style issues for the first goal in a model (playground only). */
-export function demoIssuesFor(
-  model: IstarModel<string, string>,
-): { id: string; severity: 'error' | 'warning'; message: string }[] {
+export function demoDiagnosticsFor(model: IstarModel<string, string>): GoalDiagnostic[] {
   const goal = [...model.elements.values()].find(
     (el: IstarElement<string>) => el.kind === 'istar.Goal',
   );
-  if (!goal) return [];
-  return [
-    {
-      id: goal.id,
-      severity: 'warning',
-      message: 'Demo: Query goals should declare QueriedProperty (LSP would flag this)',
-    },
-  ];
+  const link = [...model.links.values()][0];
+  // What MutRoSe's VS Code extension posts to its webview, through the one-line adapter.
+  return fromNodeIdDiagnostics([
+    ...(goal
+      ? [
+          {
+            nodeId: goal.id,
+            severity: 'warning',
+            message: 'Query goals should declare QueriedProperty',
+            source: 'mutrose',
+          },
+          {
+            nodeId: goal.id,
+            key: 'QueriedProperty',
+            severity: 'error',
+            message: 'expected an OCL expression',
+            source: 'mutrose',
+          },
+        ]
+      : []),
+    ...(link
+      ? [{ nodeId: link.id, severity: 'info', message: 'Demo: link diagnostic', source: 'demo' }]
+      : []),
+  ]);
 }

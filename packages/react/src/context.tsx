@@ -2,7 +2,9 @@ import type {
   ActorKind,
   AnyMetamodel,
   DependencyLinkKind,
+  DiagnosticsStore,
   ElementKind,
+  GoalDiagnostic,
   IstarElement,
   IstarLink,
   IstarModel,
@@ -12,7 +14,14 @@ import type {
   ModelStore,
   ModelStoreOptions,
 } from '@istar-ts/core';
-import { canLink, createModelStore, metamodelOf } from '@istar-ts/core';
+import {
+  canLink,
+  createDiagnosticsStore,
+  createModelStore,
+  groupDiagnostics,
+  mergeDiagnostics,
+  metamodelOf,
+} from '@istar-ts/core';
 import type { ReactElement, ReactNode } from 'react';
 import {
   createContext,
@@ -28,7 +37,7 @@ import {
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
 import { applyExtensions, defaultRegistry, registryForMetamodel } from './registry';
 import type { ElementIssue } from './issues';
-import { groupIssuesById } from './issues';
+import { diagnosticToIssue, issueToDiagnostic } from './issues';
 
 /** The active toolbar tool. `EK`/`LK` default to iStar 2.0's kinds. */
 export type Tool<EK extends string = ElementKind, LK extends string = LinkKind> =
@@ -82,6 +91,17 @@ export interface IstarEditor {
    * host did not pass `issues`.
    */
   readonly issuesById: ReadonlyMap<string, readonly ElementIssue[]>;
+  /**
+   * Every diagnostic the editor shows: the `issues` prop, the `diagnostics` prop and whatever
+   * was published to `diagnosticsStore`, merged and deduplicated.
+   */
+  readonly diagnostics: readonly GoalDiagnostic[];
+  /** `diagnostics` by element or link id. */
+  readonly diagnosticsById: ReadonlyMap<string, readonly GoalDiagnostic[]>;
+  /** Where `useGoalDiagnostics().publish` writes: the `diagnostics` prop's store, or the editor's own. */
+  readonly diagnosticsStore: DiagnosticsStore;
+  /** False when the host turned the default severity badges off (`diagnosticBadges={false}`). */
+  readonly diagnosticBadges: boolean;
 }
 
 const EditorContext = createContext<IstarEditor | null>(null);
@@ -163,6 +183,17 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
    * via {@link IstarEditor.issuesById}; never written to the model.
    */
   readonly issues?: readonly ElementIssue[];
+  /**
+   * Diagnostics from any number of sources (see `GoalDiagnostic`): a store the host publishes
+   * to per source (`createDiagnosticsStore`), or a plain list. Merged with `issues` and with
+   * what is published through `useGoalDiagnostics()`; never written to the model.
+   */
+  readonly diagnostics?: DiagnosticsStore | readonly GoalDiagnostic[];
+  /**
+   * Draw a severity badge on elements and links with diagnostics (default components and link
+   * labels). Default `true`; turn it off when custom components draw their own.
+   */
+  readonly diagnosticBadges?: boolean;
   /** Called whenever the editor selection changes (including clearing it). */
   readonly onSelectionChange?: (selection: Selection) => void;
   readonly children?: ReactNode;
@@ -223,7 +254,30 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
     onSelectionChangeRef.current?.(selection);
   }, [selection]);
 
-  const issuesById = useMemo(() => groupIssuesById(props.issues), [props.issues]);
+  const [ownDiagnostics] = useState(createDiagnosticsStore);
+  const diagnosticsProp = props.diagnostics;
+  const diagnosticsStore = isDiagnosticsStore(diagnosticsProp) ? diagnosticsProp : ownDiagnostics;
+  const published = useSyncExternalStore(
+    diagnosticsStore.subscribe,
+    diagnosticsStore.getAll,
+    diagnosticsStore.getAll,
+  );
+  const diagnosticsList = isDiagnosticsStore(diagnosticsProp) ? undefined : diagnosticsProp;
+  const diagnostics = useMemo(
+    () =>
+      // The `issues` prop first, so components reading `issues` see them in the host's order.
+      props.issues?.length || diagnosticsList?.length
+        ? mergeDiagnostics([props.issues?.map(issueToDiagnostic), diagnosticsList, published])
+        : published,
+    [props.issues, diagnosticsList, published],
+  );
+  const diagnosticsById = useMemo(() => groupDiagnostics(diagnostics), [diagnostics]);
+  const issuesById = useMemo(() => {
+    const map = new Map<string, readonly ElementIssue[]>();
+    for (const [id, list] of diagnosticsById) map.set(id, list.map(diagnosticToIssue));
+    return map;
+  }, [diagnosticsById]);
+  const diagnosticBadges = props.diagnosticBadges ?? true;
 
   const notify = useCallback((message: string, tone: Notice['tone'] = 'error') => {
     setNotice({ id: ++noticeSeq.current, message, tone });
@@ -304,6 +358,10 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       elementActions,
       linkActions,
       issuesById,
+      diagnostics,
+      diagnosticsById,
+      diagnosticsStore,
+      diagnosticBadges,
     }),
     [
       store,
@@ -321,9 +379,56 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       elementActions,
       linkActions,
       issuesById,
+      diagnostics,
+      diagnosticsById,
+      diagnosticsStore,
+      diagnosticBadges,
     ],
   );
   return <EditorContext.Provider value={editor}>{props.children}</EditorContext.Provider>;
+}
+
+function isDiagnosticsStore(
+  value: DiagnosticsStore | readonly GoalDiagnostic[] | undefined,
+): value is DiagnosticsStore {
+  return value !== undefined && !Array.isArray(value);
+}
+
+const NO_DIAGNOSTICS: readonly GoalDiagnostic[] = [];
+
+/**
+ * The editor's diagnostics, merged across sources, and `publish` / `clear` for its store. A
+ * producer inside the editor (a validator component, say) publishes under its own source name;
+ * re-publishing replaces only that source's set.
+ */
+export function useGoalDiagnostics(): {
+  readonly diagnostics: readonly GoalDiagnostic[];
+  readonly byElement: ReadonlyMap<string, readonly GoalDiagnostic[]>;
+  publish(source: string, diagnostics: readonly GoalDiagnostic[]): void;
+  clear(source?: string): void;
+} {
+  const { diagnostics, diagnosticsById, diagnosticsStore } = useIstarEditor();
+  return {
+    diagnostics,
+    byElement: diagnosticsById,
+    publish: diagnosticsStore.publish,
+    clear: diagnosticsStore.clear,
+  };
+}
+
+/** The diagnostics of one element or link (all sources), for custom components and inspectors. */
+export function useElementDiagnostics(id: string | undefined): readonly GoalDiagnostic[] {
+  const { diagnosticsById } = useIstarEditor();
+  return (id === undefined ? undefined : diagnosticsById.get(id)) ?? NO_DIAGNOSTICS;
+}
+
+/**
+ * A diagnostics store created once, for hosts that publish from outside the editor:
+ * `const diagnostics = useDiagnosticsStore(); … <IstarCanvas diagnostics={diagnostics} />`.
+ */
+export function useDiagnosticsStore(): DiagnosticsStore {
+  const [store] = useState(createDiagnosticsStore);
+  return store;
 }
 
 /** True when rendered inside an `IstarProvider`. */

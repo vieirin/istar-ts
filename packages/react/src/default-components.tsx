@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ElementKind } from '@istar-ts/core';
 import { useOptionalIstarEditor } from './context';
 import type { AnyIstarRegistry, ElementComponentProps } from './registry';
+import { ElementIssuesBadge } from './ElementIssuesBadge';
 import { FULL_TEXT_BOX, FittedLabel } from './label-fit';
 import { ActorSymbol, DEFAULT_SHAPES, DefaultNodeShape, PathShape } from './shapes';
 
@@ -99,6 +100,7 @@ export function DefaultElementComponent(props: ElementComponentProps): ReactElem
         onDone={() => setEditing(false)}
         onGrow={(needed) => actions.setDisplay({ height: needed })}
       />
+      <DiagnosticsBadge {...props} />
     </div>
   );
 }
@@ -150,6 +152,21 @@ export function DefaultActorComponent(props: ElementComponentProps): ReactElemen
         onCommit={actions.rename}
         onDone={() => setEditing(false)}
       />
+      <DiagnosticsBadge {...props} />
     </div>
+  );
+}
+
+/**
+ * The severity badge default components draw, unless the host turned badges off. A badge the
+ * host draws in the same node (e.g. a component wrapping this one) hides it (see styles.css).
+ */
+function DiagnosticsBadge({ diagnostics, issues }: ElementComponentProps): ReactElement | null {
+  const editor = useOptionalIstarEditor();
+  if (editor?.diagnosticBadges === false) return null;
+  return diagnostics ? (
+    <ElementIssuesBadge diagnostics={diagnostics} className="istar-default-badge" />
+  ) : (
+    <ElementIssuesBadge issues={issues} className="istar-default-badge" />
   );
 }

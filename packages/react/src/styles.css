@@ -632,6 +632,39 @@
 .istar-field-issue {
   color: var(--istar-error-text);
 }
+/* Diagnostics in the inspector: element-level at the top, per property under its row. */
+.istar-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.istar-diagnostic {
+  padding-left: 6px;
+  border-left: 3px solid #3b82f6;
+  overflow-wrap: anywhere;
+}
+.istar-diagnostic.is-error {
+  border-left-color: #ef4444;
+  color: var(--istar-error-text);
+}
+.istar-diagnostic.is-warning {
+  border-left-color: #eab308;
+}
+.istar-diagnostic.is-hint {
+  border-left-color: #9ca3af;
+  opacity: 0.8;
+}
+.istar-diagnostic-source {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+.istar-field.has-error :is(input, textarea, select),
+.istar-custom-property.has-error :is(input, textarea) {
+  border-color: var(--istar-error-text);
+}
 .istar-field-description {
   opacity: 0.7;
 }
@@ -702,6 +735,27 @@
 }
 .istar-issues-badge.is-info {
   background: #3b82f6;
+}
+.istar-issues-badge.is-hint {
+  background: #9ca3af;
+}
+/* Hosts that draw their own badge (as before 0.12) keep just theirs. */
+:is(.istar-element, .istar-actor, .istar-link-label-slot):has(
+    .istar-issues-badge:not(.istar-default-badge)
+  )
+  .istar-default-badge {
+  display: none;
+}
+/* A link's badge, beside its middle label. */
+.istar-link-diagnostics {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+.istar-link-diagnostics .istar-issues-badge {
+  top: 0;
+  right: 0;
 }
 .istar-issues-badge-tooltip {
   position: absolute;

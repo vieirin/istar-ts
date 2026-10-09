@@ -304,6 +304,15 @@ toPistar(extended); // writes the "metamodel" block
   into a store (`store.load` or `store.replace`) to keep editing.
 - `pistarType` works as for any extension, so `istar.<Name>` types on disk still read.
 
+## Diagnostics
+
+`GoalDiagnostic` (`{ elementId, key?, severity, message, source?, range?, code?, data? }`) is the
+data shape for findings about elements and links. Analysers publish them per source to a
+`createDiagnosticsStore()`; `getAll()` returns the union of every source, deduplicated by
+`(elementId, key, message)`. `fromLspDiagnostics` and `fromNodeIdDiagnostics` adapt LSP and MutRoSe
+diagnostics. Diagnostics are never part of the model and never serialized. `@istar-ts/react`
+shows them as badges and in the inspector (see its README).
+
 ## Credits
 
 The metamodel, link constraints, element shapes, and file format are derived from

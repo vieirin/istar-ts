@@ -1,4 +1,11 @@
-import type { ElementKind, IstarModel, LinkKind, ModelStore } from '@istar-ts/core';
+import type {
+  DiagnosticsStore,
+  ElementKind,
+  GoalDiagnostic,
+  IstarModel,
+  LinkKind,
+  ModelStore,
+} from '@istar-ts/core';
 import type {
   Connection,
   FinalConnectionState,
@@ -76,6 +83,13 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
    * canvas creates its own provider.
    */
   readonly issues?: readonly ElementIssue[];
+  /**
+   * Diagnostics from any number of sources: a `DiagnosticsStore` the host publishes to, or a
+   * list (see `IstarProviderProps.diagnostics`). Forwarded like `issues`.
+   */
+  readonly diagnostics?: DiagnosticsStore | readonly GoalDiagnostic[];
+  /** Severity badges on elements and links with diagnostics. Default `true`. */
+  readonly diagnosticBadges?: boolean;
   /** Called whenever the editor selection changes. */
   readonly onSelectionChange?: (selection: Selection) => void;
   /**
@@ -182,6 +196,8 @@ export const IstarCanvas: ForwardRefExoticComponent<
       extensions={props.extensions}
       readOnly={props.readOnly}
       issues={props.issues}
+      diagnostics={props.diagnostics}
+      diagnosticBadges={props.diagnosticBadges}
       onSelectionChange={props.onSelectionChange}
     >
       {content}

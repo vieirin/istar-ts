@@ -2,6 +2,31 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.12.0
+
+- **Diagnostics protocol** (goal-controller issue #24, option D). Findings about elements and links
+  can now come from any number of analysers: LSP servers, validators, simulations. They are
+  anchored by element id and are never serialized.
+  - **core:** the `GoalDiagnostic` type (`elementId`, `key?`, `severity` including `'hint'`,
+    `message`, `source?`, `range?`, `code?`, `data?`), plus `mergeDiagnostics` (union,
+    deduplicated by `(elementId, key, message)`, worst severity kept), `groupDiagnostics` and
+    `worstDiagnosticSeverity`.
+  - **core:** `createDiagnosticsStore`, where `publish(source, list)` replaces one source's set and
+    `clear(source?)` removes it.
+  - **core adapters:** `fromLspDiagnostics` (`data.elementId` / `data.nodeId` / `data.key`, an
+    `elementIdFor` for range-anchored diagnostics, VS Code severity numbering) and
+    `fromNodeIdDiagnostics` (MutRoSe's `{ nodeId, severity, message }`).
+  - **react:** `IstarCanvas` / `IstarProvider` take `diagnostics` (a store or a list) and
+    `diagnosticBadges`. New hooks: `useGoalDiagnostics()` (merged list, `byElement`, `publish`,
+    `clear`), `useElementDiagnostics(id)` and `useDiagnosticsStore()`.
+  - **react:** components, inspectors and link labels receive `diagnostics`.
+  - **react:** default components and link labels draw a severity badge. A badge your own
+    component draws replaces it.
+  - **react:** the default inspector shows element-level diagnostics at the top and property ones
+    under their rows (exported as `DiagnosticList`).
+  - **Compatibility:** `issues` / `ElementIssue` / `issuesById` are unchanged and merged with the
+    rest. `ElementIssue` is the element-level subset (`issueToDiagnostic`, `diagnosticToIssue`).
+
 ## 0.11.0
 
 - **A model's own metamodel (core):** files can declare their constructs in a top-level

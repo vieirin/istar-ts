@@ -7,3 +7,4 @@ export * from './store';
 export * from './properties';
 export * from './metamodels';
 export * from './file-metamodel';
+export * from './diagnostics';

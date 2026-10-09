@@ -1,5 +1,6 @@
 import type {
   CustomProperties,
+  GoalDiagnostic,
   IstarElement,
   IstarLink,
   PropertyIssue,
@@ -45,6 +46,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         readOnly={readOnly}
         schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(element.id) ?? []}
+        diagnostics={editor.diagnosticsById.get(element.id) ?? []}
       />
     ) : null;
   } else if (link) {
@@ -59,6 +61,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         readOnly={readOnly}
         schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(link.id) ?? []}
+        diagnostics={editor.diagnosticsById.get(link.id) ?? []}
       />
     ) : null;
   }
@@ -130,25 +133,64 @@ function CommitTextInner({
   );
 }
 
+export interface DiagnosticListProps {
+  readonly diagnostics: readonly GoalDiagnostic[] | undefined;
+  /** Prefix each message with its property key (for lists not under a property's row). */
+  readonly showKey?: boolean;
+  readonly className?: string;
+}
+
+/** Diagnostics as a list: severity, message and source. Renders nothing for an empty list. */
+export function DiagnosticList({
+  diagnostics,
+  showKey,
+  className,
+}: DiagnosticListProps): ReactElement | null {
+  if (!diagnostics?.length) return null;
+  return (
+    <ul className={`istar-diagnostics${className ? ` ${className}` : ''}`}>
+      {diagnostics.map((d, i) => (
+        <li
+          key={`${d.key ?? ''}:${d.message}:${i}`}
+          className={`istar-diagnostic is-${d.severity}`}
+          data-severity={d.severity}
+        >
+          {showKey && d.key !== undefined && <strong>{d.key}: </strong>}
+          {d.message}
+          {d.source && <span className="istar-diagnostic-source"> ({d.source})</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function severityClass(diagnostics: readonly GoalDiagnostic[] | undefined): string {
+  return diagnostics?.some((d) => d.severity === 'error') ? ' has-error' : '';
+}
+
 /** A labelled row in the inspector. */
 export function InspectorField({
   label,
   htmlFor,
   issue,
+  diagnostics,
   children,
 }: {
   label: ReactNode;
   htmlFor?: string;
   issue?: string;
+  /** Diagnostics about this row's property, listed under it. */
+  diagnostics?: readonly GoalDiagnostic[];
   children: ReactNode;
 }): ReactElement {
   return (
-    <div className={`istar-field${issue ? ' has-issue' : ''}`}>
+    <div className={`istar-field${issue ? ' has-issue' : ''}${severityClass(diagnostics)}`}>
       <label className="istar-field-label" htmlFor={htmlFor}>
         {label}
       </label>
       {children}
       {issue && <div className="istar-field-issue">{issue}</div>}
+      <DiagnosticList diagnostics={diagnostics} />
     </div>
   );
 }
@@ -160,6 +202,8 @@ export interface PropertyFieldProps {
   readonly value: string | undefined;
   onChange(raw: string | undefined): void;
   readonly issue?: string;
+  /** Diagnostics about this property. */
+  readonly diagnostics?: readonly GoalDiagnostic[];
   readonly readOnly?: boolean;
 }
 
@@ -174,6 +218,7 @@ export function PropertyField({
   value,
   onChange,
   issue,
+  diagnostics,
   readOnly,
 }: PropertyFieldProps): ReactElement {
   const id = useId();
@@ -225,7 +270,7 @@ export function PropertyField({
     );
   }
   return (
-    <InspectorField label={label} htmlFor={id} issue={issue}>
+    <InspectorField label={label} htmlFor={id} issue={issue} diagnostics={diagnostics}>
       {input}
       {type.options.description && (
         <div className="istar-field-description">{type.options.description}</div>
@@ -268,41 +313,51 @@ export function CustomPropertiesEditor({
   exclude = [],
   onChange,
   readOnly,
+  diagnostics,
 }: {
   properties: CustomProperties | undefined;
   exclude?: readonly string[];
   onChange(patch: Readonly<Record<string, string | undefined>>): void;
   readOnly?: boolean;
+  /** Diagnostics of the element; each row lists those whose `key` is its property. */
+  diagnostics?: readonly GoalDiagnostic[];
 }): ReactElement {
   const [newKey, setNewKey] = useState('');
   const entries = Object.entries(properties ?? {}).filter(([key]) => !exclude.includes(key));
   const keyTaken = newKey in (properties ?? {});
   return (
     <div className="istar-custom-properties">
-      {entries.map(([key, value]) => (
-        <div className="istar-custom-property" key={key}>
-          <label className="istar-field-label" htmlFor={`prop-${key}`}>
-            {key}
-          </label>
-          <CommitText
-            id={`prop-${key}`}
-            multiline
-            value={value}
-            readOnly={readOnly}
-            onCommit={(next) => onChange({ [key]: next })}
-          />
-          {!readOnly && (
-            <button
-              type="button"
-              className="istar-icon-button"
-              aria-label={`Remove property ${key}`}
-              onClick={() => onChange({ [key]: undefined })}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      ))}
+      {entries.map(([key, value]) => {
+        const rowDiagnostics = diagnostics?.filter((d) => d.key === key);
+        return (
+          <div className={`istar-custom-property${severityClass(rowDiagnostics)}`} key={key}>
+            <label className="istar-field-label" htmlFor={`prop-${key}`}>
+              {key}
+            </label>
+            <CommitText
+              id={`prop-${key}`}
+              multiline
+              value={value}
+              readOnly={readOnly}
+              onCommit={(next) => onChange({ [key]: next })}
+            />
+            {!readOnly && (
+              <button
+                type="button"
+                className="istar-icon-button"
+                aria-label={`Remove property ${key}`}
+                onClick={() => onChange({ [key]: undefined })}
+              >
+                ×
+              </button>
+            )}
+            <DiagnosticList
+              diagnostics={rowDiagnostics}
+              className="istar-custom-property-diagnostics"
+            />
+          </div>
+        );
+      })}
       {!readOnly && (
         <form
           className="istar-custom-property-add"
@@ -337,6 +392,7 @@ export function DefaultElementInspector({
   actions,
   readOnly,
   schema,
+  diagnostics,
 }: InspectorProps<IstarElement>): ReactElement {
   const { registry, metamodel } = useIstarEditor();
   const nameId = useId();
@@ -345,12 +401,14 @@ export function DefaultElementInspector({
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const crossIssues = typed.issues.filter((i) => !schemaKeys.includes(i.key));
   const kindLabel = registry.elements[target.kind].label;
+  const rows = splitDiagnostics(diagnostics, schemaKeys, target.customProperties);
   return (
     <div className="istar-inspector-body">
       <h3 className="istar-inspector-title">
         {kindLabel}
         {target.isDependum ? ' (dependum)' : ''}
       </h3>
+      <DiagnosticList diagnostics={rows.top} showKey className="istar-inspector-diagnostics" />
       <InspectorField label="Name" htmlFor={nameId}>
         <CommitText
           id={nameId}
@@ -367,6 +425,7 @@ export function DefaultElementInspector({
           type={schema!.shape[key]!}
           value={target.customProperties?.[key]}
           issue={typed.issueFor(key)}
+          diagnostics={rows.byKey(key)}
           readOnly={readOnly}
           onChange={(raw) => typed.setRaw(key, raw)}
         />
@@ -384,6 +443,7 @@ export function DefaultElementInspector({
         exclude={schemaKeys}
         onChange={actions.setProperties}
         readOnly={readOnly}
+        diagnostics={diagnostics}
       />
       <InspectorField label="Color" htmlFor={colorId}>
         <div className="istar-color-field">
@@ -418,6 +478,24 @@ export function DefaultElementInspector({
   );
 }
 
+/**
+ * Diagnostics for the top of an inspector (about the element, or about a property without a
+ * row) and a lookup for the rows of schema properties. Custom-property rows filter their own.
+ */
+function splitDiagnostics(
+  diagnostics: readonly GoalDiagnostic[] | undefined,
+  schemaKeys: readonly string[],
+  properties: CustomProperties | undefined,
+): { top: GoalDiagnostic[]; byKey(key: string): GoalDiagnostic[] } {
+  const all = diagnostics ?? [];
+  const hasRow = (key: string): boolean =>
+    schemaKeys.includes(key) || (properties !== undefined && Object.hasOwn(properties, key));
+  return {
+    top: all.filter((d) => d.key === undefined || !hasRow(d.key)),
+    byKey: (key) => all.filter((d) => d.key === key),
+  };
+}
+
 function normalizeColor(color: string | undefined, actor: boolean): string {
   if (color && /^#[0-9a-f]{6}$/i.test(color)) return color;
   return actor ? '#f2f2f2' : '#cdfecd';
@@ -428,6 +506,7 @@ export function DefaultLinkInspector({
   actions,
   readOnly,
   schema,
+  diagnostics,
 }: InspectorProps<IstarLink>): ReactElement {
   const { registry, model, metamodel } = useIstarEditor();
   // A kind with a selectable value (Contribution, or an extended kind with possibleLabels).
@@ -439,9 +518,11 @@ export function DefaultLinkInspector({
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const source = model.elements.get(target.source)?.name ?? target.source;
   const destination = model.elements.get(target.target)?.name ?? target.target;
+  const rows = splitDiagnostics(diagnostics, schemaKeys, target.customProperties);
   return (
     <div className="istar-inspector-body">
       <h3 className="istar-inspector-title">{registry.links[target.kind].label}</h3>
+      <DiagnosticList diagnostics={rows.top} showKey className="istar-inspector-diagnostics" />
       <p className="istar-inspector-endpoints">
         {source} → {destination}
       </p>
@@ -481,6 +562,7 @@ export function DefaultLinkInspector({
           type={schema!.shape[key]!}
           value={target.customProperties?.[key]}
           issue={typed.issueFor(key)}
+          diagnostics={rows.byKey(key)}
           readOnly={readOnly}
           onChange={(raw) => typed.setRaw(key, raw)}
         />
@@ -491,6 +573,7 @@ export function DefaultLinkInspector({
         exclude={schemaKeys}
         onChange={actions.setProperties}
         readOnly={readOnly}
+        diagnostics={diagnostics}
       />
       {!readOnly && (
         <button type="button" className="istar-danger-button" onClick={actions.remove}>

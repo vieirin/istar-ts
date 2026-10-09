@@ -117,6 +117,7 @@ export const ElementNode: ComponentType<NodeProps<ElementFlowNode>> = memo(funct
         actions={editor.elementActions(element.id)}
         readOnly={editor.readOnly}
         issues={editor.issuesById.get(element.id) ?? []}
+        diagnostics={editor.diagnosticsById.get(element.id) ?? []}
       />
       <ConnectionHandles connectable={linking && !editor.readOnly} />
     </div>
@@ -145,6 +146,7 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
       actions={editor.elementActions(element.id)}
       readOnly={editor.readOnly}
       issues={editor.issuesById.get(element.id) ?? []}
+      diagnostics={editor.diagnosticsById.get(element.id) ?? []}
     />
   );
   const rename = (e: ReactMouseEvent): void => {

@@ -12,6 +12,9 @@ export { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 export type { ElementIconOptions, LinkIconStyle } from './palette-icons';
 export {
   IstarProvider,
+  useDiagnosticsStore,
+  useElementDiagnostics,
+  useGoalDiagnostics,
   useIstarEditor,
   useIstarStore,
   useOptionalIstarEditor,
@@ -56,9 +59,29 @@ export {
   EditableLabel,
 } from './default-components';
 export type { EditableLabelProps } from './default-components';
-export { ElementIssuesBadge } from './ElementIssuesBadge';
+export { ElementIssuesBadge, describeDiagnostic } from './ElementIssuesBadge';
 export type { ElementIssuesBadgeProps } from './ElementIssuesBadge';
-export { groupIssuesById, worstSeverity } from './issues';
+export { diagnosticToIssue, groupIssuesById, issueToDiagnostic, worstSeverity } from './issues';
+// The diagnostics protocol lives in core; re-exported for hosts that only depend on react.
+export {
+  createDiagnosticsStore,
+  fromLspDiagnostic,
+  fromLspDiagnostics,
+  fromNodeIdDiagnostic,
+  fromNodeIdDiagnostics,
+  groupDiagnostics,
+  mergeDiagnostics,
+  worstDiagnosticSeverity,
+} from '@istar-ts/core';
+export type {
+  DiagnosticRange,
+  DiagnosticSeverity,
+  DiagnosticsStore,
+  FromLspOptions,
+  GoalDiagnostic,
+  LspDiagnosticLike,
+  NodeIdDiagnostic,
+} from '@istar-ts/core';
 export type { ElementIssue, IssueSeverity } from './issues';
 export {
   ACTOR_RADIUS,
@@ -85,10 +108,16 @@ export {
   CommitText,
   CustomPropertiesEditor,
   DefaultElementInspector,
+  DiagnosticList,
   DefaultLinkInspector,
   InspectorField,
   IstarInspector,
   PropertyField,
   useTypedProperties,
 } from './Inspector';
-export type { CommitTextProps, IstarInspectorProps, PropertyFieldProps } from './Inspector';
+export type {
+  CommitTextProps,
+  DiagnosticListProps,
+  IstarInspectorProps,
+  PropertyFieldProps,
+} from './Inspector';

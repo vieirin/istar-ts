@@ -6,7 +6,7 @@
  */
 import type { IstarLink } from '@istar-ts/core';
 import type { AnyMetamodel, LinkKind } from '@istar-ts/core';
-import { LINK_KINDS, effectiveLinkKind } from '@istar-ts/core';
+import { LINK_KINDS, effectiveLinkKind, worstDiagnosticSeverity } from '@istar-ts/core';
 import type { AnyIstarRegistry, IstarRegistry } from './registry';
 import type { EdgeProps, EdgeTypes, InternalNode } from '@xyflow/react';
 import { BaseEdge, EdgeLabelRenderer, useInternalNode } from '@xyflow/react';
@@ -14,6 +14,7 @@ import type { ComponentType, ReactElement } from 'react';
 import { memo } from 'react';
 import { useCanvasOptions } from './canvas-options';
 import { useIstarEditor } from './context';
+import { ElementIssuesBadge } from './ElementIssuesBadge';
 import type { IstarFlowEdge } from './layout';
 import { ACTOR_SYMBOL_OFFSET } from './layout';
 import { ACTOR_RADIUS } from './shapes';
@@ -295,7 +296,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   data,
   selected,
 }: EdgeProps<IstarFlowEdge>): ReactElement | null {
-  const { model, metamodel, registry } = useIstarEditor();
+  const { model, metamodel, registry, diagnosticsById, diagnosticBadges } = useIstarEditor();
   const { linkShape, linkNames } = useCanvasOptions();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -325,9 +326,19 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const header = linkConfig?.labelHeader?.(link) ?? [];
   const marker = style.marker;
   const middle = pointAlong(points, 0.5);
+  const diagnostics = diagnosticsById.get(link.id);
+  const severity = worstDiagnosticSeverity(diagnostics);
+  const badge =
+    diagnosticBadges && diagnostics ? (
+      <ElementIssuesBadge diagnostics={diagnostics} className="istar-default-badge" />
+    ) : null;
 
   return (
-    <g className={`istar-link${selected ? ' is-selected' : ''}`} data-kind={link.kind}>
+    <g
+      className={`istar-link${selected ? ' is-selected' : ''}`}
+      data-kind={link.kind}
+      data-severity={severity}
+    >
       <BaseEdge
         id={id}
         path={path}
@@ -394,7 +405,21 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
                 ...(link.name ? { name: link.name } : {}),
                 ...(header.length > 0 ? { header } : {}),
               }}
+              {...(diagnostics ? { diagnostics } : {})}
             />
+            {badge}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+      {!LabelComponent && badge && (
+        <EdgeLabelRenderer>
+          <div
+            className="istar-link-diagnostics nodrag nopan"
+            data-link={link.id}
+            // Beside the middle label, up and to the right, so the label stays readable.
+            style={{ transform: `translate(${middle.x + 6}px, ${middle.y - 22}px)` }}
+          >
+            {badge}
           </div>
         </EdgeLabelRenderer>
       )}

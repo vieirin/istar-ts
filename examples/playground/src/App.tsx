@@ -16,7 +16,7 @@ import { IstarCanvas, metamodelWithExtensions, useIstarStore } from '@istar-ts/r
 import type { ChangeEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
-import { demoIssuesFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
+import { demoDiagnosticsFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
 import { rationalAgentsExtension } from './extensions/rationalAgents';
 import { Sidebar } from './Sidebar';
 
@@ -318,7 +318,7 @@ export default function App(): ReactElement {
           palette={bar}
           colorMode={theme}
           linkShape={links}
-          issues={extensionId === 'mutrose' ? demoIssuesFor(model) : undefined}
+          diagnostics={extensionId === 'mutrose' ? demoDiagnosticsFor(model) : undefined}
           aside={<Sidebar model={model} schemas={active.schemas} />}
         />
       </div>
