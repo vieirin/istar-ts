@@ -12,7 +12,7 @@ import { IstarCanvas, IstarProvider, TEXT_BOXES, useIstarEditor } from '../src';
  * jsdom has no layout: the label box gets a fixed size and the label content a height
  * proportional to its font scale (`contentPerEm` px at 1em).
  */
-const geometry = { boxHeight: 80, boxWidth: 100, contentPerEm: 50 };
+const geometry = { boxHeight: 80, boxWidth: 100, contentPerEm: 50, headerLinePerEm: 0 };
 const scaleOf = (el: HTMLElement) => Number.parseFloat(el.style.fontSize || '1') || 1;
 const saved: [string, PropertyDescriptor | undefined][] = [];
 function stub(prop: string, get: (el: HTMLElement) => number) {
@@ -27,8 +27,13 @@ function stub(prop: string, get: (el: HTMLElement) => number) {
 beforeEach(() => {
   geometry.boxHeight = 80;
   geometry.contentPerEm = 50;
+  geometry.headerLinePerEm = 0;
   stub('clientHeight', (el) => (el.classList.contains('istar-label-box') ? geometry.boxHeight : 0));
-  stub('clientWidth', (el) => (el.classList.contains('istar-label-box') ? geometry.boxWidth : 0));
+  stub('clientWidth', (el) =>
+    el.classList.contains('istar-label-box') || el.classList.contains('istar-label-header-line')
+      ? geometry.boxWidth
+      : 0,
+  );
   stub('scrollHeight', (el) =>
     el.classList.contains('istar-label-content')
       ? geometry.contentPerEm * scaleOf(el)
@@ -36,7 +41,12 @@ beforeEach(() => {
         ? geometry.contentPerEm * 0.6 * scaleOf(el.parentElement!)
         : 0,
   );
-  stub('scrollWidth', () => 0);
+  // A header line clips itself: only its own scrollWidth shows that it is too wide.
+  stub('scrollWidth', (el) =>
+    el.classList.contains('istar-label-header-line')
+      ? geometry.headerLinePerEm * scaleOf(el.closest('.istar-label-content') as HTMLElement)
+      : 0,
+  );
 });
 afterEach(() => {
   for (const [prop, descriptor] of saved.splice(0).toReversed()) {
@@ -103,6 +113,33 @@ describe('label fitting', () => {
     expect(content().classList.contains('is-clipped')).toBe(true);
     expect(content().getAttribute('title')).toBe('{Id = G1}\nDeliver the sample');
     expect(content().style.getPropertyValue('--istar-label-lines')).not.toBe('');
+  });
+
+  test('a header line too wide for the box shrinks the label before any ellipsis', () => {
+    // The block fits in height and never looks too wide (the line clips itself), but the line
+    // needs 130px at 1em in a 100px box: it fits at 0.7em.
+    geometry.headerLinePerEm = 130;
+    const extensions: IstarExtension[] = [
+      { name: 'h', elements: { 'istar.Goal': { labelHeader: () => ['<<utility-based>>'] } } },
+    ];
+    const { content } = oneGoal(extensions);
+    expect(content().style.fontSize).toBe('0.7em');
+    expect(content().classList.contains('is-clipped')).toBe(false);
+  });
+
+  test('minScale bounds header-width shrinking, then ellipsis', () => {
+    geometry.headerLinePerEm = 130;
+    const extensions: IstarExtension[] = [
+      {
+        name: 'h',
+        elements: {
+          'istar.Goal': { labelHeader: () => ['{Reference to G1}'], labelFit: { minScale: 0.9 } },
+        },
+      },
+    ];
+    const { content } = oneGoal(extensions);
+    expect(content().style.fontSize).toBe('0.9em');
+    expect(content().classList.contains('is-clipped')).toBe(true);
   });
 
   test("labelFit 'none' leaves overflowing text as it is", () => {

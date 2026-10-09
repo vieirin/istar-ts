@@ -2,6 +2,13 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.10.1
+
+- **Fix:** label fitting ellipsized a too-wide header line (e.g. `<<utility-based>>`) at full size
+  instead of shrinking it first, and `labelFit.minScale` had no effect on it. Header lines clip
+  themselves, so the label never looked too wide. A header line that overflows on its own now
+  counts, and refits (e.g. after a resize) measure without the previous ellipsis.
+
 ## 0.10.0
 
 - **Label fitting (react):** per-kind `textBox` (where the label is laid out; `TEXT_BOXES` has

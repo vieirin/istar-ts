@@ -63,12 +63,24 @@ interface FitResult {
 }
 
 function overflows(box: HTMLElement, content: HTMLElement): boolean {
-  return (
-    content.scrollHeight > box.clientHeight + 0.5 || content.scrollWidth > box.clientWidth + 0.5
-  );
+  if (
+    content.scrollHeight > box.clientHeight + 0.5 ||
+    content.scrollWidth > box.clientWidth + 0.5
+  ) {
+    return true;
+  }
+  // Header lines clip themselves (text-overflow: ellipsis), so the block never looks too wide:
+  // a line that overflows on its own still counts, so shrinking comes before ellipsis.
+  for (const line of content.querySelectorAll<HTMLElement>('.istar-label-header-line')) {
+    if (line.scrollWidth > line.clientWidth + 0.5) return true;
+  }
+  return false;
 }
 
 function fitNow(box: HTMLElement, content: HTMLElement, minScale: number, step: number): FitResult {
+  // Measure without the previous ellipsis: its line clamp would hide the overflow being measured.
+  // React re-applies the class from the result.
+  content.classList.remove('is-clipped');
   // Always refit from full size, so a box that grew lets the text grow back.
   let scale = 1;
   content.style.fontSize = '1em';
