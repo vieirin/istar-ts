@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ElementKind } from '@istar-ts/core';
 import { useOptionalIstarEditor } from './context';
 import type { AnyIstarRegistry, ElementComponentProps } from './registry';
+import { FULL_TEXT_BOX, FittedLabel } from './label-fit';
 import { ActorSymbol, DEFAULT_SHAPES, DefaultNodeShape, PathShape } from './shapes';
 
 export interface EditableLabelProps {
@@ -73,11 +74,12 @@ export function DefaultElementComponent(props: ElementComponentProps): ReactElem
       ? undefined
       : (config?.stereotype ??
         (!config?.shape && !builtIn ? (config?.label ?? element.kind) : undefined));
+  const header = [
+    ...(stereotype ? [`«${stereotype}»`] : []),
+    ...(config?.labelHeader?.(element) ?? []),
+  ];
   return (
-    <div
-      className={`istar-element-body${stereotype ? ' has-stereotype' : ''}`}
-      style={{ width, height }}
-    >
+    <div className="istar-element-body" style={{ width, height }}>
       {config?.shape ? (
         <PathShape {...config.shape} width={width} height={height} fill={fill} />
       ) : builtIn ? (
@@ -85,12 +87,17 @@ export function DefaultElementComponent(props: ElementComponentProps): ReactElem
       ) : (
         <DefaultNodeShape width={width} height={height} fill={fill} />
       )}
-      {stereotype && <div className="istar-stereotype">«{stereotype}»</div>}
-      <EditableLabel
-        value={element.name}
+      <FittedLabel
+        name={element.name}
+        header={header}
+        {...(stereotype ? { firstHeaderClass: 'istar-stereotype' } : {})}
+        textBox={config?.textBox ?? FULL_TEXT_BOX}
+        fit={config?.labelFit ?? {}}
         editing={editing}
+        height={height}
         onCommit={actions.rename}
         onDone={() => setEditing(false)}
+        onGrow={(needed) => actions.setDisplay({ height: needed })}
       />
     </div>
   );
@@ -120,6 +127,10 @@ export function DefaultActorComponent(props: ElementComponentProps): ReactElemen
       ? undefined
       : (config?.stereotype ??
         (extended && !definition?.behavesLike ? definition?.label : undefined));
+  const header = [
+    ...(stereotype ? [`«${stereotype}»`] : []),
+    ...(config?.labelHeader?.(element) ?? []),
+  ];
   return (
     <div className="istar-actor-symbol-body">
       <ActorSymbol
@@ -127,10 +138,15 @@ export function DefaultActorComponent(props: ElementComponentProps): ReactElemen
         fill={element.display?.backgroundColor}
         dashed={extended && !definition?.behavesLike}
       />
-      {stereotype && <div className="istar-stereotype">«{stereotype}»</div>}
-      <EditableLabel
-        value={element.name}
+      <FittedLabel
+        name={element.name}
+        header={header}
+        {...(stereotype ? { firstHeaderClass: 'istar-stereotype' } : {})}
+        textBox={config?.textBox ?? FULL_TEXT_BOX}
+        // The actor symbol has a fixed size: it can shrink its text, never grow.
+        fit={config?.labelFit?.mode === 'grow' ? {} : (config?.labelFit ?? {})}
         editing={editing}
+        height={props.height}
         onCommit={actions.rename}
         onDone={() => setEditing(false)}
       />

@@ -217,10 +217,3 @@ body {
   gap: 6px;
   align-items: center;
 }
-
-.pg-link-stereotype {
-  padding: 0 3px;
-  font-size: 11px;
-  font-style: italic;
-  background: var(--istar-canvas-bg, #fff);
-}

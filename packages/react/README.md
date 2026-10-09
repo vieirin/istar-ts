@@ -321,6 +321,56 @@ const stereotypes: IstarExtension = {
 Extended link kinds (see "New element and link kinds") take a `labelComponent` the same way. The
 playground's iStar4RationalAgents demo uses one to draw piStar-ext's `extension` block on a link.
 
+### Label layout and fitting
+
+The default components lay out an element's name as piStar does: wrapped at the element's full width,
+with 1em lines. Three per-kind settings change that, through an extension or the registry:
+
+- `textBox`: the box the label is laid out in, as fractions cut from each side of the element. The
+  default is the whole element. `TEXT_BOXES` (`goal`, `task`, `resource`, `quality`, `actor`) keeps
+  text inside each piStar shape, but changes where names wrap, so it is opt-in.
+- `labelHeader(element)`: small italic lines above the name (e.g. `«action»`, `{Id = G1}`), fitted
+  together with it and hidden while the name is edited. An extended kind's default «stereotype»
+  is the first header line.
+- `labelFit`:
+  - `{ mode: 'shrink' }` (the default) leaves names that fit untouched. When the text overflows,
+    the font steps down by `step` (0.1) to `minScale` (0.7). If it still overflows, it is
+    ellipsized, with the full text as the tooltip. The text refits whenever the element is resized.
+    It never changes the model.
+  - `'none'` lets text overflow, as piStar does.
+  - `'grow'` makes the element taller (`display.height`) to fit its label, but only after the name
+    is edited (including naming a new element), never on load, so opening a file doesn't change its
+    layout.
+
+```tsx
+import type { IstarExtension } from '@istar-ts/react';
+import { TEXT_BOXES } from '@istar-ts/react';
+
+const stereotypes: IstarExtension = {
+  name: 'stereotypes',
+  elements: {
+    'istar.Task': {
+      textBox: TEXT_BOXES.task,
+      labelHeader: (task) => {
+        const s = task.customProperties?.stereotype;
+        return s ? [`«${s}»`] : null;
+      },
+    },
+  },
+  links: {
+    'istar.ContributionLink': {
+      labelHeader: (link) =>
+        link.customProperties?.tag ? [`{${link.customProperties.tag}}`] : null,
+    },
+  },
+};
+```
+
+Links take a `labelHeader` too: its lines are drawn above the default label, so annotations need no
+`labelComponent`. A `labelComponent` receives them as `labels.header`. For your own components,
+`useFitText(ref)` fits the first child of `ref` inside it and returns the font scale, and
+`<LabelHeader lines={…} />` draws header lines in the default style.
+
 ### Palette
 
 Palette entries carry an `icon` (the default registry draws piStar-like previews, exported as

@@ -74,6 +74,8 @@ export {
 } from './shapes';
 export type { ShapeProps, ShapeSpec } from './shapes';
 export { pathBounds } from './svg-path';
+export { FULL_TEXT_BOX, FittedLabel, LabelHeader, TEXT_BOXES, useFitText } from './label-fit';
+export type { FittedLabelProps, LabelFit, TextBox } from './label-fit';
 export type { PathBounds } from './svg-path';
 export { OPEN_ARROW, resolveLinkStyle } from './edges';
 export type { ResolvedLinkStyle } from './edges';

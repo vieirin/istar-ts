@@ -1,6 +1,5 @@
-import type { IstarExtension, LinkLabelProps } from '@istar-ts/react';
+import type { IstarExtension } from '@istar-ts/react';
 import { LINE_DASHES } from '@istar-ts/react';
-import type { ReactElement } from 'react';
 
 /**
  * iStar4RationalAgents, the dialect piStar-ext was demonstrated with (Gonçalves et al.,
@@ -20,24 +19,21 @@ const PLANNING_PATH = 'M 0 0 L 80 0 L 100 20 L 80 40 L 0 40 L 14 20 Z';
 const PLAN_PATH = 'M 0 0 L 75 0 L 90 15 L 90 50 L 0 50 Z M 75 0 L 75 15 L 90 15';
 
 /**
- * piStar-ext's link label: the cell's `extension` block (kept as an unknown key on the link)
- * composed as `<<stereotype>>` over `{tag=value}`, as piStar-ext draws it.
+ * piStar-ext keeps a cell's stereotype and tagged value in its `extension` block (kept here as an
+ * unknown key) and draws them above the name or link label: `<<stereotype>>` then `{tag=value}`.
  */
-function PistarExtLinkLabel({ link, labels }: LinkLabelProps): ReactElement | null {
-  const ext = (link.extra?.extension ?? {}) as {
+function pistarExtHeader(cell: { readonly extra?: Readonly<Record<string, unknown>> }): string[] {
+  const ext = (cell.extra?.extension ?? {}) as {
     stereotype?: string;
     selectedTaggedValue?: string;
     taggedValue?: string;
   };
-  const lines = [
+  return [
     ext.stereotype ? `<<${ext.stereotype}>>` : '',
     ext.selectedTaggedValue
       ? `{${ext.selectedTaggedValue}${ext.taggedValue ? `=${ext.taggedValue}` : ''}}`
       : '',
-    labels.name ?? '',
   ].filter(Boolean);
-  if (lines.length === 0) return null;
-  return <div className="pg-link-stereotype">{lines.join('\n')}</div>;
 }
 
 export const rationalAgentsExtension: IstarExtension<string, string> = {
@@ -76,12 +72,12 @@ export const rationalAgentsExtension: IstarExtension<string, string> = {
   },
   // How they look (react): piStar-ext's "Shape" and "Kind of Line" fields.
   elements: {
-    'rationalAgents.Planning': { shape: { path: PLANNING_PATH } },
+    'rationalAgents.Planning': { shape: { path: PLANNING_PATH }, labelHeader: pistarExtHeader },
     'rationalAgents.Plan': { shape: { path: PLAN_PATH } },
   },
   links: {
     'rationalAgents.GeneratesLink': {
-      labelComponent: PistarExtLinkLabel,
+      labelHeader: pistarExtHeader,
       line: {
         dash: LINE_DASHES.dotted,
         marker: 'm 1,0 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0',

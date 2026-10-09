@@ -320,7 +320,9 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const beforeEnd = points[points.length - 2]!;
   const backAngle = (Math.atan2(beforeEnd.y - end.y, beforeEnd.x - end.x) * 180) / Math.PI;
   const style = resolveLinkStyle(metamodel, registry, link.kind);
-  const LabelComponent = (registry as unknown as AnyIstarRegistry).links[link.kind]?.labelComponent;
+  const linkConfig = (registry as unknown as AnyIstarRegistry).links[link.kind];
+  const LabelComponent = linkConfig?.labelComponent;
+  const header = linkConfig?.labelHeader?.(link) ?? [];
   const marker = style.marker;
   const middle = pointAlong(points, 0.5);
 
@@ -350,6 +352,19 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
       {!LabelComponent && style.changeableLabel && link.label && (
         <LinkLabel at={pointAlong(points, 0.4)} text={link.label} className="is-contribution" />
       )}
+      {!LabelComponent &&
+        header.map((line, i) => (
+          <LinkLabel
+            key={`header-${i}`}
+            // Stacked upwards above the middle label (or the middle, without one).
+            at={{
+              x: middle.x,
+              y: (style.label ? middle.y - 14 : middle.y) - (header.length - 1 - i) * 13,
+            }}
+            text={line}
+            className="is-header"
+          />
+        ))}
       {!LabelComponent && style.label && (
         <LinkLabel at={middle} text={style.label} className="is-actor-link" />
       )}
@@ -377,6 +392,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
                 ...(style.label ? { fixed: style.label } : {}),
                 ...(style.changeableLabel && link.label ? { value: link.label } : {}),
                 ...(link.name ? { name: link.name } : {}),
+                ...(header.length > 0 ? { header } : {}),
               }}
             />
           </div>

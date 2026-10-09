@@ -286,21 +286,58 @@
   align-items: center;
   justify-content: center;
 }
-/* Extended kinds without a shape of their own: piStar's default node, «Kind» above the name. */
-.istar-element-body.has-stereotype {
-  flex-direction: column;
+/*
+ * Labels (label-fit.tsx): the name, and any header lines above it, laid out in the kind's
+ * text box (the whole element by default) and fitted there.
+ */
+.istar-label-box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
 }
-.istar-stereotype {
+.istar-label-content {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+}
+.istar-label-content.is-editing {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+.istar-label-content.is-clipped {
+  max-height: 100%;
+  overflow: hidden;
+}
+.istar-label-content.is-clipped .istar-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--istar-label-lines, 1);
+  line-clamp: var(--istar-label-lines, 1);
+  overflow: hidden;
+}
+.istar-label-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  color: var(--istar-node-text);
   font-size: 0.9em;
   font-style: italic;
+  font-weight: normal;
   line-height: 1.1;
-  white-space: nowrap;
   pointer-events: none;
 }
-.istar-actor-symbol-body .istar-stereotype {
-  position: absolute;
-  top: 14px;
+.istar-label-header-line {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .istar-shape {
   position: absolute;
@@ -436,6 +473,19 @@
 }
 .istar-link-label.is-name {
   font-style: italic;
+}
+/* labelHeader lines on links: like element headers, small and italic. */
+.istar-link-label.is-header {
+  font-size: 11px;
+  font-style: italic;
+}
+/*
+ * React Flow paints its edge-label layer below the nodes, so a label of a link inside an actor
+ * was hidden by the actor's boundary. Above actors (z-index 0); intentional elements (z-index 1,
+ * later in the DOM) and their handles stay on top.
+ */
+.istar-canvas .react-flow__edgelabel-renderer {
+  z-index: 1;
 }
 /* A link kind's labelComponent, drawn as HTML at the link's middle. */
 .istar-link-label-slot {

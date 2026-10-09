@@ -38,6 +38,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
 import type { ElementIssue } from './issues';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
+import type { LabelFit, TextBox } from './label-fit';
 import type { ShapeSpec } from './shapes';
 
 // ---------------------------------------------------------------------------------------------
@@ -150,6 +151,22 @@ export interface ElementKindConfig<K extends string = ElementKind> {
    */
   readonly stereotype?: string | false;
   /**
+   * Where the default components lay out the label: fractions of the element's box cut from
+   * each side. Default: the whole box, as piStar wraps names at the element's full width.
+   * `TEXT_BOXES` has insets that keep text inside each piStar shape.
+   */
+  readonly textBox?: TextBox;
+  /**
+   * Small italic lines drawn above the name (e.g. «stereotype», {tag = value}), fitted together
+   * with it. `null` or `[]` for none. Hidden while the name is edited.
+   */
+  readonly labelHeader?: (element: IstarElement<string>) => readonly string[] | null;
+  /**
+   * How the default components fit the label in its text box. Default `{ mode: 'shrink' }`:
+   * names that fit are untouched; overflowing ones shrink to `minScale`, then are ellipsized.
+   */
+  readonly labelFit?: LabelFit;
+  /**
    * Name assigned when the palette creates an element of this kind. Defaults to `label`
    * (e.g. "Goal"). Use for modeller-specific numbering such as MutRoSe's `G1: …` / `AT1: …`.
    */
@@ -212,6 +229,12 @@ export interface LinkKindConfig<K extends string = LinkKind, DK extends string =
    * receives in `labels` to draw as it likes. Default: none, the built-in labels as in piStar.
    */
   readonly labelComponent?: ComponentType<LinkLabelProps>;
+  /**
+   * Lines drawn above the default label's texts (fixed label, value, name), styled like element
+   * headers: e.g. piStar-ext's «stereotype» and {tag = value}, without a `labelComponent`.
+   * A `labelComponent` receives them as `labels.header`.
+   */
+  readonly labelHeader?: (link: IstarLink<string>) => readonly string[] | null;
 }
 
 /** Props of a link kind's `labelComponent`. */
@@ -228,6 +251,8 @@ export interface LinkLabelProps {
     readonly value?: string;
     /** The link's `name`, if set. */
     readonly name?: string;
+    /** The kind's `labelHeader` lines, if any. */
+    readonly header?: readonly string[];
   };
 }
 

@@ -2,6 +2,23 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.10.0
+
+- **Label fitting (react):** per-kind `textBox` (where the label is laid out; `TEXT_BOXES` has
+  insets per piStar shape), `labelHeader` (small italic lines above the name, such as «stereotype»
+  or {tag = value}) and `labelFit`:
+  - `'shrink'` (the default) leaves names that fit untouched. Overflowing names step down to
+    `minScale`, then are ellipsized with the full text as the tooltip.
+  - `'none'` does no fitting.
+  - `'grow'` sets `display.height`, only after an edit, never on load.
+
+  Exports `useFitText`, `LabelHeader`, `FittedLabel`, `FULL_TEXT_BOX` and `TEXT_BOXES`. Names that
+  fit are laid out exactly as before.
+- **Link `labelHeader`:** lines drawn above a link's default label. A `labelComponent` receives
+  them as `labels.header`.
+- **Fix:** link labels from a `labelComponent` were hidden under actor boundaries. React Flow's
+  edge-label layer now sits above actors and below intentional elements, scoped to `.istar-canvas`.
+
 ## 0.9.0
 
 - **Link labels (react):** a link kind can have a `labelComponent` (`LinkKindConfig`, settable
