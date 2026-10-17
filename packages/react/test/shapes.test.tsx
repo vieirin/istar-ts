@@ -22,12 +22,12 @@ describe('polygonPath', () => {
   });
 });
 
+function outline(element: ReturnType<typeof render>['container']): SVGPathElement {
+  return element.querySelector('.istar-shape path') as SVGPathElement;
+}
+
 describe('PathShape', () => {
   const path = polygonPath(GOAL_POINTS);
-
-  function outline(element: ReturnType<typeof render>['container']): SVGPathElement {
-    return element.querySelector('.istar-shape path') as SVGPathElement;
-  }
 
   test('draws the default outline when the spec gives no dash or width', () => {
     const { container } = render(<PathShape path={path} width={135} height={36} />);

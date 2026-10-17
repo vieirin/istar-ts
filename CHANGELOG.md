@@ -43,6 +43,7 @@ Versions are published from GitHub release tags; see the release notes for full 
     targets is unchanged.
   - **core:** `detectPrefix(json)` and `detectFramework(json, roots)` tell which root metamodel a
     file is written in.
+  - **core:** `DSM3_TOOL` and `DSM3_FILE_KEYS`, DSM3-goals' file conventions, for roots' `file` hints.
 - **DSM3-goals' KAOS and NFR on the canvas** (issue #7). iStar 2.0 models render exactly as
   before (a snapshot of `modelToFlow` pins it).
   - **react:** the provider completes the registry for any root other than iStar 2.0, and
@@ -59,6 +60,19 @@ Versions are published from GitHub release tags; see the release notes for full 
   - **react:** `ShapeSpec` is core's `KindShape`; `PathShape` and palette icons draw its `dash`
     and `strokeWidth`. New `polygonPath(points)`.
   - **react:** `resolveLinkStyle` accepts a registry of any metamodel.
+- **New packages: `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr`** (issue #7). KAOS and the NFR
+  Framework as DSM3-goals defines them. DSM3's example files open, render and save byte for
+  byte. Design notes: `docs/dsm3-goals.md`.
+  - **dsm3-kaos:** the `KAOS` root (`KAOS_DECLARATION`), with DSM3's rules and its n-ary
+    refinement (`kaos.RefinementLinkHub` and its legs and end). Also property schemas for goals,
+    the refinement (kept on its hub) and Conflict, DSM3's shapes (`KAOS_SHAPES`), the Conflict
+    and Responsibility glyphs, and `kaosExtension`.
+  - **dsm3-nfr:** the `NFR` root (`NFR_DECLARATION`), with DSM3's rules, the Argument link from a
+    Claim to another link, `NFR_CONTRIBUTION_LABELS`, the cloud shapes (`NFR_SHAPES`) and
+    `nfrExtension`.
+  - **playground:** a "Frameworks" group in the switcher, the DSM3 examples, and `detectFramework`
+    when opening a file.
+  - The release workflow publishes the two new packages after core and react.
 
 ## 0.12.0
 

@@ -1,6 +1,10 @@
 import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
+import { KAOS, KAOS_PROPERTY_SCHEMAS, kaosExtension } from '@istar-ts/dsm3-kaos';
+import { NFR, nfrExtension } from '@istar-ts/dsm3-nfr';
 import {
+  ISTAR_2_0,
   createEmptyModel,
+  detectFramework,
   fileMetamodelOf,
   inheritSourceLayout,
   metamodelOf,
@@ -39,20 +43,22 @@ const initialFixturePath = defaultFixturePath() ?? fixturePaths[0] ?? '';
 
 /**
  * Optional extensions. The default is a plain piStar editor; an extension adapts it to another
- * modeller without changing the libraries.
+ * modeller without changing the libraries. A framework (KAOS, NFR) is a root metamodel of its
+ * own, with its package's extension on top.
  */
 interface ExtensionSet {
   readonly extensions: readonly IstarExtension<string, string>[];
   readonly schemas: readonly PropertySchema[];
-  /** The metamodel models are read and created with: iStar 2.0 plus the extensions' kinds. */
+  /** The metamodel models are read and created with: the root plus the extensions' kinds. */
   readonly metamodel: AnyMetamodel;
 }
 
 function extensionSet(
   extensions: readonly IstarExtension<string, string>[],
   schemas: readonly PropertySchema[],
+  root: AnyMetamodel = ISTAR_2_0 as unknown as AnyMetamodel,
 ): ExtensionSet {
-  return { extensions, schemas, metamodel: metamodelWithExtensions(extensions) };
+  return { extensions, schemas, metamodel: metamodelWithExtensions(extensions, root) };
 }
 
 const EXTENSIONS: Record<string, ExtensionSet> = {
@@ -64,12 +70,49 @@ const EXTENSIONS: Record<string, ExtensionSet> = {
   mutrose: extensionSet([mutroseExtension as IstarExtension<string, string>], mutroseSchemas),
   // A metamodel extension: new element and link kinds, not just new presentation.
   rationalAgents: extensionSet([rationalAgentsExtension], []),
+  // DSM3-goals' frameworks: roots of their own (@istar-ts/dsm3-kaos, @istar-ts/dsm3-nfr).
+  kaos: extensionSet(
+    [kaosExtension as IstarExtension<string, string>],
+    KAOS_PROPERTY_SCHEMAS as readonly PropertySchema[],
+    KAOS as unknown as AnyMetamodel,
+  ),
+  nfr: extensionSet(
+    [nfrExtension as IstarExtension<string, string>],
+    [],
+    NFR as unknown as AnyMetamodel,
+  ),
 };
 
-/** Examples under fixtures/extensions/<name>.txt need the extension of that name. */
+/** The roots a file may be written in, for `detectFramework`; each with its extension set. */
+const FRAMEWORKS: readonly { readonly root: AnyMetamodel; readonly id: string }[] = [
+  { root: ISTAR_2_0 as unknown as AnyMetamodel, id: 'none' },
+  { root: KAOS as unknown as AnyMetamodel, id: 'kaos' },
+  { root: NFR as unknown as AnyMetamodel, id: 'nfr' },
+];
+
+/**
+ * Examples under fixtures/extensions/<name>.txt need the extension of that name; DSM3-goals'
+ * examples under fixtures/dsm3/ need their framework (`istar2-*` is plain iStar 2.0).
+ */
 function extensionForPath(path: string): string | undefined {
+  const dsm3 = /\/dsm3\/(kaos|nfr|istar2)-[^/]*\.txt$/.exec(path)?.[1];
+  if (dsm3) return dsm3 === 'istar2' ? 'none' : dsm3;
   const match = /\/extensions\/([^/]+)\.txt$/.exec(path);
   return match && match[1] && EXTENSIONS[match[1]] ? match[1] : undefined;
+}
+
+/**
+ * The extension set for an opened file: its framework's, when the file is written in another
+ * root than the active one (`detectFramework` reads its types' prefix); otherwise the active.
+ */
+function extensionForText(text: string, activeId: string): string {
+  const root = detectFramework(
+    text,
+    FRAMEWORKS.map((f) => f.root),
+  );
+  const active = EXTENSIONS[activeId] ?? EXTENSIONS.none!;
+  if (!root || root.framework === active.metamodel.framework) return activeId;
+  return FRAMEWORKS.find((f) => f.root === root)?.id ?? activeId;
 }
 
 /** Kinds of `model` that `metamodel` doesn't know. */
@@ -126,7 +169,8 @@ export default function App(): ReactElement {
   /** Parses with the extension a path needs (switching to it), or the active one. */
   const parseFor = useCallback(
     (text: string, path?: string): AnyIstarModel => {
-      const id = (path && extensionForPath(path)) || extensionId;
+      const id =
+        (path ? extensionForPath(path) : extensionForText(text, extensionId)) ?? extensionId;
       if (id !== extensionId) setExtensionIdState(id);
       const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
       // Files may declare their own constructs (a top-level "metamodel" block).
@@ -266,6 +310,10 @@ export default function App(): ReactElement {
                 <option value="goal-controller">goal-controller</option>
                 <option value="mutrose">MutRoSe-shaped</option>
                 <option value="rationalAgents">iStar4RationalAgents (new kinds)</option>
+                <optgroup label="Frameworks">
+                  <option value="kaos">KAOS (DSM3-goals)</option>
+                  <option value="nfr">NFR Framework (DSM3-goals)</option>
+                </optgroup>
               </select>
             </label>
             <label>

@@ -1,0 +1,16 @@
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@istar-ts/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      '@istar-ts/react': fileURLToPath(new URL('../react/src/index.ts', import.meta.url)),
+    },
+  },
+  test: {
+    name: 'dsm3-kaos',
+    environment: 'jsdom',
+    setupFiles: ['../react/test/setup.ts'],
+  },
+});

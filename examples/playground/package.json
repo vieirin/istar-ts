@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@istar-ts/core": "workspace:^",
+    "@istar-ts/dsm3-kaos": "workspace:^",
+    "@istar-ts/dsm3-nfr": "workspace:^",
     "@istar-ts/react": "workspace:^",
     "@xyflow/react": "^12.12.0",
     "react": "^19.3.0",

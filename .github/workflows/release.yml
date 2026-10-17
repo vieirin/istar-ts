@@ -1,6 +1,7 @@
-# Publishes @istar-ts/core and @istar-ts/react to npm when a GitHub release is published.
+# Publishes @istar-ts/core, @istar-ts/react, @istar-ts/dsm3-kaos and @istar-ts/dsm3-nfr to npm when
+# a GitHub release is published.
 #
-# The release tag is the version: tag `v1.2.3` publishes 1.2.3 of both packages (the versions in
+# The release tag is the version: tag `v1.2.3` publishes 1.2.3 of every package (the versions in
 # package.json are overwritten for the publish, so they don't need bumping in the repo).
 # Pre-release tags such as `v1.3.0-beta.1` are published under the `next` dist-tag.
 #
@@ -63,14 +64,15 @@ jobs:
           fi
 
       # pnpm packs each package (running `prepack`: LICENSE + build) and rewrites `workspace:^`
-      # to the published version; npm publishes the tarballs, core first. npm's CLI is used for
+      # to the published version; npm publishes the tarballs, dependencies first (core, react, then
+      # the framework packages). npm's CLI is used for
       # the upload because it supports trusted publishing (OIDC): once the packages have a
       # trusted publisher on npmjs.com, no token is needed and NPM_SECRET_KEY can be deleted.
       - name: Publish to npm
         run: |
           npm --version
           mkdir -p "$RUNNER_TEMP/tarballs"
-          for pkg in core react; do
+          for pkg in core react dsm3-kaos dsm3-nfr; do
             (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
             tarball="$RUNNER_TEMP/tarballs/istar-ts-$pkg-$VERSION.tgz"
             if npm view "@istar-ts/$pkg@$VERSION" version >/dev/null 2>&1; then
@@ -91,4 +93,6 @@ jobs:
             echo "### Published $VERSION (dist-tag: $DIST_TAG)"
             echo "- https://www.npmjs.com/package/@istar-ts/core/v/$VERSION"
             echo "- https://www.npmjs.com/package/@istar-ts/react/v/$VERSION"
+            echo "- https://www.npmjs.com/package/@istar-ts/dsm3-kaos/v/$VERSION"
+            echo "- https://www.npmjs.com/package/@istar-ts/dsm3-nfr/v/$VERSION"
           } >> "$GITHUB_STEP_SUMMARY"

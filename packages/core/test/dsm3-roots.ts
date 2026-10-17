@@ -4,22 +4,9 @@
  * The full languages ship as `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr`.
  */
 import type { LinkCheck, LinkRuleContext } from '../src';
-import { defineMetamodel, isLinkRef } from '../src';
+import { DSM3_FILE_KEYS, DSM3_TOOL, defineMetamodel, isLinkRef } from '../src';
 
-/** DSM3-goals' top-level key order (`fileManager.js`). */
-export const DSM3_KEYS: readonly string[] = [
-  'actors',
-  'orphans',
-  'dependencies',
-  'links',
-  'display',
-  'tool',
-  'metamodelVersion',
-  'saveDate',
-  'diagram',
-];
-
-const DSM3_FILE = { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_KEYS };
+const DSM3_FILE = { tool: DSM3_TOOL, extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS };
 
 /** NFR's contribution and correlation labels; `–` is U+2013, as in DSM3-goals. */
 export const NFR_CONTRIBUTION_LABELS: readonly string[] = [

@@ -129,28 +129,27 @@ describe('modelToFlow with links that target links', () => {
   });
 });
 
-describe('IstarCanvas with links that target links', () => {
-  function renderNfr() {
-    const store = createModelStore(parsePistar(nfrWelcome, { metamodel: NFR }));
-    let editor: IstarEditor | undefined;
-    function Grab(): null {
-      const e = useIstarEditor();
-      useEffect(() => {
-        editor = e;
-      });
-      return null;
-    }
-    const utils = render(
-      <IstarProvider store={store}>
-        <Grab />
-        <div style={{ width: 1200, height: 800 }}>
-          <IstarCanvas />
-        </div>
-      </IstarProvider>,
-    );
-    return { ...utils, store, editor: () => editor! };
+function renderNfr() {
+  const store = createModelStore(parsePistar(nfrWelcome, { metamodel: NFR }));
+  let editor: IstarEditor | undefined;
+  function Grab(): null {
+    const e = useIstarEditor();
+    useEffect(() => {
+      editor = e;
+    });
+    return null;
   }
-
+  const utils = render(
+    <IstarProvider store={store}>
+      <Grab />
+      <div style={{ width: 1200, height: 800 }}>
+        <IstarCanvas />
+      </div>
+    </IstarProvider>,
+  );
+  return { ...utils, store, editor: () => editor! };
+}
+describe('IstarCanvas with links that target links', () => {
   test('shows anchors only while a tool whose links target links is active', () => {
     const { container, editor } = renderNfr();
     const flow = () => container.querySelector('.istar-canvas-flow')!;

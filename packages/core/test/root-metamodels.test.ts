@@ -1,6 +1,8 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 import type { ElementKindOf, LinkKindOf, Metamodel, RootMetamodelDeclaration } from '../src';
 import {
+  DSM3_FILE_KEYS,
+  DSM3_TOOL,
   ISTAR_2_0,
   ISTAR_2_0_DECLARATION,
   LINK_KIND_INFO,
@@ -313,6 +315,8 @@ describe("a root's file hints", () => {
     const model = createEmptyModel(undefined, { metamodel: KAOS_WITH_KEYS });
     const json = JSON.parse(toPistar(model, { saveDate: 'now' })) as Record<string, unknown>;
     expect(Object.keys(json)).toEqual(DSM3_KEYS);
+    expect(DSM3_FILE_KEYS).toEqual(DSM3_KEYS);
+    expect(DSM3_TOOL).toBe('dsm3-goals');
     expect(json).toMatchObject({ tool: 'dsm3-goals', metamodelVersion: '1.0' });
     // Without key hints: piStar's order, then the extra keys.
     const plain = JSON.parse(
