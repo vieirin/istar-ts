@@ -10,10 +10,19 @@ export interface Fixture {
 
 /**
  * Every file under fixtures/, recursively, except `fixtures/extensions/` (models of extended
- * metamodels, which iStar 2.0 can't read). Names contain spaces and parentheses.
+ * metamodels, which iStar 2.0 can't read) and `fixtures/dsm3/` (DSM3-goals' examples, see
+ * `loadDsm3Fixtures`). Names contain spaces and parentheses.
  */
 export function loadFixtures(): Fixture[] {
-  return loadAll().filter((f) => !f.name.startsWith('extensions/'));
+  return loadAll().filter((f) => !f.name.startsWith('extensions/') && !f.name.startsWith('dsm3/'));
+}
+
+/**
+ * DSM3-goals' three welcome models (KAOS, NFR, iStar 2.0), extracted from its
+ * `app_ui_*example.js` files as `JSON.stringify(_, null, 2)`.
+ */
+export function loadDsm3Fixtures(): Fixture[] {
+  return loadAll().filter((f) => f.name.startsWith('dsm3/'));
 }
 
 /** Models under fixtures/extensions/, which need their extension to load. */

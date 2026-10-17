@@ -1,0 +1,246 @@
+{
+  "actors": [
+    {
+      "id": "58fc6c6a-6866-41db-80bc-54ec96a9358c",
+      "text": "Modeller",
+      "type": "istar.Role",
+      "x": 713,
+      "y": 174,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": []
+    },
+    {
+      "id": "29b083d9-54aa-45cf-baf0-c3fabc89f30e",
+      "text": "Modelling Tool",
+      "type": "istar.Actor",
+      "x": 331,
+      "y": 343,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": [
+        {
+          "id": "37476176-2236-440d-9dc1-a74f96903a3a",
+          "text": "Save Model",
+          "type": "istar.Task",
+          "x": 383,
+          "y": 381,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "308b9856-e544-46d2-afc8-141874e9d046",
+          "text": "Save Image",
+          "type": "istar.Goal",
+          "x": 515,
+          "y": 376,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "9a13c102-5604-4564-9c74-3100efe0f867",
+          "text": "Save Vectorial Format",
+          "type": "istar.Task",
+          "x": 477,
+          "y": 474,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "871ef54c-8693-447f-8120-a827383d2b74",
+          "text": "Save Rasterized Format",
+          "type": "istar.Task",
+          "x": 562,
+          "y": 447,
+          "customProperties": {
+            "Description": ""
+          }
+        },
+        {
+          "id": "ca765133-d957-4e7d-85fe-9befddc88b2a",
+          "text": "High Quality [image]",
+          "type": "istar.Quality",
+          "x": 669,
+          "y": 359,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "96fc0c50-899b-4ab0-8e60-38dcfcae9b4a",
+      "text": "Researcher",
+      "type": "istar.Actor",
+      "x": 511,
+      "y": 54,
+      "customProperties": {
+        "Description": ""
+      },
+      "nodes": []
+    }
+  ],
+  "orphans": [],
+  "dependencies": [
+    {
+      "id": "e067011b-1376-471b-ba94-2240def3f026",
+      "text": "Model",
+      "type": "istar.Resource",
+      "x": 515,
+      "y": 252,
+      "customProperties": {
+        "Description": ""
+      },
+      "source": "58fc6c6a-6866-41db-80bc-54ec96a9358c",
+      "target": "37476176-2236-440d-9dc1-a74f96903a3a"
+    },
+    {
+      "id": "bd07e696-2441-4688-80d5-391341ae2c87",
+      "text": "Diagram",
+      "type": "istar.Resource",
+      "x": 619,
+      "y": 282,
+      "customProperties": {
+        "Description": ""
+      },
+      "source": "58fc6c6a-6866-41db-80bc-54ec96a9358c",
+      "target": "308b9856-e544-46d2-afc8-141874e9d046"
+    }
+  ],
+  "links": [
+    {
+      "id": "92c9596b-97ce-45a1-8cc1-b2ce086e83e2",
+      "type": "istar.DependencyLink",
+      "source": "58fc6c6a-6866-41db-80bc-54ec96a9358c",
+      "target": "e067011b-1376-471b-ba94-2240def3f026"
+    },
+    {
+      "id": "78687c1f-41c8-4df9-b4d9-52518644cf1d",
+      "type": "istar.DependencyLink",
+      "source": "e067011b-1376-471b-ba94-2240def3f026",
+      "target": "37476176-2236-440d-9dc1-a74f96903a3a"
+    },
+    {
+      "id": "de61094f-061f-4c14-868c-2257ccb1b346",
+      "type": "istar.DependencyLink",
+      "source": "58fc6c6a-6866-41db-80bc-54ec96a9358c",
+      "target": "bd07e696-2441-4688-80d5-391341ae2c87"
+    },
+    {
+      "id": "6aed3580-8069-4e2f-93cc-45626a063850",
+      "type": "istar.DependencyLink",
+      "source": "bd07e696-2441-4688-80d5-391341ae2c87",
+      "target": "308b9856-e544-46d2-afc8-141874e9d046"
+    },
+    {
+      "id": "0b22ff09-56a6-42d4-8ff4-37848de80ea2",
+      "type": "istar.OrRefinementLink",
+      "source": "9a13c102-5604-4564-9c74-3100efe0f867",
+      "target": "308b9856-e544-46d2-afc8-141874e9d046"
+    },
+    {
+      "id": "9b1904eb-8df8-4fc6-845d-ff00a406516e",
+      "type": "istar.OrRefinementLink",
+      "source": "871ef54c-8693-447f-8120-a827383d2b74",
+      "target": "308b9856-e544-46d2-afc8-141874e9d046"
+    },
+    {
+      "id": "548560f3-52c1-4e6d-9f4a-1afd4edcaf0f",
+      "type": "istar.QualificationLink",
+      "source": "ca765133-d957-4e7d-85fe-9befddc88b2a",
+      "target": "308b9856-e544-46d2-afc8-141874e9d046"
+    },
+    {
+      "id": "7f9816e2-aeef-4045-b906-56cc83a70fe8",
+      "type": "istar.ContributionLink",
+      "source": "9a13c102-5604-4564-9c74-3100efe0f867",
+      "target": "ca765133-d957-4e7d-85fe-9befddc88b2a",
+      "label": "help"
+    },
+    {
+      "id": "f5e77cd1-a7e0-4ff4-b2e0-4834a2544a6a",
+      "type": "istar.ContributionLink",
+      "source": "871ef54c-8693-447f-8120-a827383d2b74",
+      "target": "ca765133-d957-4e7d-85fe-9befddc88b2a",
+      "label": "hurt"
+    },
+    {
+      "id": "b2551cb8-ebce-484b-82af-9cc75b3dbd96",
+      "type": "istar.ParticipatesInLink",
+      "source": "96fc0c50-899b-4ab0-8e60-38dcfcae9b4a",
+      "target": "58fc6c6a-6866-41db-80bc-54ec96a9358c"
+    }
+  ],
+  "display": {
+    "92c9596b-97ce-45a1-8cc1-b2ce086e83e2": {
+      "vertices": [
+        {
+          "x": 651,
+          "y": 213
+        }
+      ]
+    },
+    "78687c1f-41c8-4df9-b4d9-52518644cf1d": {
+      "vertices": [
+        {
+          "x": 496,
+          "y": 315
+        }
+      ]
+    },
+    "de61094f-061f-4c14-868c-2257ccb1b346": {
+      "vertices": [
+        {
+          "x": 710,
+          "y": 254
+        }
+      ]
+    },
+    "6aed3580-8069-4e2f-93cc-45626a063850": {
+      "vertices": [
+        {
+          "x": 632,
+          "y": 330
+        }
+      ]
+    },
+    "7f9816e2-aeef-4045-b906-56cc83a70fe8": {
+      "vertices": [
+        {
+          "x": 716,
+          "y": 492
+        }
+      ]
+    },
+    "f5e77cd1-a7e0-4ff4-b2e0-4834a2544a6a": {
+      "vertices": [
+        {
+          "x": 684,
+          "y": 448
+        }
+      ]
+    },
+    "58fc6c6a-6866-41db-80bc-54ec96a9358c": {
+      "collapsed": true
+    },
+    "96fc0c50-899b-4ab0-8e60-38dcfcae9b4a": {
+      "collapsed": true
+    }
+  },
+  "tool": "dsm3-goals",
+  "metamodelVersion": "1.0",
+  "saveDate": "Sat, 27 Apr 2019 02:25:44 GMT",
+  "diagram": {
+    "width": 2000,
+    "height": 1300,
+    "name": "Example iStar 2.0 Model",
+    "customProperties": {
+      "Description": "This example shows the key features for modelling iStar 2.0 models. The following features are often troublesome when developing using metamodel-based frameworks:\n - Dinamically collapsable/expandable containers (actors), with automatic resizing\n - Dependency links\n - Smooth curves in dependency and contribution links\n - High visual fidelity"
+    }
+  }
+}
