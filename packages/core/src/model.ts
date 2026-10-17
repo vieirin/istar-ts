@@ -105,6 +105,24 @@ export interface IstarModel<EK extends string = ElementKind, LK extends string =
 export const PISTAR_TOOL = 'pistar.2.1.0';
 export const ISTAR_VERSION = '2.0';
 
+/**
+ * DSM3-goals' file conventions, shared by its languages (KAOS, NFR; see `@istar-ts/dsm3-kaos`
+ * and `@istar-ts/dsm3-nfr`): the `tool` its editors write, and the order of their top-level keys
+ * (`fileManager.js`). Use them as a root's `file.tool` and `file.keys`.
+ */
+export const DSM3_TOOL = 'dsm3-goals';
+export const DSM3_FILE_KEYS: readonly string[] = [
+  'actors',
+  'orphans',
+  'dependencies',
+  'links',
+  'display',
+  'tool',
+  'metamodelVersion',
+  'saveDate',
+  'diagram',
+];
+
 export const DEFAULT_DIAGRAM: Diagram = { width: 2000, height: 1300 };
 
 /** A model of any dialect, for code that handles every kind generically. */

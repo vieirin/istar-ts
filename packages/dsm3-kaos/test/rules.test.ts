@@ -1,5 +1,5 @@
-// One test per branch of DSM3-goals' `language_kaos_constraints.js`. Its "the source/target
-// must be an element" branches are type-level here: canLink only takes element or link ids.
+// One test per branch of DSM3-goals' `language_kaos_constraints.js`, by constraint code. Its
+// "must be an element" branches are the cases where a link id is the source or the target.
 import { canLink, createEmptyModel, createModelStore } from '@istar-ts/core';
 import type { IstarElement } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
@@ -170,5 +170,39 @@ describe('Conflict.isValid', () => {
     connect(a, b, 'kaos.Conflict');
     expect(check(a, b, 'kaos.Conflict')).toMatchObject({ ok: false, code: 'duplicate-link' });
     expect(check(b, a, 'kaos.Conflict')).toMatchObject({ ok: false, code: 'duplicate-link' });
+  });
+});
+
+/** A model with one Conflict link, for links whose source or target is a link. */
+function withLink() {
+  const t = setup();
+  const link = t.connect(t.add('kaos.Softgoal'), t.add('kaos.DomainProperty'), 'kaos.Conflict');
+  return { ...t, link };
+}
+
+// DSM3's `!source.isElement()` / `!target.isElement()`: a link as the source is no element at all
+// (unknown-element); a link as the target matches none of the element selectors (invalid-target).
+describe.each([
+  ['kaos.RefinementLink', 'kaos.BehavioralGoal'],
+  ['kaos.RefinementLinkStart', 'kaos.BehavioralGoal'],
+  ['kaos.ResponsibilityAssignment', 'kaos.Agent'],
+  ['kaos.Conflict', 'kaos.BehavioralGoal'],
+] as const)('%s.isValid: endpoints must be elements', (kind, sourceKind) => {
+  it('!source.isElement()', () => {
+    const { store, add, link } = withLink();
+    const target = add('kaos.Softgoal');
+    expect(canLink(store.getModel(), link.link.id, target.id, kind)).toMatchObject({
+      ok: false,
+      code: 'unknown-element',
+    });
+  });
+
+  it('!target.isElement()', () => {
+    const { store, add, link } = withLink();
+    const source = add(sourceKind);
+    expect(canLink(store.getModel(), source.id, link.link.id, kind)).toMatchObject({
+      ok: false,
+      code: 'invalid-target',
+    });
   });
 });

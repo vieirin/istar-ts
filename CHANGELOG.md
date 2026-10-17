@@ -43,6 +43,7 @@ Versions are published from GitHub release tags; see the release notes for full 
     targets is unchanged.
   - **core:** `detectPrefix(json)` and `detectFramework(json, roots)` tell which root metamodel a
     file is written in.
+  - **core:** `DSM3_TOOL` and `DSM3_FILE_KEYS`, DSM3-goals' file conventions, for roots' `file` hints.
 - **DSM3-goals' KAOS and NFR on the canvas** (issue #7). iStar 2.0 models render exactly as
   before (a snapshot of `modelToFlow` pins it).
   - **react:** the provider completes the registry for any root other than iStar 2.0, and

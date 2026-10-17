@@ -1,5 +1,5 @@
-// One test per branch of DSM3-goals' `language_nfr_constraints.js`. Its "the source/target must
-// be an element" branches are type-level here: canLink only takes element or link ids.
+// One test per branch of DSM3-goals' `language_nfr_constraints.js`, by constraint code. Its
+// "must be an element" branches are the cases where a link id is the source or the target.
 import { canLink, createEmptyModel, createModelStore } from '@istar-ts/core';
 import type { IstarElement } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
@@ -20,7 +20,9 @@ function setup() {
   };
   const checkTo = (s: IstarElement<string>, t: { id: string }, kind: NfrLinkKind) =>
     canLink(store.getModel(), s.id, t.id, kind);
-  return { add, check, checkTo, connect };
+  const checkFrom = (s: { id: string }, t: IstarElement<string>, kind: NfrLinkKind) =>
+    canLink(store.getModel(), s.id, t.id, kind);
+  return { store, add, check, checkFrom, checkTo, connect };
 }
 
 const SOFTGOAL_LINKS = [
@@ -31,6 +33,22 @@ const SOFTGOAL_LINKS = [
 ] as const;
 
 describe.each(SOFTGOAL_LINKS)('%s.isValid', (kind, nfrToOperationalization) => {
+  it('!source.isElement(): a link is no source', () => {
+    const { add, checkFrom, contribution } = withContribution();
+    expect(checkFrom(contribution, add('nfr.NFR'), kind)).toMatchObject({
+      ok: false,
+      code: 'unknown-element',
+    });
+  });
+
+  it('!target.isElement(): a link is no target', () => {
+    const { add, checkTo, contribution } = withContribution();
+    expect(checkTo(add('nfr.Operationalization'), contribution, kind)).toMatchObject({
+      ok: false,
+      code: 'invalid-target',
+    });
+  });
+
   it('rejects a link from an element onto itself', () => {
     const { add, check } = setup();
     const nfr = add('nfr.NFR');
@@ -84,16 +102,26 @@ describe('one link per pair', () => {
   });
 });
 
+/** A model with one contribution, for links whose source or target is a link. */
+function withContribution() {
+  const t = setup();
+  const contribution = t.connect(
+    t.add('nfr.Operationalization'),
+    t.add('nfr.NFR'),
+    'nfr.ContributionLink',
+  );
+  return { ...t, contribution };
+}
+
 describe('ArgumentLink.isValid', () => {
-  function withContribution() {
-    const t = setup();
-    const contribution = t.connect(
-      t.add('nfr.Operationalization'),
-      t.add('nfr.NFR'),
-      'nfr.ContributionLink',
-    );
-    return { ...t, contribution };
-  }
+  it('a link is no source', () => {
+    const { add, connect, contribution, store } = withContribution();
+    const other = connect(add('nfr.Operationalization'), add('nfr.NFR'), 'nfr.ContributionLink');
+    expect(canLink(store.getModel(), contribution.id, other.id, 'nfr.ArgumentLink')).toMatchObject({
+      ok: false,
+      code: 'unknown-element',
+    });
+  });
 
   it('argues about a link from a Claim', () => {
     const { add, checkTo, contribution } = withContribution();

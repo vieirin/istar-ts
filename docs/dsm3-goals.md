@@ -237,3 +237,10 @@ Dated entries, appended as the work goes. Each says what was decided and why.
   - The playground maps `fixtures/dsm3/kaos-*` and `nfr-*` to their framework and `istar2-*` to
     plain iStar 2.0. A file opened from disk switches framework only when `detectFramework`
     finds another root than the active one, so an iStar 2.0 file keeps the active extension.
+- **2026-10-16** (PR4 review): `DSM3_TOOL` and `DSM3_FILE_KEYS` move to core, next to
+  `PISTAR_TOOL`, as DSM3-goals' file conventions. This reverses the earlier decision to keep the
+  key list duplicated: core already owns DSM3's `{hub, starts, end}` entry format, so DSM3's
+  file conventions sit there too. Both packages import them and neither re-exports them.
+- **2026-10-16** (PR4 review): DSM3's "must be an element" branches are tested per link kind. A
+  link id as the source fails with `unknown-element`; as the target of a kind whose rules name
+  elements only, with `invalid-target`.

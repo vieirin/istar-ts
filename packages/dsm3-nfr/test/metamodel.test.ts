@@ -1,6 +1,7 @@
 import { createEmptyModel, toPistar } from '@istar-ts/core';
+import { DSM3_FILE_KEYS } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
-import { DSM3_FILE_KEYS, NFR, NFR_CONTRIBUTION_LABELS, NFR_ELEMENT_KINDS } from '../src';
+import { NFR, NFR_CONTRIBUTION_LABELS, NFR_ELEMENT_KINDS } from '../src';
 
 describe('NFR', () => {
   it('is a root metamodel of its own, under the nfr prefix', () => {

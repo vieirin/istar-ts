@@ -3,7 +3,13 @@
  * `language_nfr_constraints.js`, https://www.cin.ufpe.br/~jhcp/dsm3goals/): a root metamodel
  * under the `nfr` prefix.
  */
-import { LINK_SELECTOR, defineMetamodel, isLinkRef } from '@istar-ts/core';
+import {
+  DSM3_FILE_KEYS,
+  DSM3_TOOL,
+  LINK_SELECTOR,
+  defineMetamodel,
+  isLinkRef,
+} from '@istar-ts/core';
 import type {
   LinkCheck,
   LinkRuleContext,
@@ -24,22 +30,6 @@ const ON_PAPER: NodeKindInfo = {
 
 /** DSM3's element size (`size: {width: 90, height: 55}` in `language_nfr_shapes.js`). */
 const SIZE = { width: 90, height: 55 } as const;
-
-/**
- * The top-level keys of a DSM3-goals file, in the order DSM3 writes them. Mirrors DSM3's
- * `app_istarcore_fileManager.js` key order; kept in both framework packages on purpose.
- */
-export const DSM3_FILE_KEYS: readonly string[] = [
-  'actors',
-  'orphans',
-  'dependencies',
-  'links',
-  'display',
-  'tool',
-  'metamodelVersion',
-  'saveDate',
-  'diagram',
-];
 
 /**
  * Refinements, contributions and correlations join softgoals and operationalizations; Claims
@@ -124,7 +114,7 @@ export const NFR_DECLARATION: RootMetamodelDeclaration<NfrElementKind, NfrLinkKi
       rules: { sources: ['nfr.Claim'], targets: [LINK_SELECTOR], sameActor: false, unique: 'kind' },
     },
   ],
-  file: { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
+  file: { tool: DSM3_TOOL, extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
 };
 
 /** The NFR root metamodel: parse, create and check NFR models with it. */

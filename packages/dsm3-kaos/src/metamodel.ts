@@ -2,7 +2,7 @@
  * KAOS as DSM3-goals defines it (`language_kaos_metamodel.js` and `language_kaos_constraints.js`,
  * https://www.cin.ufpe.br/~jhcp/dsm3goals/): a root metamodel under the `kaos` prefix.
  */
-import { defineMetamodel } from '@istar-ts/core';
+import { DSM3_FILE_KEYS, DSM3_TOOL, defineMetamodel } from '@istar-ts/core';
 import type { Metamodel, NodeKindInfo, RootMetamodelDeclaration } from '@istar-ts/core';
 import type {
   KaosDeclaredElementKind,
@@ -20,22 +20,6 @@ const ON_PAPER: NodeKindInfo = {
 
 /** DSM3's element size (`size: {width: 135, height: 36}` in `language_kaos_shapes.js`). */
 const SIZE = { width: 135, height: 36 } as const;
-
-/**
- * The top-level keys of a DSM3-goals file, in the order DSM3 writes them. Mirrors DSM3's
- * `app_istarcore_fileManager.js` key order; kept in both framework packages on purpose.
- */
-export const DSM3_FILE_KEYS: readonly string[] = [
-  'actors',
-  'orphans',
-  'dependencies',
-  'links',
-  'display',
-  'tool',
-  'metamodelVersion',
-  'saveDate',
-  'diagram',
-];
 
 export const KAOS_DECLARATION: RootMetamodelDeclaration<
   KaosDeclaredElementKind,
@@ -102,7 +86,7 @@ export const KAOS_DECLARATION: RootMetamodelDeclaration<
       rules: { sources: ['node'], targets: ['node'], sameActor: false, unique: 'kind' },
     },
   ],
-  file: { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
+  file: { tool: DSM3_TOOL, extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
 };
 
 /**

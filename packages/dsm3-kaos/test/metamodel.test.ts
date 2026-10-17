@@ -1,6 +1,7 @@
 import { createEmptyModel, extendMetamodel, toPistar } from '@istar-ts/core';
+import { DSM3_FILE_KEYS } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
-import { DSM3_FILE_KEYS, KAOS, KAOS_ELEMENT_KINDS } from '../src';
+import { KAOS, KAOS_ELEMENT_KINDS, KAOS_REFINEMENT_HUB } from '../src';
 
 describe('KAOS', () => {
   it('is a root metamodel of its own, under the kaos prefix', () => {
@@ -24,6 +25,7 @@ describe('KAOS', () => {
       leg: 'kaos.RefinementLinkStart',
       end: 'kaos.RefinementLinkEnd',
     });
+    expect(KAOS_REFINEMENT_HUB).toBe(base.parts?.hub);
     const hub = KAOS.elements.get('kaos.RefinementLinkHub')!;
     expect(hub).toMatchObject({
       role: 'hub',
