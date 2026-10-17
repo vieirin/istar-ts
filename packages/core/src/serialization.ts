@@ -524,8 +524,13 @@ export function toPistarObject<EK extends string, LK extends string>(
     }
   }
 
-  // Emit keys in the order they had in the source file, then any new ones in piStar's order.
-  const order = [...(layout?.keys ?? []), ...TOP_LEVEL_KEYS, ...Object.keys(model.extra ?? {})];
+  // Emit keys in the order they had in the source file (else the root metamodel's file order),
+  // then any new ones in piStar's order.
+  const order = [
+    ...(layout?.keys ?? metamodel.file.keys ?? []),
+    ...TOP_LEVEL_KEYS,
+    ...Object.keys(model.extra ?? {}),
+  ];
   const file: Record<string, unknown> = {};
   for (const key of order) {
     if (!(key in file) && values[key] !== undefined) file[key] = values[key];

@@ -247,4 +247,29 @@ describe('reading from model objects', () => {
     });
     expect(schema.read({ name: 'bag' }).values).toEqual({ name: 'bag' });
   });
+
+  test('so is an element or link of another root metamodel', () => {
+    // `name` and `source` are fields of the objects themselves, not custom properties.
+    const goals = defineProperties('kaos.Goal', { name: prop.string({ optional: true }) });
+    const goal = { id: 'g', kind: 'kaos.Goal', name: 'G', x: 0, y: 0 } as const;
+    expect(goals.read(goal).values).toEqual({});
+    expect(goals.read({ ...goal, customProperties: { name: 'n' } }).values).toEqual({
+      name: 'n',
+    });
+    const conflicts = defineProperties('kaos.Conflict', {
+      source: prop.string({ optional: true }),
+    });
+    const link = { id: 'l', kind: 'kaos.Conflict', source: 'a', target: 'b' } as const;
+    expect(conflicts.read(link).values).toEqual({});
+  });
+
+  test('a bag of strings that happens to have such keys stays a bag', () => {
+    const schema = defineProperties('istar.Goal', {
+      kind: prop.string({ optional: true }),
+      source: prop.string({ optional: true }),
+      target: prop.string({ optional: true }),
+    });
+    const bag = { kind: 'plain', source: 'a', target: 'b' };
+    expect(schema.read(bag).values).toEqual(bag);
+  });
 });

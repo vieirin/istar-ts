@@ -2,6 +2,26 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## Unreleased
+
+- **Root metamodels** (issue #7, groundwork for DSM3-goals' KAOS and NFR). iStar 2.0 is no longer
+  the only language a metamodel can start from.
+  - **core:** `defineMetamodel(declaration)` builds a root metamodel from a `name`, a `prefix`,
+    element and link declarations, and optional `file` hints. It uses the same per-kind
+    validation and error messages as `extendMetamodel`.
+  - **core:** `ISTAR_2_0` is now `defineMetamodel(ISTAR_2_0_DECLARATION)`, with the declaration
+    exported. Its kinds, info objects and every iStar 2.0 file are unchanged.
+  - **core:** `Metamodel` gains `framework` (the root's name), `prefix` (its reserved namespace)
+    and `file` (`MetamodelFileHints`). `extendMetamodel` keeps all three and rejects kinds in
+    the root's prefix, which for iStar 2.0 is still `istar.`.
+  - **core:** `createEmptyModel` writes the root's `file.tool`, `file.istar` (iStar 2.0 only) and
+    `file.extra`. `toPistar` orders a new model's top-level keys by `file.keys`. iStar 2.0's
+    empty model is unchanged.
+  - **core:** property schemas recognise elements and links of any metamodel passed whole, not
+    only `istar.*` ones.
+  - **core:** `KindShape` gains optional `dash` and `strokeWidth` hints. They are types only for
+    now; `@istar-ts/react` will draw them.
+
 ## 0.12.0
 
 - **Diagnostics protocol** (goal-controller issue #24, option D). Findings about elements and links

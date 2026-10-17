@@ -166,13 +166,15 @@ type PropertySource = CustomProperties | undefined | PropertyOwner;
 
 function isCustomPropertiesRecord(source: NonNullable<PropertySource>): source is CustomProperties {
   // Elements and links are passed whole, possibly without `customProperties`; recognize them by
-  // their `istar.*` kind and numeric/structural fields a bag of strings can't have.
+  // shape, whatever their metamodel: a namespaced `kind` (every metamodel's kinds are, e.g.
+  // `istar.Goal`, `kaos.Goal`) with a numeric `x` (elements) or a `source` and `target` (links).
   if ('customProperties' in source) return false;
   const owner = source as { kind?: unknown; x?: unknown; source?: unknown; target?: unknown };
   const isModelObject =
     typeof owner.kind === 'string' &&
-    owner.kind.startsWith('istar.') &&
-    (typeof owner.x === 'number' || (owner.source !== undefined && owner.target !== undefined));
+    owner.kind.includes('.') &&
+    (typeof owner.x === 'number' ||
+      (typeof owner.source === 'string' && typeof owner.target === 'string'));
   return !isModelObject;
 }
 
