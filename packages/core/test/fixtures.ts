@@ -19,7 +19,9 @@ export function loadFixtures(): Fixture[] {
 
 /**
  * DSM3-goals' three welcome models (KAOS, NFR, iStar 2.0), extracted from its
- * `app_ui_*example.js` files as `JSON.stringify(_, null, 2)`.
+ * `app_ui_*example.js` files as `JSON.stringify(_, null, 2)`, and `kaos-las.txt`, KAOSTools' LAS
+ * drawn in the KAOS file format with istar-ts's obstacle analysis (round-tripped by the
+ * dsm3-kaos tests, since it needs that package's extension).
  */
 export function loadDsm3Fixtures(): Fixture[] {
   return loadAll().filter((f) => f.name.startsWith('dsm3/'));

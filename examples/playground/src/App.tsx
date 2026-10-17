@@ -1,5 +1,11 @@
 import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
-import { KAOS, KAOS_PROPERTY_SCHEMAS, kaosExtension } from '@istar-ts/dsm3-kaos';
+import {
+  KAOS,
+  KAOS_OBSTACLES,
+  KAOS_OBSTACLE_PROPERTY_SCHEMAS,
+  KAOS_PROPERTY_SCHEMAS,
+  kaosExtension,
+} from '@istar-ts/dsm3-kaos';
 import { NFR, nfrExtension } from '@istar-ts/dsm3-nfr';
 import {
   ISTAR_2_0,
@@ -71,10 +77,11 @@ const EXTENSIONS: Record<string, ExtensionSet> = {
   // A metamodel extension: new element and link kinds, not just new presentation.
   rationalAgents: extensionSet([rationalAgentsExtension], []),
   // DSM3-goals' frameworks: roots of their own (@istar-ts/dsm3-kaos, @istar-ts/dsm3-nfr).
+  // KAOS with obstacle analysis, so fixtures/dsm3/kaos-las.txt opens too.
   kaos: extensionSet(
     [kaosExtension as IstarExtension<string, string>],
-    KAOS_PROPERTY_SCHEMAS as readonly PropertySchema[],
-    KAOS as unknown as AnyMetamodel,
+    [...KAOS_PROPERTY_SCHEMAS, ...KAOS_OBSTACLE_PROPERTY_SCHEMAS] as readonly PropertySchema[],
+    KAOS_OBSTACLES as unknown as AnyMetamodel,
   ),
   nfr: extensionSet(
     [nfrExtension as IstarExtension<string, string>],

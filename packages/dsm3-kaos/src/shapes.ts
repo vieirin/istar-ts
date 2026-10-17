@@ -5,7 +5,11 @@
  */
 import type { KindShape } from '@istar-ts/core';
 import { polygonPath } from '@istar-ts/react';
-import { KAOS_FILL, type KaosDeclaredElementKind } from './kinds';
+import {
+  KAOS_FILL,
+  type KaosDeclaredElementKind,
+  type KaosObstacleDeclaredElementKind,
+} from './kinds';
 
 /** Agent and Environment Agent: a hexagon. */
 export const KAOS_AGENT_POINTS = '0,18 30,0 100,0 130,18 100,36 30,36';
@@ -13,6 +17,11 @@ export const KAOS_AGENT_POINTS = '0,18 30,0 100,0 130,18 100,36 30,36';
 export const KAOS_GOAL_POINTS = '0,36 15,0 130,0 115,36';
 /** Domain property: a trapezoid. */
 export const KAOS_DOMAIN_PROPERTY_POINTS = '0,36 15,0 115,0 130,36';
+/**
+ * Obstacle: the goal's parallelogram mirrored, leaning left (TSE'00, Objectiver). Not DSM3's,
+ * which has no obstacles.
+ */
+export const KAOS_OBSTACLE_POINTS = '0,0 115,0 130,36 15,36';
 
 /** The 130×36 drawing plus a one-unit stroke margin, as for piStar's Task. */
 export const KAOS_VIEWBOX = '-1 -1 132 38';
@@ -49,8 +58,24 @@ export const KAOS_SHAPES: Readonly<Record<KaosDeclaredElementKind, KindShape>> =
   },
 };
 
+/** Obstacle analysis shapes, in KAOS grey like every KAOS node. */
+export const KAOS_OBSTACLE_SHAPES: Readonly<Record<KaosObstacleDeclaredElementKind, KindShape>> = {
+  'kaosObstacles.Obstacle': {
+    path: polygonPath(KAOS_OBSTACLE_POINTS),
+    viewBox: KAOS_VIEWBOX,
+    fill: KAOS_FILL,
+  },
+};
+
 /** The refinement's target marker: a filled triangle (JointJS convention, +x towards the source). */
 export const KAOS_REFINEMENT_MARKER = 'm 12,-6 l -12,6 12,6 z';
+
+/**
+ * Obstruction's target marker: an open arrow with a bar across the line behind it (istar-ts's
+ * choice; DSM3 has no obstruction). Resolution draws dashed with the refinement's triangle.
+ */
+export const KAOS_OBSTRUCTION_MARKER = 'm 12,-6 l -12,6 12,6 m 4,-12 l 0,12';
+export const KAOS_RESOLUTION_DASH = '6,3';
 
 /**
  * Glyphs DSM3 draws at a link's midpoint instead of a marker, with (0,0) on the midpoint.

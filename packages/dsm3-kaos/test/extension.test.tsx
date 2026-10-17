@@ -19,7 +19,14 @@ import {
   KAOS_REFINEMENT_MARKER,
   KAOS_SHAPES,
   KAOS,
+  KAOS_FILL,
+  KAOS_OBSTACLES,
+  KAOS_OBSTACLE_SHAPES,
+  KAOS_OBSTRUCTION_MARKER,
+  domainPropertyProperties,
   kaosExtension,
+  obstacleProperties,
+  resolutionProperties,
 } from '../src';
 
 function kaosRegistry(): AnyIstarRegistry {
@@ -129,5 +136,54 @@ describe('KAOS palette icons', () => {
       const { container } = render(<>{entry.icon}</>);
       expect(container.querySelector('.istar-palette-glyph')?.getAttribute('d')).toBe(glyph);
     }
+  });
+});
+
+describe('kaosExtension with the obstacle analysis', () => {
+  const registry = (): AnyIstarRegistry =>
+    applyExtensions<string, string>(registryForMetamodel(KAOS_OBSTACLES) as AnyIstarRegistry, [
+      kaosExtension,
+    ]);
+
+  it('draws an obstacle as the mirrored parallelogram, in KAOS grey', () => {
+    const obstacle = registry().elements['kaosObstacles.Obstacle'];
+    expect(obstacle?.shape).toBe(KAOS_OBSTACLE_SHAPES['kaosObstacles.Obstacle']);
+    expect(obstacle?.shape?.fill).toBe(KAOS_FILL);
+    expect(obstacle?.palette).toMatchObject({ label: 'Obstacle' });
+    expect(obstacle?.properties).toBe(obstacleProperties);
+  });
+
+  it('offers the three obstacle links, with their lines and the resolution’s keys', () => {
+    const links = registry().links;
+    expect(links['kaosObstacles.ObstructionLink']?.line?.marker).toBe(KAOS_OBSTRUCTION_MARKER);
+    expect(links['kaosObstacles.ResolutionLink']?.properties).toBe(resolutionProperties);
+    const labels = paletteSections(registry() as never, KAOS_OBSTACLES as never)
+      .flat()
+      .flatMap((slot) => (slot.type === 'item' ? [slot.item] : slot.items))
+      .map((item) => item.entry.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(['Obstacle', 'Obstacle Refinement', 'Obstruction', 'Resolution']),
+    );
+  });
+
+  it('adds nothing to plain KAOS', () => {
+    const plain = kaosRegistry();
+    expect(plain.elements['kaosObstacles.Obstacle']).toBeUndefined();
+    expect(plain.links['kaosObstacles.ResolutionLink']).toBeUndefined();
+    expect(plain.elements['kaos.DomainProperty']?.properties).toBe(domainPropertyProperties);
+  });
+
+  it('draws kaos-las.txt', () => {
+    const text = readFileSync(
+      join(import.meta.dirname, '../../../fixtures/dsm3/kaos-las.txt'),
+      'utf8',
+    );
+    const model = parsePistar(text, { metamodel: KAOS_OBSTACLES });
+    const { container } = render(
+      <div style={{ width: 1200, height: 800 }}>
+        <IstarCanvas model={model} extensions={[kaosExtension]} />
+      </div>,
+    );
+    expect(container.querySelectorAll('.react-flow__node').length).toBe(model.elements.size);
   });
 });

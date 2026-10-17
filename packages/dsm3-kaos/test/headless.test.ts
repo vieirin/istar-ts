@@ -14,11 +14,20 @@ describe('@istar-ts/dsm3-kaos/metamodel', () => {
         'KAOS_ELEMENT_KINDS',
         'KAOS_FILL',
         'KAOS_LINK_KINDS',
+        'KAOS_OBSTACLES',
+        'KAOS_OBSTACLE_ELEMENT_KINDS',
+        'KAOS_OBSTACLE_LINK_KINDS',
+        'KAOS_OBSTACLE_PROPERTY_SCHEMAS',
+        'KAOS_OBSTACLE_REFINEMENT_HUB',
         'KAOS_PROPERTY_SCHEMAS',
         'KAOS_REFINEMENT_HUB',
         'behavioralGoalProperties',
         'conflictProperties',
+        'domainPropertyProperties',
+        'kaosObstacleAnalysis',
+        'obstacleProperties',
         'refinementProperties',
+        'resolutionProperties',
         'softgoalProperties',
       ].toSorted(),
     );
@@ -30,7 +39,7 @@ describe('@istar-ts/dsm3-kaos/metamodel', () => {
   });
 
   it('does not depend on @istar-ts/react, so it can be built for require()', () => {
-    const own = ['headless', 'metamodel', 'kinds', 'properties'];
+    const own = ['headless', 'metamodel', 'obstacles', 'kinds', 'properties'];
     for (const file of own) {
       const source = readFileSync(resolve(__dirname, `../src/${file}.ts`), 'utf8');
       expect(source, `${file}.ts`).not.toMatch(/from '@istar-ts\/react'/);
