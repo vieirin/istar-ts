@@ -1,0 +1,1085 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`modelToFlow(labSamples) is unchanged 1`] = `
+{
+  "edges": [
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "7e9169a3-7901-4c68-adb2-5dc3d807f0f9",
+      },
+      "id": "7e9169a3-7901-4c68-adb2-5dc3d807f0f9",
+      "source": "957b91c5-107f-43e9-a930-5bc310a468fd",
+      "target": "13643c2b-981b-406a-88a0-4882b115d534",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "e5e3e35d-fa38-4d6c-98cd-adaf34102f66",
+      },
+      "id": "e5e3e35d-fa38-4d6c-98cd-adaf34102f66",
+      "source": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+      "target": "957b91c5-107f-43e9-a930-5bc310a468fd",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "a30978a7-dba0-4872-8399-fb3d7ef45bd4",
+      },
+      "id": "a30978a7-dba0-4872-8399-fb3d7ef45bd4",
+      "source": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "target": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "0f5451b7-e3a7-4774-8fde-d2d6189916f6",
+      },
+      "id": "0f5451b7-e3a7-4774-8fde-d2d6189916f6",
+      "source": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "bbbb2d44-8cef-4dc4-a886-0a3533f99f61",
+      },
+      "id": "bbbb2d44-8cef-4dc4-a886-0a3533f99f61",
+      "source": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "f4fd2b17-f08b-484c-ac02-1830a7b6e628",
+      },
+      "id": "f4fd2b17-f08b-484c-ac02-1830a7b6e628",
+      "source": "bd829b59-9477-4034-8c71-6388e7ec002b",
+      "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "dd947672-422c-434c-a925-61f625b97935",
+      },
+      "id": "dd947672-422c-434c-a925-61f625b97935",
+      "source": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      "target": "bd829b59-9477-4034-8c71-6388e7ec002b",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "b2a7fd41-40ca-421f-b8aa-a158630c76d6",
+      },
+      "id": "b2a7fd41-40ca-421f-b8aa-a158630c76d6",
+      "source": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      "target": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "95336e0f-1d4b-4c09-adc0-1c7b4215c9ce",
+      },
+      "id": "95336e0f-1d4b-4c09-adc0-1c7b4215c9ce",
+      "source": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      "target": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "6e3df9d5-114b-4e19-8945-d71ccc474f39",
+      },
+      "id": "6e3df9d5-114b-4e19-8945-d71ccc474f39",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "9f190d6a-5e8c-49dd-9ac8-622af3e40877",
+      },
+      "id": "9f190d6a-5e8c-49dd-9ac8-622af3e40877",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "e46f0d75-5879-43ce-b55a-cc5e93f85116",
+      },
+      "id": "e46f0d75-5879-43ce-b55a-cc5e93f85116",
+      "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "target": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "36e75e89-6276-4ab7-b4fb-9cbac4cff59f",
+      },
+      "id": "36e75e89-6276-4ab7-b4fb-9cbac4cff59f",
+      "source": "3275f38f-f106-4963-93f1-32d52f21b234",
+      "target": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "97161c7a-cc30-4348-9c6a-39d157a8f971",
+      },
+      "id": "97161c7a-cc30-4348-9c6a-39d157a8f971",
+      "source": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      "target": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "a293103d-6f43-46e3-99aa-bce1209d1c7b",
+      },
+      "id": "a293103d-6f43-46e3-99aa-bce1209d1c7b",
+      "source": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      "target": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "8e3a4cb0-4139-4ce4-adfe-ba83a84d7a38",
+      },
+      "id": "8e3a4cb0-4139-4ce4-adfe-ba83a84d7a38",
+      "source": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "4461d736-2e78-4145-b1b3-a0c38bf4c060",
+      },
+      "id": "4461d736-2e78-4145-b1b3-a0c38bf4c060",
+      "source": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "86d11413-fa6f-4633-970d-798a21799bb9",
+      },
+      "id": "86d11413-fa6f-4633-970d-798a21799bb9",
+      "source": "66324349-e871-4e05-8e37-57385305a601",
+      "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "dd1398b2-51f3-49fb-812a-be88af53d8df",
+      },
+      "id": "dd1398b2-51f3-49fb-812a-be88af53d8df",
+      "source": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      "target": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "76d4fff3-16fe-4df7-b7f3-60b8f22f9b5d",
+      },
+      "id": "76d4fff3-16fe-4df7-b7f3-60b8f22f9b5d",
+      "source": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "fb23110b-2405-47d7-acf6-7f82fe5b0f1c",
+      },
+      "id": "fb23110b-2405-47d7-acf6-7f82fe5b0f1c",
+      "source": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "e6932d15-f3b5-412f-b112-5b393d7e47a9",
+      },
+      "id": "e6932d15-f3b5-412f-b112-5b393d7e47a9",
+      "source": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      "target": "66324349-e871-4e05-8e37-57385305a601",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "51d7c37f-e2c0-4960-92d3-f61837d9df7e",
+      },
+      "id": "51d7c37f-e2c0-4960-92d3-f61837d9df7e",
+      "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+      "target": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "c0e92f41-86eb-4253-acc4-35529041ac70",
+      },
+      "id": "c0e92f41-86eb-4253-acc4-35529041ac70",
+      "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+      "target": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "e911bff9-5154-4d5a-a70c-506c05cdb646",
+      },
+      "id": "e911bff9-5154-4d5a-a70c-506c05cdb646",
+      "source": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+      "target": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-NeededByLink",
+      "data": {
+        "linkId": "46ea3615-d9d9-4e00-bd05-c11149affe10",
+      },
+      "id": "46ea3615-d9d9-4e00-bd05-c11149affe10",
+      "source": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+      "target": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-OrRefinementLink",
+      "data": {
+        "linkId": "ecbd54e4-7f19-4839-984e-f55341841134",
+      },
+      "id": "ecbd54e4-7f19-4839-984e-f55341841134",
+      "source": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-OrRefinementLink",
+      "data": {
+        "linkId": "6c39f39b-4ce3-4703-8a31-a5d35e88b18d",
+      },
+      "id": "6c39f39b-4ce3-4703-8a31-a5d35e88b18d",
+      "source": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "5e2f2e86-e887-475e-9463-a075f78dbfd9",
+      },
+      "id": "5e2f2e86-e887-475e-9463-a075f78dbfd9",
+      "source": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "15bd1088-bce2-4e2c-bf40-03b0c6e08205",
+      },
+      "id": "15bd1088-bce2-4e2c-bf40-03b0c6e08205",
+      "source": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "ede08639-c9b8-45af-963e-4e8527ac20b3",
+      },
+      "id": "ede08639-c9b8-45af-963e-4e8527ac20b3",
+      "source": "13643c2b-981b-406a-88a0-4882b115d534",
+      "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+      "type": "istar",
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-edge istar-edge-AndRefinementLink",
+      "data": {
+        "linkId": "2f90ae5e-dc0a-4a78-bfee-1942c23c9934",
+      },
+      "id": "2f90ae5e-dc0a-4a78-bfee-1942c23c9934",
+      "source": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+      "type": "istar",
+      "zIndex": 1,
+    },
+  ],
+  "nodes": [
+    {
+      "className": "istar-node istar-node-actor",
+      "data": {
+        "collapsed": false,
+        "elementId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      },
+      "dragHandle": ".istar-actor-symbol",
+      "height": 800,
+      "id": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 49,
+        "y": 52,
+      },
+      "selectable": false,
+      "type": "istarActor",
+      "width": 1082,
+      "zIndex": 0,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+      },
+      "height": 51.53334045410156,
+      "hidden": false,
+      "id": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 205,
+        "y": 27,
+      },
+      "type": "istarElement",
+      "width": 155.25,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      },
+      "height": 51.53334045410156,
+      "hidden": false,
+      "id": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 180,
+        "y": 313,
+      },
+      "type": "istarElement",
+      "width": 143.25,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "13643c2b-981b-406a-88a0-4882b115d534",
+      },
+      "height": 47.53334045410156,
+      "hidden": false,
+      "id": "13643c2b-981b-406a-88a0-4882b115d534",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 29,
+        "y": 167,
+      },
+      "type": "istarElement",
+      "width": 108.25,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "957b91c5-107f-43e9-a930-5bc310a468fd",
+      },
+      "height": 52.80000305175781,
+      "hidden": false,
+      "id": "957b91c5-107f-43e9-a930-5bc310a468fd",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 21,
+        "y": 273,
+      },
+      "type": "istarElement",
+      "width": 118,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+      },
+      "height": 43.80000305175781,
+      "hidden": false,
+      "id": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 29,
+        "y": 375,
+      },
+      "type": "istarElement",
+      "width": 101,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      },
+      "height": 50.80000305175781,
+      "hidden": false,
+      "id": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 411,
+        "y": 312,
+      },
+      "type": "istarElement",
+      "width": 116,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      },
+      "height": 73.80000305175781,
+      "hidden": false,
+      "id": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 395,
+        "y": 156,
+      },
+      "type": "istarElement",
+      "width": 140,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      },
+      "height": 36,
+      "hidden": false,
+      "id": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 301,
+        "y": 583,
+      },
+      "type": "istarElement",
+      "width": 95,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      },
+      "height": 45.80000305175781,
+      "hidden": false,
+      "id": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 919,
+        "y": 583,
+      },
+      "type": "istarElement",
+      "width": 116,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "3275f38f-f106-4963-93f1-32d52f21b234",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "3275f38f-f106-4963-93f1-32d52f21b234",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 302,
+        "y": 671,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 166,
+        "y": 687,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      },
+      "height": 54.80000305175781,
+      "hidden": false,
+      "id": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 164,
+        "y": 383,
+      },
+      "type": "istarElement",
+      "width": 144,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      },
+      "height": 51.80000305175781,
+      "hidden": false,
+      "id": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 22,
+        "y": 473,
+      },
+      "type": "istarElement",
+      "width": 112,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "bd829b59-9477-4034-8c71-6388e7ec002b",
+      },
+      "height": 52.80000305175781,
+      "hidden": false,
+      "id": "bd829b59-9477-4034-8c71-6388e7ec002b",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 289,
+        "y": 470,
+      },
+      "type": "istarElement",
+      "width": 124,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      },
+      "height": 50.30000305175781,
+      "hidden": false,
+      "id": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 150,
+        "y": 474,
+      },
+      "type": "istarElement",
+      "width": 126,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      },
+      "height": 47.80000305175781,
+      "hidden": false,
+      "id": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 10,
+        "y": 575,
+      },
+      "type": "istarElement",
+      "width": 116,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      },
+      "height": 43.80000305175781,
+      "hidden": false,
+      "id": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 156,
+        "y": 580,
+      },
+      "type": "istarElement",
+      "width": 111,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      },
+      "height": 54.30000305175781,
+      "hidden": false,
+      "id": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 707,
+        "y": 242,
+      },
+      "type": "istarElement",
+      "width": 126,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      },
+      "height": 42.80000305175781,
+      "hidden": false,
+      "id": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 420,
+        "y": 385,
+      },
+      "type": "istarElement",
+      "width": 109,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 435,
+        "y": 470,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      },
+      "height": 52.80000305175781,
+      "hidden": false,
+      "id": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 552,
+        "y": 469,
+      },
+      "type": "istarElement",
+      "width": 116,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "66324349-e871-4e05-8e37-57385305a601",
+      },
+      "height": 51.80000305175781,
+      "hidden": false,
+      "id": "66324349-e871-4e05-8e37-57385305a601",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 961,
+        "y": 511,
+      },
+      "type": "istarElement",
+      "width": 111,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      },
+      "height": 51.80000305175781,
+      "hidden": false,
+      "id": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 724,
+        "y": 487,
+      },
+      "type": "istarElement",
+      "width": 132,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      },
+      "height": 46.80000305175781,
+      "hidden": false,
+      "id": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 514,
+        "y": 571,
+      },
+      "type": "istarElement",
+      "width": 105,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      },
+      "height": 48.80000305175781,
+      "hidden": false,
+      "id": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 629,
+        "y": 576,
+      },
+      "type": "istarElement",
+      "width": 109,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      },
+      "height": 52.80000305175781,
+      "hidden": false,
+      "id": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 815,
+        "y": 572,
+      },
+      "type": "istarElement",
+      "width": 104,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "9036eb53-fda4-4e42-968f-9865107e6927",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "9036eb53-fda4-4e42-968f-9865107e6927",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 737,
+        "y": 755,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 739,
+        "y": 652,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+    {
+      "className": "istar-node istar-node-element",
+      "data": {
+        "elementId": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      },
+      "height": 35,
+      "hidden": false,
+      "id": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      "position": {
+        "x": 421,
+        "y": 249,
+      },
+      "type": "istarElement",
+      "width": 90,
+      "zIndex": 1,
+    },
+  ],
+  "origins": [
+    [
+      "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+      {
+        "x": 49,
+        "y": 52,
+      },
+    ],
+    [
+      "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+      {
+        "x": 254,
+        "y": 79,
+      },
+    ],
+    [
+      "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+      {
+        "x": 229,
+        "y": 365,
+      },
+    ],
+    [
+      "13643c2b-981b-406a-88a0-4882b115d534",
+      {
+        "x": 78,
+        "y": 219,
+      },
+    ],
+    [
+      "957b91c5-107f-43e9-a930-5bc310a468fd",
+      {
+        "x": 70,
+        "y": 325,
+      },
+    ],
+    [
+      "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+      {
+        "x": 78,
+        "y": 427,
+      },
+    ],
+    [
+      "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+      {
+        "x": 460,
+        "y": 364,
+      },
+    ],
+    [
+      "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+      {
+        "x": 444,
+        "y": 208,
+      },
+    ],
+    [
+      "e2dc9033-4edf-4cdf-961a-1de17647e463",
+      {
+        "x": 350,
+        "y": 635,
+      },
+    ],
+    [
+      "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+      {
+        "x": 968,
+        "y": 635,
+      },
+    ],
+    [
+      "3275f38f-f106-4963-93f1-32d52f21b234",
+      {
+        "x": 351,
+        "y": 723,
+      },
+    ],
+    [
+      "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+      {
+        "x": 215,
+        "y": 739,
+      },
+    ],
+    [
+      "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+      {
+        "x": 213,
+        "y": 435,
+      },
+    ],
+    [
+      "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+      {
+        "x": 71,
+        "y": 525,
+      },
+    ],
+    [
+      "bd829b59-9477-4034-8c71-6388e7ec002b",
+      {
+        "x": 338,
+        "y": 522,
+      },
+    ],
+    [
+      "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+      {
+        "x": 199,
+        "y": 526,
+      },
+    ],
+    [
+      "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+      {
+        "x": 59,
+        "y": 627,
+      },
+    ],
+    [
+      "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+      {
+        "x": 205,
+        "y": 632,
+      },
+    ],
+    [
+      "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+      {
+        "x": 756,
+        "y": 294,
+      },
+    ],
+    [
+      "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+      {
+        "x": 469,
+        "y": 437,
+      },
+    ],
+    [
+      "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+      {
+        "x": 484,
+        "y": 522,
+      },
+    ],
+    [
+      "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+      {
+        "x": 601,
+        "y": 521,
+      },
+    ],
+    [
+      "66324349-e871-4e05-8e37-57385305a601",
+      {
+        "x": 1010,
+        "y": 563,
+      },
+    ],
+    [
+      "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+      {
+        "x": 773,
+        "y": 539,
+      },
+    ],
+    [
+      "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+      {
+        "x": 563,
+        "y": 623,
+      },
+    ],
+    [
+      "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+      {
+        "x": 678,
+        "y": 628,
+      },
+    ],
+    [
+      "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+      {
+        "x": 864,
+        "y": 624,
+      },
+    ],
+    [
+      "9036eb53-fda4-4e42-968f-9865107e6927",
+      {
+        "x": 786,
+        "y": 807,
+      },
+    ],
+    [
+      "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+      {
+        "x": 788,
+        "y": 704,
+      },
+    ],
+    [
+      "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+      {
+        "x": 470,
+        "y": 301,
+      },
+    ],
+  ],
+}
+`;
