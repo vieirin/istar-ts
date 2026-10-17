@@ -2,7 +2,7 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
-## Unreleased
+## 0.13.2
 
 - **dsm3-kaos / dsm3-nfr:** a React-free `./metamodel` subpath (`@istar-ts/dsm3-kaos/metamodel`,
   `@istar-ts/dsm3-nfr/metamodel`) with the root metamodel, its declaration, kind names,
