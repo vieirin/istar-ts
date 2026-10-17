@@ -1,0 +1,61 @@
+{
+  "name": "@istar-ts/dsm3-nfr",
+  "version": "0.0.0-development",
+  "description": "NFR Framework models for istar-ts: the DSM3-goals NFR metamodel, its shapes and a registry extension for @istar-ts/react.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "nfr",
+    "softgoal-interdependency-graph",
+    "dsm3-goals",
+    "goal-model",
+    "requirements",
+    "react",
+    "pistar"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieirin/istar-ts.git",
+    "directory": "packages/dsm3-nfr"
+  },
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "prepack": "cp ../../LICENSE . && pnpm build"
+  },
+  "dependencies": {
+    "@istar-ts/core": "workspace:^",
+    "@istar-ts/react": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jsdom": "^30.1.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
