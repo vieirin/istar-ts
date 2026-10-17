@@ -1,7 +1,7 @@
 # istar-ts
 
 TypeScript port of [piStar](https://github.com/jhcp/piStar) (iStar 2.0 goal modelling), split
-into two npm packages. Upstream is a no-build jQuery/Backbone/JointJS app; we port its logic
+into npm packages. Upstream is a no-build jQuery/Backbone/JointJS app; we port its logic
 and file format, not its structure. A local checkout lives at `../piStar` for reference —
 never copy or clone it into this repo.
 
@@ -14,7 +14,10 @@ never copy or clone it into this repo.
   element registry (component / defaultProperties / inspector / palette per kind), one
   stylesheet (`@istar-ts/react/styles.css`) themed with CSS variables, scoped under
   `.istar-canvas`.
-- `examples/playground`: Vite + React app using both packages.
+- `packages/dsm3-kaos` → `@istar-ts/dsm3-kaos`, `packages/dsm3-nfr` → `@istar-ts/dsm3-nfr`:
+  KAOS and the NFR Framework as DSM3-goals defines them (root metamodel, property schemas,
+  shapes, an `IstarExtension` with the registry parts). Design: `docs/dsm3-goals.md`.
+- `examples/playground`: Vite + React app using the packages.
 - `fixtures/`: real piStar model files (from goal-controller and upstream). Every one must
   round-trip through `toPistar(parsePistar(f))`.
 

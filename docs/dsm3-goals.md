@@ -126,3 +126,20 @@ Dated entries, appended as the work goes. Each says what was decided and why.
   packages switch to it and the local copy is deleted.
 - **2026-10-16**: Goal kinds default every DSM3 property to `''`, as DSM3's metamodel does, so a
   new goal has the same keys as one made in DSM3. Softgoal's `Type` defaults to `softgoal`.
+- **2026-10-16**: The NFR package has no `properties.ts`. DSM3's NFR metamodel declares no
+  custom properties, and `Description` round-trips as a plain string anyway.
+- **2026-10-16**: The KAOS refinement schema's kind is the hub kind, `kaos.RefinementLinkHub`,
+  because DSM3 saves the properties on the hub. The registry carries it on the
+  `kaos.RefinementLink` entry, where the hub inspector will read it.
+- **2026-10-16**: Conflict and Responsibility assignment draw no marker. Their DSM3 glyph is a
+  `labelComponent`: a 32×32 SVG whose origin sits on the link's midpoint, so DSM3's glyph paths
+  are used unchanged.
+- **2026-10-16**: Palette titles keep DSM3's wording but say "drag from … to …", since the
+  canvas connects by dragging. NFR's label groups are `nfr-contributions` and
+  `nfr-correlations`, so they never merge with iStar's `contributions` group.
+- **2026-10-16**: Until core has `defineMetamodel`, the package tests complete the registry
+  for an `extendMetamodel(ISTAR_2_0, …)` stand-in with the same kind names. The PR that adds
+  `metamodel.ts` replaces the stand-in with the real root.
+- **2026-10-16**: The release workflow publishes core, react, dsm3-kaos, dsm3-nfr in that
+  order. The two new packages need an npm trusted publisher each, which the repository owner
+  creates on npmjs.com.
