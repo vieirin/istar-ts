@@ -1,7 +1,10 @@
 import type { IstarLink } from '@istar-ts/core';
-import { applyExtensions, registryForMetamodel } from '@istar-ts/react';
+import { parsePistar } from '@istar-ts/core';
+import { IstarCanvas, applyExtensions, registryForMetamodel } from '@istar-ts/react';
 import type { AnyIstarRegistry, LinkLabelProps } from '@istar-ts/react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ConflictGlyph,
@@ -59,5 +62,43 @@ describe('kaosExtension', () => {
     expect(svg.getAttribute('viewBox')).toBe('-16 -16 32 32');
     expect(svg.querySelector('path')?.getAttribute('d')).toBe(KAOS_CONFLICT_GLYPH);
     expect(container.textContent).toBe('boundary');
+  });
+});
+
+describe('kaos-welcome.txt on the canvas', () => {
+  it('draws DSM3’s shapes, the refinement circles and the midpoint glyphs', () => {
+    const text = readFileSync(
+      join(import.meta.dirname, '../../../fixtures/dsm3/kaos-welcome.txt'),
+      'utf8',
+    );
+    const model = parsePistar(text, { metamodel: KAOS });
+    const { container } = render(
+      <div style={{ width: 1200, height: 800 }}>
+        <IstarCanvas model={model} extensions={[kaosExtension]} />
+      </div>,
+    );
+    // Behavioral goals and Softgoals share DSM3's parallelogram (Softgoals dashed).
+    const goals = [...model.elements.values()].filter(
+      (e) => e.kind === 'kaos.BehavioralGoal' || e.kind === 'kaos.Softgoal',
+    );
+    expect(goals.length).toBeGreaterThan(0);
+    const goalPath = KAOS_SHAPES['kaos.BehavioralGoal'].path;
+    expect(container.querySelectorAll(`.istar-shape path[d="${goalPath}"]`)).toHaveLength(
+      goals.length,
+    );
+    const dashed = [...container.querySelectorAll<SVGPathElement>('.istar-shape path')].filter(
+      (path) => path.style.strokeDasharray === '8,4',
+    );
+    expect(dashed).toHaveLength(
+      [...model.elements.values()].filter((e) => e.kind === 'kaos.Softgoal').length,
+    );
+    expect(container.querySelectorAll('.istar-hub circle')).toHaveLength(4);
+    const glyphLinks = [...model.links.values()].filter(
+      (l) => l.kind === 'kaos.Conflict' || l.kind === 'kaos.ResponsibilityAssignment',
+    );
+    expect(container.querySelectorAll('.kaos-link-glyph')).toHaveLength(glyphLinks.length);
+    // No iStar palette: KAOS's own tools only.
+    expect(screen.queryByRole('button', { name: 'Actor' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Behavioral Goal' })).toBeTruthy();
   });
 });
