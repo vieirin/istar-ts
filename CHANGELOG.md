@@ -2,6 +2,28 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## Unreleased
+
+- **dsm3-kaos:** obstacle analysis on the KAOS root, `kaosObstacleAnalysis` and `KAOS_OBSTACLES`
+  (`extendMetamodel(KAOS, kaosObstacleAnalysis)`): Obstacle, the n-ary Obstacle refinement,
+  Obstruction and Resolution, with text keys only (`Description`, `FormalSpec`, `Category`;
+  `ResolutionType`, `Anchor`). Kinds are `kaosObstacles.*`, saved as `kaos.Obstacle`,
+  `kaos.ObstacleRefinementLinkHub/Start/End`, `kaos.ObstructionLink` and `kaos.ResolutionLink`:
+  istar-ts's file types, not DSM3's. Shapes, lines and palette entries in `kaosExtension`, in KAOS
+  grey. Domain property gets an optional `Kind` (`domainPropertyProperties`). Everything is also on
+  `./metamodel`. New fixture `fixtures/dsm3/kaos-las.txt` (KAOSTools' LAS) with leg probabilities
+  and RSR/ESR as plain strings.
+- **core:** `prop.number({ max: 1 })` also reads `.2` and `20.00%`; `write` keeps a value's string
+  when it is unchanged and writes a changed one in the form it was read in. `prop.reference({ kinds
+  })` holds another element's id; `validateModelProperties` reports dangling ids and wrong kinds.
+  `HubPartKind<K>` names an n-ary kind's generated hub, leg and end kinds. `PropertyType.type` gains
+  `'reference'`.
+- **react:** `HubPartInspector` shows the selected leg's (or end's) own properties, typed by its
+  kind's schema, below the hub's. References render as a picker of the model's elements; numbers
+  with `max: 1` as text inputs.
+
+For istar-ts#20 and goal-controller#181.
+
 ## 0.13.7
 
 - **dsm3-kaos / dsm3-nfr:** `KAOS_FILL` and `NFR_FILL` are also exported from the React-free
