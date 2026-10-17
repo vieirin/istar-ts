@@ -2,7 +2,7 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
-## Unreleased
+## 0.14.0
 
 - **dsm3-kaos:** obstacle analysis on the KAOS root, `kaosObstacleAnalysis` and `KAOS_OBSTACLES`
   (`extendMetamodel(KAOS, kaosObstacleAnalysis)`): Obstacle, the n-ary Obstacle refinement,
