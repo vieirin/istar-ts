@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import type { LinkCheck } from '../src';
-import { ISTAR_2_0, createModelStore, parsePistar, toPistar, validateModel } from '../src';
+import {
+  ISTAR_2_0,
+  createModelStore,
+  hubLinkOf,
+  parsePistar,
+  toPistar,
+  validateModel,
+} from '../src';
 import { KAOS, NFR, NFR_CONTRIBUTION_LABELS } from './dsm3-roots';
 import { loadDsm3Fixtures } from './fixtures';
 
@@ -146,6 +153,50 @@ describe('NFR', () => {
         expect(code(store.canLink(claim, n1, kind))).toBe('invalid-target');
       });
     });
+  });
+});
+
+describe('KAOS', () => {
+  test('the welcome model round-trips byte for byte', () => {
+    const text = fixture('kaos-welcome.txt');
+    const model = parsePistar(text, { metamodel: KAOS });
+    expect(toPistar(model)).toBe(text);
+    expect(validateModel(model)).toEqual([]);
+  });
+
+  test('its refinements are 4 hubs with 5 legs and 4 ends, beside 2 plain links', () => {
+    const model = parsePistar(fixture('kaos-welcome.txt'), { metamodel: KAOS });
+    const count = (kind: string): number =>
+      [...model.elements.values(), ...model.links.values()].filter((x) => x.kind === kind).length;
+    expect(count('kaos.RefinementLinkHub')).toBe(4);
+    expect(count('kaos.RefinementLinkStart')).toBe(5);
+    expect(count('kaos.RefinementLinkEnd')).toBe(4);
+    expect(count('kaos.Conflict') + count('kaos.ResponsibilityAssignment')).toBe(2);
+    const hub = model.elements.get('23e5218f-ff13-4cdd-9ee6-6aed9ed698eb');
+    expect(hub).toMatchObject({ name: '', display: { width: 20, height: 20 } });
+    expect(hubLinkOf(model, hub!.id)?.legs.map((l) => l.source)).toEqual([
+      'f0a633b9-cead-4961-9764-eeb6c3a6c41c',
+      'ae2aae6a-0d36-4c83-b0f6-9d227792e1e6',
+    ]);
+  });
+
+  test('a refinement made in the editor saves and reads back the same', () => {
+    const model = parsePistar(fixture('kaos-welcome.txt'), { metamodel: KAOS });
+    const store = createModelStore(model);
+    const goal = store.addElement({ kind: 'kaos.BehavioralGoal', x: 600, y: 600 });
+    const made = store.connect({
+      kind: 'kaos.RefinementLink',
+      source: goal.id,
+      target: '7857cb00-05ce-4bd0-aa89-3c7a63b54b31',
+    });
+    expect(made.ok).toBe(true);
+    const leg = store.addLeg('23e5218f-ff13-4cdd-9ee6-6aed9ed698eb', goal.id);
+    expect(leg.ok).toBe(true);
+    const text = toPistar(store.getModel());
+    expect(toPistar(parsePistar(text, { metamodel: KAOS }))).toBe(text);
+    const entries = (JSON.parse(text) as { links: { hub?: unknown; starts?: unknown[] }[] }).links;
+    expect(entries.filter((e) => e.hub)).toHaveLength(5);
+    expect(entries.find((e) => e.starts?.length === 3)).toBeDefined();
   });
 });
 

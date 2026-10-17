@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import type { LinkKindDeclaration, ModelChange } from '../src';
+import type { LinkKindDeclaration, ModelChange, PistarFile } from '../src';
 import {
+  HUB_ENTRY_KEY,
   ISTAR_2_0,
   MetamodelError,
+  PistarParseError,
   addLeg,
   createModelStore,
   defaultHubPosition,
@@ -15,8 +17,11 @@ import {
   hubOfLink,
   isHubElement,
   linkKindDefinition,
+  parsePistar,
   removeElement,
   removeLeg,
+  toPistar,
+  toPistarObject,
   validateModel,
 } from '../src';
 import { KAOS } from './dsm3-roots';
@@ -303,5 +308,87 @@ describe('hub links in a model', () => {
     const hubId = joint.hub!.hub.id;
     expect(store.canLink(g3, hubId, 'x.Joint')).toMatchObject({ code: 'different-actors' });
     expect(store.canLink(g3, g2!, 'x.Joint')).toMatchObject({ code: 'different-actors' });
+  });
+});
+
+/** A hub entry as DSM3-goals writes it, with extra keys on its hub. */
+const entry = (extra: object = {}) => ({
+  hub: { id: 'h', type: HUB, x: 1.5, y: 2, customProperties: { SysRef: '' }, ...extra },
+  starts: [{ id: 's', type: LEG, source: 'a', target: 'h' }],
+  end: { id: 'e', type: END, source: 'h', target: 'p' },
+});
+/** A KAOS file with two goals and the given `links`. */
+const file = (links: unknown[]): string =>
+  JSON.stringify(
+    {
+      actors: [],
+      orphans: [
+        { id: 'p', text: 'P', type: 'kaos.BehavioralGoal', x: 0, y: 0 },
+        { id: 'a', text: 'A', type: 'kaos.BehavioralGoal', x: 0, y: 100 },
+      ],
+      dependencies: [],
+      links,
+      display: { h: { width: 20, height: 20 } },
+      tool: 'dsm3-goals',
+      saveDate: 'then',
+    },
+    null,
+    2,
+  );
+
+/** Parses `file(links)` with KAOS, lazily for `toThrow`. */
+const parseKaos = (links: unknown[]) => (): unknown =>
+  parsePistar(file(links), { metamodel: KAOS });
+
+describe('hub entries on disk', () => {
+  test('unknown keys of an entry and of its hub survive a round trip', () => {
+    const text = file([{ note: 'entry', ...entry({ color: 'red' }), after: 1 }]);
+    const model = parsePistar(text, { metamodel: KAOS });
+    expect(model.elements.get('h')?.extra).toEqual({
+      color: 'red',
+      [HUB_ENTRY_KEY]: { note: 'entry', after: 1 },
+    });
+    // Entry keys come back after hub, starts and end.
+    const written = toPistar(model);
+    expect(JSON.parse(written)).toEqual(JSON.parse(text));
+    expect(Object.keys((JSON.parse(written) as PistarFile).links![0]!)).toEqual([
+      'hub',
+      'starts',
+      'end',
+      'note',
+      'after',
+    ]);
+  });
+
+  test('a hub is written in its entry, never as an element', () => {
+    const model = parsePistar(file([entry()]), { metamodel: KAOS });
+    const json = toPistarObject(model);
+    expect(json.orphans?.map((o) => o.id)).toEqual(['p', 'a']);
+    expect(json.links).toEqual([entry()]);
+    expect(json.display).toEqual({ h: { width: 20, height: 20 } });
+  });
+
+  test('an incomplete hub keeps an entry', () => {
+    const model = parsePistar(file([{ ...entry(), end: undefined, starts: [] }]), {
+      metamodel: KAOS,
+    });
+    expect(toPistarObject(model).links).toEqual([{ hub: entry().hub, starts: [] }]);
+  });
+
+  test('entries must hold a hub, its legs and its end', () => {
+    expect(parseKaos([{ ...entry(), hub: { id: 'h', type: 'kaos.Agent', x: 0, y: 0 } }])).toThrow(
+      'links[0].hub (h): kaos.Agent is not a hub kind',
+    );
+    expect(
+      parseKaos([{ ...entry(), starts: [{ id: 's', type: LEG, source: 'a', target: 'p' }] }]),
+    ).toThrow('links[0].starts[0] (s): not a leg of the hub "h"');
+    expect(
+      parseKaos([
+        { ...entry(), end: { id: 'e', type: 'kaos.Conflict', source: 'h', target: 'p' } },
+      ]),
+    ).toThrow('links[0].end (e): not the end of the hub "h"');
+    expect(parseKaos([{ ...entry(), starts: [{ id: 's', type: LEG, source: 'a' }] }])).toThrow(
+      PistarParseError,
+    );
   });
 });
