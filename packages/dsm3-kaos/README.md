@@ -24,6 +24,9 @@ Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes i
   Conflict and Responsibility assignment draw at their midpoint.
 - **`kaosExtension`**: an `IstarExtension` for `@istar-ts/react` with the shapes, schemas,
   lines and palette entries.
+- **`@istar-ts/dsm3-kaos/metamodel`**: the metamodel, kinds and property schemas without
+  `@istar-ts/react`, built for `import` and `require` alike (as `@istar-ts/core` is), for Node
+  scripts and CommonJS test runners. The package root is ESM-only.
 
 ```tsx
 import {

@@ -87,7 +87,9 @@ shown only while a link-targeting tool is active.
 root (`KAOS`, `NFR`), its declaration, its kind names, typed property schemas (KAOS only;
 NFR declares none), shapes, and an `IstarExtension` with the react registry parts. Kinds,
 labels, sizes and rules live in the declaration; shapes, markers, glyphs and palette entries
-in the extension. They depend on `@istar-ts/core` and `@istar-ts/react`. Every rule
+in the extension. They depend on `@istar-ts/core` and `@istar-ts/react`; the `./metamodel`
+subpath of each (`src/headless.ts`) re-exports the React-free part, built for `import` and
+`require` like core, so CommonJS tooling can load a root without React. Every rule
 sets `sameActor: false`, since neither language has actors. `Description`, which every DSM3
 element carries, is a plain string that round-trips. The packages don't inject it into new
 elements, as piStar doesn't.
@@ -143,6 +145,10 @@ Dated entries, appended as the work goes. Each says what was decided and why.
 - **2026-10-16**: Until core has `defineMetamodel`, the package tests complete the registry
   for an `extendMetamodel(ISTAR_2_0, …)` stand-in with the same kind names. The PR that adds
   `metamodel.ts` replaces the stand-in with the real root.
+- **2026-10-17**: goal-controller's mocha + ts-node (CommonJS) dialect suite could not `require`
+  the framework packages (ESM-only, and their index loads React). Each gets a `./metamodel`
+  subpath with ESM and CJS builds instead of making the whole package dual-format, since the
+  extension needs React and `@istar-ts/react` stays ESM-only.
 - **2026-10-16**: The release workflow publishes core, react, dsm3-kaos, dsm3-nfr in that
   order. The two new packages need an npm trusted publisher each, which the repository owner
   creates on npmjs.com.
