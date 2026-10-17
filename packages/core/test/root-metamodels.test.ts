@@ -9,9 +9,12 @@ import {
   PISTAR_TOOL,
   ISTAR_VERSION,
   canLink,
+  createEmptyModel,
   createModelStore,
   defineMetamodel,
   extendMetamodel,
+  parsePistar,
+  toPistar,
 } from '../src';
 
 /** A small KAOS-like root, enough to exercise the builder (the real one ships in PR4). */
@@ -250,5 +253,100 @@ describe('extendMetamodel on a root', () => {
       elements: [{ kind: 'istar.Goal', category: 'node' }],
     });
     expect(m.elements.has('istar.Goal')).toBe(true);
+  });
+});
+
+/** DSM3-goals' top-level key order (its fileManager). */
+const DSM3_KEYS = [
+  'actors',
+  'orphans',
+  'dependencies',
+  'links',
+  'display',
+  'tool',
+  'metamodelVersion',
+  'saveDate',
+  'diagram',
+];
+const KAOS_WITH_KEYS = defineMetamodel({
+  name: 'kaos',
+  prefix: 'kaos',
+  elements: [{ kind: 'kaos.Goal', category: 'node' }],
+  links: [],
+  file: { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_KEYS },
+});
+
+describe("a root's file hints", () => {
+  test('createEmptyModel() is unchanged for iStar 2.0', () => {
+    const model = createEmptyModel();
+    expect(Object.keys(model)).toEqual(['elements', 'links', 'diagram', 'tool', 'istar']);
+    expect(model).toMatchObject({ tool: 'pistar.2.1.0', istar: '2.0' });
+    expect(toPistar(model, { saveDate: 'Thu, 01 Jan 2026 00:00:00 GMT' })).toBe(
+      JSON.stringify(
+        {
+          actors: [],
+          orphans: [],
+          dependencies: [],
+          links: [],
+          display: {},
+          tool: 'pistar.2.1.0',
+          istar: '2.0',
+          saveDate: 'Thu, 01 Jan 2026 00:00:00 GMT',
+          diagram: { width: 2000, height: 1300 },
+        },
+        null,
+        2,
+      ),
+    );
+    expect(createEmptyModel(undefined, { metamodel: ISTAR_2_0 })).toEqual(model);
+  });
+
+  test("createEmptyModel records another root's tool and extra keys, without istar", () => {
+    const model = createEmptyModel(undefined, { metamodel: KAOS });
+    expect(model.tool).toBe('dsm3-goals');
+    expect('istar' in model).toBe(false);
+    expect(model.extra).toEqual({ metamodelVersion: '1.0' });
+    expect(model.extra).not.toBe(KAOS.file.extra);
+  });
+
+  test("a new model's keys follow the root's file order", () => {
+    const model = createEmptyModel(undefined, { metamodel: KAOS_WITH_KEYS });
+    const json = JSON.parse(toPistar(model, { saveDate: 'now' })) as Record<string, unknown>;
+    expect(Object.keys(json)).toEqual(DSM3_KEYS);
+    expect(json).toMatchObject({ tool: 'dsm3-goals', metamodelVersion: '1.0' });
+    // Without key hints: piStar's order, then the extra keys.
+    const plain = JSON.parse(
+      toPistar(createEmptyModel(undefined, { metamodel: KAOS }), { saveDate: 'now' }),
+    ) as Record<string, unknown>;
+    expect(Object.keys(plain)).toEqual([
+      'actors',
+      'orphans',
+      'dependencies',
+      'links',
+      'display',
+      'tool',
+      'saveDate',
+      'diagram',
+      'metamodelVersion',
+    ]);
+  });
+
+  test("a file that was read keeps its own key order over the root's", () => {
+    const text = JSON.stringify(
+      {
+        tool: 'dsm3-goals',
+        metamodelVersion: '1.0',
+        orphans: [{ id: 'g', text: 'G', type: 'kaos.Goal', x: 1, y: 2 }],
+        actors: [],
+        dependencies: [],
+        links: [],
+        display: {},
+        saveDate: 'then',
+        diagram: { width: 100, height: 100 },
+      },
+      null,
+      2,
+    );
+    expect(toPistar(parsePistar(text, { metamodel: KAOS_WITH_KEYS }))).toBe(text);
   });
 });

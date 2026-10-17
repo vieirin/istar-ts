@@ -172,12 +172,16 @@ export function createEmptyModel(
   diagram: Diagram = DEFAULT_DIAGRAM,
   options: { metamodel?: AnyMetamodel } = {},
 ): AnyIstarModel {
+  // The root metamodel's file hints say what a new file records: iStar 2.0 writes piStar's
+  // `tool` and `istar: "2.0"`; other roots their own tool and top-level keys.
+  const { file } = (options.metamodel ?? ISTAR_2_0) as AnyMetamodel;
   const model: AnyIstarModel = {
     elements: new Map(),
     links: new Map(),
     diagram,
-    tool: PISTAR_TOOL,
-    istar: ISTAR_VERSION,
+    tool: file.tool ?? PISTAR_TOOL,
+    ...(file.istar !== undefined ? { istar: file.istar } : {}),
+    ...(file.extra !== undefined ? { extra: { ...file.extra } } : {}),
   };
   return options.metamodel ? withMetamodel(model, options.metamodel) : model;
 }
