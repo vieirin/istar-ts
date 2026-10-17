@@ -4,9 +4,8 @@
 João Pimentel's [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/) tool. Files saved by
 DSM3-goals' KAOS editor open and save byte for byte.
 
-Status: in progress (issue [#7](https://github.com/vieirin/istar-ts/issues/7)). The `KAOS`
-root metamodel, property schemas, shapes and registry parts are here. The refinement's several
-sub-goals (DSM3's split link, with its circle) follow once `@istar-ts/core` has n-ary links.
+Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes in
+[docs/dsm3-goals.md](../../docs/dsm3-goals.md).
 
 ## What it has
 
@@ -15,8 +14,9 @@ sub-goals (DSM3's split link, with its circle) follow once `@istar-ts/core` has 
   DSM3 writes them.
 
 - **Kinds**: Behavioral goal, Softgoal, Agent, Environment agent and Domain property; the
-  Refinement (n-ary: several sub-goals join at a circle), Responsibility assignment and
-  Conflict links. KAOS has no actors; every node lies on the paper.
+  Refinement (n-ary: several sub-goals join at a circle, `kaos.RefinementLinkHub`, with a leg
+  from each and an end to the refined goal), Responsibility assignment and Conflict links.
+  Drag from a sub-goal to a goal for a new refinement; drop on its circle to add a sub-goal. KAOS has no actors; every node lies on the paper.
 - **Property schemas** (`@istar-ts/core` `defineProperties`): DSM3's eight goal properties,
   the refinement's `SysRef`, `Status` and `Tactic` (saved on its circle), and Conflict's
   `BoundaryCondition`. Values stay strings on disk; other keys, such as `Description`, are kept.
@@ -26,9 +26,28 @@ sub-goals (DSM3's split link, with its circle) follow once `@istar-ts/core` has 
   lines and palette entries.
 
 ```tsx
-import { kaosExtension } from '@istar-ts/dsm3-kaos';
+import {
+  ISTAR_2_0,
+  createEmptyModel,
+  detectFramework,
+  parsePistar,
+  toPistar,
+} from '@istar-ts/core';
+import { IstarCanvas, useIstarStore } from '@istar-ts/react';
+import { KAOS, kaosExtension } from '@istar-ts/dsm3-kaos';
 
-<IstarCanvas store={store} extensions={[kaosExtension]} />;
+// Read a DSM3-goals file (or check which language it is written in first).
+detectFramework(text, [ISTAR_2_0, KAOS]); // KAOS
+const model = parsePistar(text, { metamodel: KAOS });
+toPistar(model) === text; // DSM3's files round-trip byte for byte
+
+// A new model records tool "dsm3-goals" and metamodelVersion "1.0", as DSM3 writes them.
+const empty = createEmptyModel(undefined, { metamodel: KAOS });
+
+function Editor() {
+  const { store } = useIstarStore(() => model);
+  return <IstarCanvas store={store} extensions={[kaosExtension]} />;
+}
 ```
 
 ## Credits

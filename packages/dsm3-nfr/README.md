@@ -5,9 +5,8 @@ interdependency graphs) for istar-ts, ported from João Pimentel's
 [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/) tool. Files saved by DSM3-goals' NFR
 editor open and save byte for byte.
 
-Status: in progress (issue [#7](https://github.com/vieirin/istar-ts/issues/7)). The `NFR`
-root metamodel, shapes and registry parts are here. The Argument link, from a Claim to another
-link, follows once `@istar-ts/core` lets links target links.
+Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes in
+[docs/dsm3-goals.md](../../docs/dsm3-goals.md).
 
 ## What it has
 
@@ -16,7 +15,8 @@ link, follows once `@istar-ts/core` lets links target links.
   `metamodelVersion: "1.0"`, as DSM3 writes them.
 
 - **Kinds**: NFR softgoal, Operationalization and Claim; And- and Or-refinement, Contribution,
-  Correlation, and Argument links. An Argument goes from a Claim to another link. The NFR
+  Correlation, and Argument links. An Argument goes from a Claim to another link: with its tool
+  active, each link shows an anchor on its middle to drop it on. The NFR
   Framework has no actors; every node lies on the paper.
 - **Labels**: `NFR_CONTRIBUTION_LABELS`, the values of Contribution and Correlation links, as
   DSM3 writes them (`–` is U+2013 EN DASH).
@@ -26,9 +26,28 @@ link, follows once `@istar-ts/core` lets links target links.
   palette entries, one per label for Contribution and Correlation.
 
 ```tsx
-import { nfrExtension } from '@istar-ts/dsm3-nfr';
+import {
+  ISTAR_2_0,
+  createEmptyModel,
+  detectFramework,
+  parsePistar,
+  toPistar,
+} from '@istar-ts/core';
+import { IstarCanvas, useIstarStore } from '@istar-ts/react';
+import { NFR, nfrExtension } from '@istar-ts/dsm3-nfr';
 
-<IstarCanvas store={store} extensions={[nfrExtension]} />;
+// Read a DSM3-goals file (or check which language it is written in first).
+detectFramework(text, [ISTAR_2_0, NFR]); // NFR
+const model = parsePistar(text, { metamodel: NFR });
+toPistar(model) === text; // DSM3's files round-trip byte for byte
+
+// A new model records tool "dsm3-goals" and metamodelVersion "1.0", as DSM3 writes them.
+const empty = createEmptyModel(undefined, { metamodel: NFR });
+
+function Editor() {
+  const { store } = useIstarStore(() => model);
+  return <IstarCanvas store={store} extensions={[nfrExtension]} />;
+}
 ```
 
 ## Credits

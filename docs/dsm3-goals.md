@@ -1,10 +1,11 @@
 # Design note: DSM3-goals frameworks (KAOS, NFR)
 
-Status: in progress on issue [#7](https://github.com/vieirin/istar-ts/issues/7). Core work
-(root metamodels, hub links, link-valued targets, `detectFramework`) lands first; the react
-rendering and the two framework packages, `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr`, build
-on it. This note records why the port looks the way it does. The "Decisions" log at the end is
-appended to as the work goes.
+Status: implemented for issue [#7](https://github.com/vieirin/istar-ts/issues/7), in four
+steps: root metamodels (#8) and hub links, link targets and `detectFramework` (#9) in core;
+hubs and link-anchored links in react (#10); and the two framework packages,
+`@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr`, with the playground. DSM3's three welcome
+models open, render and save byte for byte. This note records why the port looks the way it
+does. The "Decisions" log at the end was appended to as the work went.
 
 ## Problem
 
@@ -83,8 +84,10 @@ empty canvas. A link targeted by another link gets an invisible anchor node at i
 shown only while a link-targeting tool is active.
 
 **D7. One package per framework.** `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr` each export the
-root (`KAOS`, `NFR`), its declaration, typed property schemas, shapes, and an `IstarExtension`
-with the react registry parts. They depend on `@istar-ts/core` and `@istar-ts/react`. Every rule
+root (`KAOS`, `NFR`), its declaration, its kind names, typed property schemas (KAOS only;
+NFR declares none), shapes, and an `IstarExtension` with the react registry parts. Kinds,
+labels, sizes and rules live in the declaration; shapes, markers, glyphs and palette entries
+in the extension. They depend on `@istar-ts/core` and `@istar-ts/react`. Every rule
 sets `sameActor: false`, since neither language has actors. `Description`, which every DSM3
 element carries, is a plain string that round-trips. The packages don't inject it into new
 elements, as piStar doesn't.
@@ -179,3 +182,58 @@ Dated entries, appended as the work goes. Each says what was decided and why.
 - **2026-10-16**: `DSM3_FILE_KEYS` stays duplicated in the two packages, with a comment saying
   it mirrors DSM3's `fileManager` key order. Core stays framework-neutral, and a shared package
   would be overkill for one constant.
+- **2026-10-16** (agent-blue, PR2, core hub links, link targets, `detectFramework`):
+  1. Leg and end rules use `sameActor: false`. The base kind's `sameActor` holds between each
+     leg's source and the end's target, since the hub has no parent.
+  2. A hub has exactly one end; a second end is a `duplicate-link`. The end kind carries the
+     base kind's `info` and `line`; the leg kind has `info: {}`.
+  3. The base kind's `check` runs only when `canLink` or `connect` uses the base kind towards an
+     element that isn't a hub. It is not copied onto legs.
+  4. The hub kind has a circle path in viewBox `0 0 20 20`, labels "<base label> hub", "… leg"
+     and "… end", and `info` inner false, dependum false, on paper true.
+  5. `connect` with the base kind puts `input.id` and `customProperties` on the hub, and
+     `label` and `name` on the end. `result.link` is the end for a new hub, or the new leg.
+     `result.hub` is the hub link. The hub's name is `''`. n-ary kinds never try reversed.
+  6. `canLink` towards a hub of another kind returns `hub-target` directly.
+  7. `incomplete-hub` issues use the hub id as `linkId` and the base kind as `kind`.
+  8. Parsing is tolerant: `starts` may be empty and `end` absent. The writer emits an entry for
+     incomplete or orphan hubs, and writes a second end as a plain link.
+  9. Generated kinds aren't inferred into the metamodel's kind unions. Roots list them in
+     `defineMetamodel`'s type arguments.
+  10. Only `targets` may name links; a link selector in `sources` is an error.
+  11. iStar 2.0's built-in rules refuse a link target: `invalid-target`, "must be an element,
+      not a link".
+  12. DSM3's Argument uniqueness looks for a ContributionLink between the Claim and the link,
+      which never matches (an upstream slip); istar-ts allows one Argument per Claim and link.
+      DSM3 refuses a Refinement towards a hub; istar-ts adds a leg instead.
+  13. Tests assert constraint codes, not DSM3's message texts, except the NFR→Operationalization
+      messages, which the `check` reuses.
+  14. The playground lists `fixtures/dsm3/*`. Until the packages land, its KAOS and NFR files
+      fail to parse as iStar 2.0.
+- **2026-10-16** (PR3, react):
+  1. A hub's registry label is its base link's label, so the hub inspector is titled
+     "Refinement".
+  2. `HubInspector` uses the hub kind's own `properties` if it has them, otherwise the base link
+     kind's.
+  3. `modelToFlow` places link anchors on the straight-line middle of the target link. The drawn
+     link ends on the live middle, which also follows curved links; only the drop target sits
+     on the chord.
+  4. Anchor nodes come after every other node. Only models with links that target links take
+     the new layout path, and a snapshot pins iStar 2.0's layout.
+  5. `checkConnection` maps an anchor node to its link in one place, which covers
+     `isValidConnection`, the connection hint and `onConnectEnd`. `onConnect` maps it too.
+  6. The drag gesture itself has no jsdom test; it needs real pointer events. The store side is
+     tested in core and the anchor mapping through `checkConnection`.
+- **2026-10-16** (PR4, packages and playground):
+  - KAOS's kind types include the generated `kaos.RefinementLinkHub`, `…Start` and `…End`
+    (`KaosElementKind`, `KaosLinkKind`). The declaration is typed with the declared kinds only.
+  - The refinement schema is registered on the hub kind, which the inspector and
+    `validateModelProperties` read. It is also on the `kaos.RefinementLink` entry, from which
+    react takes a new hub's defaults when connecting.
+  - The KAOS package uses react's `polygonPath`; its own copy is gone.
+  - NFR's Contribution and Correlation take their per-label palette entries from react's
+    defaults, one group per kind. The extension no longer builds its own.
+  - The NFR→Operationalization `check` ignores link targets (`isLinkRef`).
+  - The playground maps `fixtures/dsm3/kaos-*` and `nfr-*` to their framework and `istar2-*` to
+    plain iStar 2.0. A file opened from disk switches framework only when `detectFramework`
+    finds another root than the active one, so an iStar 2.0 file keeps the active extension.
