@@ -6,7 +6,8 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 - **react:** `modelToFlow` and `actorBoundary` are generic over the model's kinds
   (`IstarModel<EK, LK>` with an `IstarRegistry<EK, LK>`, iStar 2.0's by default), so a KAOS, NFR or
-  extended model is laid out without a cast.
+  extended model is laid out without a cast. `modelToFlow`'s registry is optional: by default
+  `registryForMetamodel(metamodelOf(model))`.
 
 For goal-controller#185.
 

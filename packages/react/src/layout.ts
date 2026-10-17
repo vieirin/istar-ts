@@ -11,7 +11,7 @@ import type { Edge, Node } from '@xyflow/react';
 import type { Anchor, Point } from './link-geometry';
 import { linkMidpoint } from './link-geometry';
 import type { IstarRegistry } from './registry';
-import { elementSize } from './registry';
+import { elementSize, registryForMetamodel } from './registry';
 import { ACTOR_RADIUS } from './shapes';
 
 export interface Box {
@@ -118,9 +118,13 @@ export function linkIdOfAnchor(nodeId: string): string | undefined {
 /** Class of the actor symbol, the only part of an actor that selects and drags it. */
 export const ACTOR_SYMBOL_CLASS = 'istar-actor-symbol';
 
+/**
+ * The model's React Flow nodes and edges, laid out with `registry`: by default the one
+ * `registryForMetamodel` builds for the model's metamodel, so extended kinds have their sizes.
+ */
 export function modelToFlow<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
-  registry: IstarRegistry<EK, LK>,
+  registry: IstarRegistry<EK, LK> = registryForMetamodel(metamodelOf(model)),
 ): FlowGraph {
   // Categories come from the model's metamodel, so extended actor kinds are actors too.
   const metamodel = metamodelOf(model);
