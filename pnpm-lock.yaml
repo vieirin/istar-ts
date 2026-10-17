@@ -32,6 +32,12 @@ importers:
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@istar-ts/dsm3-kaos':
+        specifier: workspace:^
+        version: link:../../packages/dsm3-kaos
+      '@istar-ts/dsm3-nfr':
+        specifier: workspace:^
+        version: link:../../packages/dsm3-nfr
       '@istar-ts/react':
         specifier: workspace:^
         version: link:../../packages/react
