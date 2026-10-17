@@ -1,0 +1,128 @@
+# Design note: DSM3-goals frameworks (KAOS, NFR)
+
+Status: in progress on issue [#7](https://github.com/vieirin/istar-ts/issues/7). Core work
+(root metamodels, hub links, link-valued targets, `detectFramework`) lands first; the react
+rendering and the two framework packages, `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr`, build
+on it. This note records why the port looks the way it does. The "Decisions" log at the end is
+appended to as the work goes.
+
+## Problem
+
+[DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/) is João Pimentel's generic version of
+piStar's core. One editor runs three goal-modelling languages, each described by four files:
+iStar 2.0, KAOS and the NFR Framework. istar-ts could only represent iStar 2.0 and its
+extensions:
+
+- `ISTAR_2_0` was the only root metamodel, and its builder was private;
+- link rules could only name element kinds, so NFR's Argument link (a Claim pointing at another
+  link) had no target to name;
+- every link had exactly one source, while a KAOS refinement joins several sub-goals through one
+  circle (DSM3's "split link", saved as a hub with legs and an end);
+- `parsePistar` assumed iStar, and the canvas refused to put a node outside an actor, while KAOS
+  and NFR have no actors at all.
+
+iStar behaviour and the existing fixtures must stay byte-for-byte unchanged.
+
+## DSM3's four files and their counterparts
+
+Each DSM3 language is a folder of four scripts loaded into the same piStar core. Each maps onto
+one layer of istar-ts:
+
+| DSM3 file                    | What it holds                                                                                                           | istar-ts counterpart                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `language_*_metamodel.js`    | prefix, version, node and link kinds, default `customProperties`, `sourceMultiplicity`, `possibleLabels`, `targetsLink` | `metamodel.ts`: a root declaration given to core's `defineMetamodel`; defaults in `properties.ts` (core `defineProperties`) |
+| `language_*_constraints.js`  | one `isValid(source, target)` per link kind                                                                             | declarative `LinkRules` in the same declaration, plus a `check` predicate where the rules can't say it                      |
+| `language_*_shapes.js`       | JointJS shapes: polygons, paths, dash arrays, link markers, midpoint glyphs                                             | `shapes.ts` (`ShapeSpec`s and marker paths) and the react registry parts of `extension.ts`                                  |
+| `language_*_ui.metamodel.js` | toolbar labels, tooltips and status texts                                                                               | palette entries in `extension.ts`                                                                                           |
+
+The split is the same as for metamodel extensions (see
+[metamodel-extensions.md](metamodel-extensions.md)): kinds and rules in core, presentation in
+react. A framework package ships both halves, and a host passes its `kaosExtension` or
+`nfrExtension` to the canvas.
+
+## Decisions
+
+**D1. A root metamodel is a value too.** `defineMetamodel(declaration)` builds a root from the same
+element and link declarations `extendMetamodel` takes. A root also carries:
+
+- `framework`, its id (`istar-2.0`, `kaos`, `nfr`);
+- `prefix`, the namespace it reserves;
+- `file`, hints for new files: `tool`, `istar`, extra top-level keys such as
+  `metamodelVersion`, and the top-level key order.
+
+`ISTAR_2_0` becomes `defineMetamodel(ISTAR_2_0_DECLARATION)` and behaves exactly as before.
+Kind validation is shared between both builders, so error messages don't change. Root node kinds
+default to DSM3's `canBeInnerElement`, `canBeDependum` and `canBeOnPaper` all true.
+
+**D2. Hub links mirror DSM3's generated kinds.** DSM3's `setupSplitLinks` turns a link kind with
+`sourceMultiplicity: -1` into three kinds: `<Kind>Hub`, `<Kind>Start` and `<Kind>End`. istar-ts
+does the same for `arity: 'n'`. The hub is an ordinary element of a generated kind, and the legs
+and end are ordinary links, so the model shape, store events, undo and layout need almost
+nothing new. A link with `sources: string[]` was rejected: it would have touched every
+source/target comparison in core and react. `'node'` and `'*'` selectors never match a hub. That
+reproduces DSM3's rule that only a leg may point at a hub. The file keeps DSM3's entry shape,
+`{hub, starts, end}`, byte for byte.
+
+**D3. Links may target links.** A rule's `targets` may contain the selector `'link'` or a link
+kind. `IstarLink.target` stays a string id, resolved against elements first and links second.
+The canvas draws such a link to the target link's midpoint, as DSM3's `virtualTarget` does.
+
+**D4. The file says which framework it is.** `detectFramework(json, roots)` matches the first
+element or link `type` prefix against each root's `prefix`. A file with no types falls back to a
+unique match on `tool`. Nothing is hard-coded per framework.
+
+**D5. Fixtures are DSM3's own examples.** The three welcome models of the DSM3 site (KAOS, NFR,
+iStar 2.0) are extracted, pretty-printed and committed under `fixtures/dsm3/`. They round-trip
+byte for byte. One test exists per `isValid` branch of DSM3's two `constraints.js` files.
+
+**D6. React renders hubs and link-anchored links.** The provider completes the registry for any
+non-iStar root, and drops iStar's kinds from it, so the KAOS palette has no Actor. Hubs get a
+circle component and an inspector that edits the refinement's properties. Legs draw without a
+marker; the end draws like the base link. A node kind with `info.canBeOnPaper` may be added on
+empty canvas. A link targeted by another link gets an invisible anchor node at its midpoint,
+shown only while a link-targeting tool is active.
+
+**D7. One package per framework.** `@istar-ts/dsm3-kaos` and `@istar-ts/dsm3-nfr` each export the
+root (`KAOS`, `NFR`), its declaration, typed property schemas, shapes, and an `IstarExtension`
+with the react registry parts. They depend on `@istar-ts/core` and `@istar-ts/react`. Every rule
+sets `sameActor: false`, since neither language has actors. `Description`, which every DSM3
+element carries, is a plain string that round-trips. The packages don't inject it into new
+elements, as piStar doesn't.
+
+**D8. The playground shows all three.** A "Frameworks" group in the switcher holds KAOS and NFR.
+Opening a file picks its root with `detectFramework` before parsing.
+
+## Provenance and licence
+
+The example models and the shapes come from the DSM3-goals web tool at
+<https://www.cin.ufpe.br/~jhcp/dsm3goals/>, read on 2026-10-16:
+
+- example models: `app_ui_kaosexample.js`, `app_ui_nfrexample.js`, `app_ui_istar2example.js`
+  (the `istar.models.welcome` object of each);
+- shapes and markers: `language_kaos_shapes.js`, `language_nfr_shapes.js`;
+- kinds, rules and labels: `language_{kaos,nfr}_{metamodel,constraints,ui.metamodel}.js`;
+- hub generation and the file format: `app_istarcore_{fileManager,istarFunctions,metamodelManager}.js`.
+
+The pages name João Pimentel as author. **No licence is stated** on the site or in the
+scripts. piStar itself is MIT, and DSM3-goals is derived from it, but that doesn't license
+DSM3's own additions. The polygon coordinates, the cloud path, the marker paths and the example
+models are reproduced as data, with this attribution. If the author objects or a licence turns
+out to forbid it, the fallback is hand-written fixtures and re-drawn shapes; the code doesn't
+depend on the exact values.
+
+## Decisions log
+
+Dated entries, appended as the work goes. Each says what was decided and why.
+
+- **2026-10-16**: The two packages declare their kind names as string-literal unions in
+  `kinds.ts`, separate from `metamodel.ts`. The schemas, shapes and registry parts can then be
+  typed before `defineMetamodel` lands in core. `metamodel.ts` will check its declaration
+  against the same unions.
+- **2026-10-16**: Shapes are written as data with an optional `dash` and `strokeWidth`, matching
+  `KindShape`'s hints from D1. Until react's `ShapeSpec` draws them, a dashed Softgoal or Claim
+  renders solid. No code changes when react catches up.
+- **2026-10-16**: Each package converts DSM3's polygon `points` to path data with a small local
+  helper, so the coordinates stay as DSM3 wrote them. Once react exports `polygonPath`, the
+  packages switch to it and the local copy is deleted.
+- **2026-10-16**: Goal kinds default every DSM3 property to `''`, as DSM3's metamodel does, so a
+  new goal has the same keys as one made in DSM3. Softgoal's `Type` defaults to `softgoal`.
