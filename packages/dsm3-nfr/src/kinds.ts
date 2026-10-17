@@ -45,3 +45,6 @@ export const NFR_CONTRIBUTION_LABELS: readonly [
 ] = ['++', '+', 'some+', 'some-', '–', '– –', 'unknown'];
 
 export type NfrContributionLabel = (typeof NFR_CONTRIBUTION_LABELS)[number];
+
+/** DSM3 draws NFR's clouds on white (language_nfr_shapes.js): `KindShape.fill`. */
+export const NFR_FILL = 'white';

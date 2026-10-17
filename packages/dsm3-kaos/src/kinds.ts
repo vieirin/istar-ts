@@ -46,3 +46,6 @@ export type KaosLinkKind =
 
 /** The element kind core generates for the refinement's circle (DSM3 writes this type). */
 export const KAOS_REFINEMENT_HUB = 'kaos.RefinementLinkHub' as const;
+
+/** DSM3 fills every KAOS node grey (`rgb(205,205,205)`, language_kaos_shapes.js): `KindShape.fill`. */
+export const KAOS_FILL = 'rgb(205,205,205)';
