@@ -1,5 +1,5 @@
-// One test per branch of DSM3-goals' `language_nfr_constraints.js` that core can express today.
-// ArgumentLink.isValid (a Claim towards a link) arrives with core's link-valued targets.
+// One test per branch of DSM3-goals' `language_nfr_constraints.js`. Its "the source/target must
+// be an element" branches are type-level here: canLink only takes element or link ids.
 import { canLink, createEmptyModel, createModelStore } from '@istar-ts/core';
 import type { IstarElement } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
@@ -13,11 +13,14 @@ function setup() {
     store.addElement({ kind, x: 0, y: (y += 80) });
   const check = (s: IstarElement<string>, t: IstarElement<string>, kind: NfrLinkKind) =>
     canLink(store.getModel(), s.id, t.id, kind);
-  const connect = (s: IstarElement<string>, t: IstarElement<string>, kind: NfrLinkKind) => {
+  const connect = (s: IstarElement<string>, t: { id: string }, kind: NfrLinkKind) => {
     const result = store.connect({ kind, source: s.id, target: t.id });
     if (!result.ok) throw new Error(`setup: ${result.reason}`);
+    return result.link;
   };
-  return { add, check, connect };
+  const checkTo = (s: IstarElement<string>, t: { id: string }, kind: NfrLinkKind) =>
+    canLink(store.getModel(), s.id, t.id, kind);
+  return { add, check, checkTo, connect };
 }
 
 const SOFTGOAL_LINKS = [
@@ -78,5 +81,53 @@ describe('one link per pair', () => {
     const b = add('nfr.NFR');
     connect(a, b, 'nfr.CorrelationLink');
     expect(check(a, b, 'nfr.CorrelationLink')).toEqual({ ok: true });
+  });
+});
+
+describe('ArgumentLink.isValid', () => {
+  function withContribution() {
+    const t = setup();
+    const contribution = t.connect(
+      t.add('nfr.Operationalization'),
+      t.add('nfr.NFR'),
+      'nfr.ContributionLink',
+    );
+    return { ...t, contribution };
+  }
+
+  it('argues about a link from a Claim', () => {
+    const { add, checkTo, contribution } = withContribution();
+    expect(checkTo(add('nfr.Claim'), contribution, 'nfr.ArgumentLink')).toEqual({ ok: true });
+  });
+
+  it('needs a Claim as its source', () => {
+    const { add, checkTo, contribution } = withContribution();
+    for (const kind of ['nfr.NFR', 'nfr.Operationalization'] as const) {
+      expect(checkTo(add(kind), contribution, 'nfr.ArgumentLink')).toMatchObject({
+        ok: false,
+        code: 'invalid-source',
+      });
+    }
+  });
+
+  it('needs a link as its target, not an element (nor the Claim itself)', () => {
+    const { add, check } = withContribution();
+    const claim = add('nfr.Claim');
+    expect(check(claim, add('nfr.NFR'), 'nfr.ArgumentLink')).toMatchObject({
+      ok: false,
+      code: 'invalid-target',
+    });
+    expect(check(claim, claim, 'nfr.ArgumentLink')).toMatchObject({ ok: false });
+  });
+
+  it('allows one argument between the same Claim and link', () => {
+    const { add, checkTo, connect, contribution } = withContribution();
+    const claim = add('nfr.Claim');
+    connect(claim, contribution, 'nfr.ArgumentLink');
+    expect(checkTo(claim, contribution, 'nfr.ArgumentLink')).toMatchObject({
+      ok: false,
+      code: 'duplicate-link',
+    });
+    expect(checkTo(add('nfr.Claim'), contribution, 'nfr.ArgumentLink')).toEqual({ ok: true });
   });
 });

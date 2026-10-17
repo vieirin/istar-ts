@@ -3,7 +3,7 @@
  * `language_nfr_constraints.js`, https://www.cin.ufpe.br/~jhcp/dsm3goals/): a root metamodel
  * under the `nfr` prefix.
  */
-import { defineMetamodel } from '@istar-ts/core';
+import { LINK_SELECTOR, defineMetamodel, isLinkRef } from '@istar-ts/core';
 import type {
   LinkCheck,
   LinkRuleContext,
@@ -62,7 +62,7 @@ export function notNfrToOperationalization(
   reason: string,
 ): (context: LinkRuleContext) => LinkCheck {
   return ({ source, target }) =>
-    source.kind === 'nfr.NFR' && target.kind === 'nfr.Operationalization'
+    source.kind === 'nfr.NFR' && !isLinkRef(target) && target.kind === 'nfr.Operationalization'
       ? { ok: false, code: 'invalid-target', reason }
       : { ok: true };
 }
@@ -115,7 +115,14 @@ export const NFR_DECLARATION: RootMetamodelDeclaration<NfrElementKind, NfrLinkKi
       ),
       info: LABELS,
     },
-    // nfr.ArgumentLink (Claim → link) arrives with core's link-valued targets.
+    {
+      // ArgumentLink.isValid: from a Claim, towards a link. DSM3's uniqueness check looks for a
+      // ContributionLink between the Claim and the link, which never exists (an upstream slip);
+      // one Argument per Claim and link is what it means.
+      kind: 'nfr.ArgumentLink',
+      label: 'Argument',
+      rules: { sources: ['nfr.Claim'], targets: [LINK_SELECTOR], sameActor: false, unique: 'kind' },
+    },
   ],
   file: { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
 };

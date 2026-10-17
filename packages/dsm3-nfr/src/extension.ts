@@ -4,22 +4,9 @@
  * from `language_nfr_shapes.js`.
  */
 import { LINE_DASHES } from '@istar-ts/react';
-import type { IstarExtension, LinkToolEntry } from '@istar-ts/react';
-import { NFR_CONTRIBUTION_LABELS } from './kinds';
+import type { IstarExtension } from '@istar-ts/react';
 import type { NfrElementKind, NfrLinkKind } from './kinds';
 import { NFR_AND_MARKER, NFR_OR_MARKER, NFR_SHAPES } from './shapes';
-
-/** One palette entry per label, as DSM3's Contribution and Correlation buttons offer. */
-function labelEntries(kind: string, group: string, order: number): LinkToolEntry<string>[] {
-  return NFR_CONTRIBUTION_LABELS.map((value, i) => ({
-    label: value,
-    value,
-    order: order + i / 100,
-    group,
-    section: 'elements',
-    title: `Add ${value} ${kind} link: drag from the source to the target of the link`,
-  }));
-}
 
 /**
  * The NFR registry parts. Apply them after the registry is completed for the NFR metamodel
@@ -81,13 +68,8 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
       ],
     },
     // Contribution, Correlation and Argument draw DSM3's open arrow, the default marker.
-    'nfr.ContributionLink': {
-      palette: labelEntries('Contribution', 'nfr-contributions', 50),
-    },
-    'nfr.CorrelationLink': {
-      line: { dash: LINE_DASHES.dashed },
-      palette: labelEntries('Correlation', 'nfr-correlations', 51),
-    },
+    // Contribution and Correlation get one palette entry per label from react's defaults.
+    'nfr.CorrelationLink': { line: { dash: LINE_DASHES.dashed } },
     'nfr.ArgumentLink': {
       palette: [
         {
@@ -97,16 +79,6 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
           section: 'elements',
         },
       ],
-    },
-  },
-  paletteGroups: {
-    'nfr-contributions': {
-      label: 'Contribution',
-      title: 'Add Contribution link (++, +, some+, some-, –, – –, or unknown)',
-    },
-    'nfr-correlations': {
-      label: 'Correlation',
-      title: 'Add Correlation link (++, +, some+, some-, –, – –, or unknown)',
     },
   },
 };
