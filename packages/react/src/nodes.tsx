@@ -3,7 +3,7 @@ import { Handle, NodeResizer, Position } from '@xyflow/react';
 import type { ComponentType, MouseEvent as ReactMouseEvent, ReactElement } from 'react';
 import { memo, useCallback, useRef } from 'react';
 import { useIstarEditor } from './context';
-import type { ActorFlowNode, ElementFlowNode } from './layout';
+import type { ActorFlowNode, ElementFlowNode, LinkAnchorFlowNode } from './layout';
 import { ACTOR_SYMBOL_CLASS, ACTOR_SYMBOL_OFFSET } from './layout';
 import { elementSize } from './registry';
 import { ACTOR_RADIUS } from './shapes';
@@ -205,4 +205,31 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
   );
 });
 
-export const nodeTypes: NodeTypes = { istarActor: ActorNode, istarElement: ElementNode };
+/**
+ * The middle of a link that other links target: a drop target for their tools (NFR's Argument),
+ * shown only while such a tool is active (`is-linking-to-links`, see styles.css). A link ends
+ * on it but never starts from it.
+ */
+export const LinkAnchorNode: ComponentType<NodeProps<LinkAnchorFlowNode>> = memo(
+  function LinkAnchorNode({ data }: NodeProps<LinkAnchorFlowNode>): ReactElement {
+    const editor = useIstarEditor();
+    const linking = editor.tool !== null && editor.tool.type !== 'element';
+    return (
+      <div className="istar-link-anchor-body" data-link={data.linkId}>
+        <Handle
+          type="source"
+          position={Position.Top}
+          className="istar-handle istar-anchor-handle"
+          isConnectable={linking && !editor.readOnly}
+          isConnectableStart={false}
+        />
+      </div>
+    );
+  },
+);
+
+export const nodeTypes: NodeTypes = {
+  istarActor: ActorNode,
+  istarElement: ElementNode,
+  istarLinkAnchor: LinkAnchorNode,
+};

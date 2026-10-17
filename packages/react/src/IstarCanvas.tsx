@@ -1,4 +1,6 @@
+import { targetsLinks } from '@istar-ts/core';
 import type {
+  AnyMetamodel,
   DiagnosticsStore,
   ElementKind,
   GoalDiagnostic,
@@ -57,10 +59,10 @@ import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
-import { ACTOR_SYMBOL_CLASS, adoptFlowNode, modelToFlow } from './layout';
+import { ACTOR_SYMBOL_CLASS, adoptFlowNode, linkIdOfAnchor, modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
-import type { IstarExtension, IstarRegistry } from './registry';
+import type { AnyIstarRegistry, IstarExtension, IstarRegistry } from './registry';
 import { defaultNameFor, defaultPropertiesFor } from './registry';
 import type { ElementIssue } from './issues';
 
@@ -305,7 +307,7 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
       >
         {placement !== 'bottom' && palette}
         <div className="istar-canvas-body">
-          <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
+          <div className={`istar-canvas-flow${toolClass(editor.tool, editor.metamodel)}`}>
             <Diagram
               controls={props.controls ?? true}
               background={props.background ?? false}
@@ -325,9 +327,13 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
   );
 }
 
-function toolClass(tool: Tool | null): string {
+function toolClass(tool: Tool | null, metamodel: AnyMetamodel): string {
   if (!tool) return '';
-  return tool.type === 'element' ? ' is-adding' : ' is-linking';
+  if (tool.type === 'element') return ' is-adding';
+  // A tool whose links may target links shows the anchors on the middle of links.
+  return tool.type === 'link' && targetsLinks(metamodel, tool.kind)
+    ? ' is-linking is-linking-to-links'
+    : ' is-linking';
 }
 
 function Diagram({
@@ -354,6 +360,13 @@ function Diagram({
   const isNodeKind = useCallback(
     (kind: string): boolean => metamodel.elements.get(kind)?.category === 'node',
     [metamodel],
+  );
+  // Node kinds that may lie on the paper, outside any actor (DSM3-goals' KAOS and NFR nodes;
+  // piStar's own iStar nodes can't).
+  const canBeOnPaper = useCallback(
+    (kind: string): boolean =>
+      isNodeKind(kind) && metamodel.elements.get(kind)?.info?.canBeOnPaper === true,
+    [isNodeKind, metamodel],
   );
   const flow = useReactFlow();
   const graph = useMemo(() => modelToFlow(model, registry), [model, registry]);
@@ -427,6 +440,7 @@ function Diagram({
     (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
       store.transaction(() => {
         for (const node of dragged) {
+          if (node.type === 'istarLinkAnchor') continue;
           const before = graph.nodes.find((n) => n.id === node.id);
           const element = store.getModel().elements.get(node.id);
           if (!before || !element) continue;
@@ -476,7 +490,7 @@ function Diagram({
   const onPaneClick = useCallback(
     (event: ReactMouseEvent) => {
       if (!tool || tool.type !== 'element') return;
-      if (isActorKind(tool.kind)) {
+      if (isActorKind(tool.kind) || canBeOnPaper(tool.kind)) {
         addAt(tool.kind, event.clientX, event.clientY, undefined, tool.properties);
         return;
       }
@@ -504,7 +518,7 @@ function Diagram({
         );
       }
     },
-    [addAt, editor, flow, isActorKind, registry, store, tool],
+    [addAt, canBeOnPaper, editor, flow, isActorKind, registry, store, tool],
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
@@ -540,6 +554,12 @@ function Diagram({
         return;
       }
       const actorId = isActorKind(clicked.kind) ? clicked.id : clicked.parent;
+      if (!actorId && canBeOnPaper(tool.kind)) {
+        // A click on a node outside any actor adds the new one on the paper, where it was clicked.
+        event.stopPropagation();
+        addAt(tool.kind, event.clientX, event.clientY, undefined, tool.properties);
+        return;
+      }
       if (!actorId || !isNodeKind(tool.kind)) {
         editor.notify('Elements must be added inside an actor, role or agent', 'info');
         return;
@@ -547,7 +567,23 @@ function Diagram({
       event.stopPropagation();
       addAt(tool.kind, event.clientX, event.clientY, actorId, tool.properties);
     },
-    [addAt, editor, flowStore, isActorKind, isNodeKind, readOnly, registry, store, tool],
+    [
+      addAt,
+      canBeOnPaper,
+      editor,
+      flowStore,
+      isActorKind,
+      isNodeKind,
+      readOnly,
+      registry,
+      store,
+      tool,
+    ],
+  );
+
+  const isNary = useCallback(
+    (kind: string): boolean => metamodel.links.get(kind)?.arity === 'n',
+    [metamodel],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
@@ -569,8 +605,15 @@ function Diagram({
           : store.connect({
               kind: tool.kind,
               source: connection.source,
-              target: connection.target,
+              // Dropped on a link's anchor node: the link itself is the target.
+              target: linkIdOfAnchor(connection.target) ?? connection.target,
               label: tool.value,
+              // A new n-ary link's properties live on its hub (DSM3's split link).
+              ...(isNary(tool.kind) && {
+                customProperties: (registry as unknown as AnyIstarRegistry).links[
+                  tool.kind
+                ]?.properties?.defaults(),
+              }),
             });
       if (!result.ok) {
         editor.notify(`Invalid link: ${result.reason}`);
@@ -579,11 +622,14 @@ function Diagram({
       if ('dependum' in result) {
         editor.select({ type: 'element', id: result.dependum.id });
         editor.setEditingId(result.dependum.id);
+      } else if (result.hub) {
+        // A new hub, or a leg added to one: select the hub, which stands for the whole link.
+        editor.select({ type: 'element', id: result.hub.hub.id });
       } else {
         editor.select({ type: 'link', id: result.link.id });
       }
     },
-    [editor, registry, store, tool],
+    [editor, isNary, registry, store, tool],
   );
 
   const onConnectEnd = useCallback(

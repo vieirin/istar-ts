@@ -59,6 +59,7 @@ export {
   EditableLabel,
 } from './default-components';
 export type { EditableLabelProps } from './default-components';
+export { HubComponent, HubInspector } from './hubs';
 export { ElementIssuesBadge, describeDiagnostic } from './ElementIssuesBadge';
 export type { ElementIssuesBadgeProps } from './ElementIssuesBadge';
 export { diagnosticToIssue, groupIssuesById, issueToDiagnostic, worstSeverity } from './issues';
@@ -93,6 +94,7 @@ export {
   QualityShape,
   ResourceShape,
   TaskShape,
+  polygonPath,
   shapeViewBox,
 } from './shapes';
 export type { ShapeProps, ShapeSpec } from './shapes';
@@ -102,8 +104,15 @@ export type { FittedLabelProps, LabelFit, TextBox } from './label-fit';
 export type { PathBounds } from './svg-path';
 export { OPEN_ARROW, resolveLinkStyle } from './edges';
 export type { ResolvedLinkStyle } from './edges';
-export { ACTOR_PADDING, actorBoundary, modelToFlow } from './layout';
-export type { Box, FlowGraph } from './layout';
+export {
+  ACTOR_PADDING,
+  LINK_ANCHOR_SIZE,
+  actorBoundary,
+  linkAnchorId,
+  linkIdOfAnchor,
+  modelToFlow,
+} from './layout';
+export type { Box, FlowGraph, IstarEdgeData, LinkAnchorNodeData } from './layout';
 export {
   CommitText,
   CustomPropertiesEditor,

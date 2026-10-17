@@ -2,8 +2,8 @@
  * Default element shapes, drawn after piStar's `tool/language/shapes.js`. Each shape scales to
  * the node's size; strokes use `vector-effect: non-scaling-stroke` as upstream does.
  */
-import type { ElementKind } from '@istar-ts/core';
-import type { ReactElement } from 'react';
+import type { ElementKind, KindShape } from '@istar-ts/core';
+import type { CSSProperties, ReactElement } from 'react';
 import { pathBounds } from './svg-path';
 
 export interface ShapeProps {
@@ -99,13 +99,41 @@ export function QualityShape({ width, height, fill }: ShapeProps): ReactElement 
 /**
  * A shape given as SVG path data, as piStar-ext's "Create a new Construct" dialog takes it.
  * The path is scaled to the element's size (like JointJS's `resetOffset`), so it can be drawn
- * at any scale; `viewBox` overrides the computed bounds.
+ * at any scale; `viewBox` overrides the computed bounds. It is core's `KindShape`, so a
+ * metamodel's shapes are used as they are:
+ *
+ * - `dash`: SVG dash array of the outline, e.g. '8,4' (DSM3's KAOS Softgoal); default continuous;
+ * - `strokeWidth`: outline width in screen pixels (strokes don't scale with the element), e.g.
+ *   5 for DSM3's NFR Operationalization; default the theme's `--istar-stroke-width`.
  */
-export interface ShapeSpec {
-  /** SVG path data (`d`). */
-  readonly path: string;
-  /** `minX minY width height` of the drawing; default: the path's bounds. */
-  readonly viewBox?: string;
+export type ShapeSpec = KindShape;
+
+/**
+ * Path data for an SVG polygon's `points` ("x1,y1 x2,y2 …"): a closed path through them, so a
+ * JointJS polygon shape (piStar, DSM3-goals) can be given as a `ShapeSpec`.
+ */
+export function polygonPath(points: string): string {
+  const coords = points
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  if (coords.length < 4 || coords.length % 2 !== 0 || coords.some((n) => !Number.isFinite(n))) {
+    throw new Error(`Invalid polygon points: "${points}"`);
+  }
+  const parts: string[] = [];
+  for (let i = 0; i < coords.length; i += 2) {
+    parts.push(`${i === 0 ? 'M' : 'L'} ${coords[i]} ${coords[i + 1]}`);
+  }
+  return `${parts.join(' ')} Z`;
+}
+
+/** The outline style a shape spec asks for, over the default stroke. */
+function shapeStrokeStyle(spec: Pick<ShapeSpec, 'dash' | 'strokeWidth'>): CSSProperties {
+  return {
+    ...stroke,
+    ...(spec.dash ? { strokeDasharray: spec.dash } : {}),
+    ...(spec.strokeWidth !== undefined ? { strokeWidth: spec.strokeWidth } : {}),
+  };
 }
 
 const boundsCache = new Map<string, string>();
@@ -128,6 +156,8 @@ export function shapeViewBox(spec: ShapeSpec): string {
 export function PathShape({
   path,
   viewBox,
+  dash,
+  strokeWidth,
   width,
   height,
   fill,
@@ -138,7 +168,11 @@ export function PathShape({
       height={height}
       viewBox={shapeViewBox({ path, ...(viewBox ? { viewBox } : {}) })}
     >
-      <path d={path} fill={fill ?? 'var(--istar-node-fill)'} style={stroke} />
+      <path
+        d={path}
+        fill={fill ?? 'var(--istar-node-fill)'}
+        style={shapeStrokeStyle({ dash, strokeWidth })}
+      />
     </Svg>
   );
 }

@@ -36,6 +36,7 @@ import {
 } from 'react';
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
 import { applyExtensions, defaultRegistry, registryForMetamodel } from './registry';
+import { linkIdOfAnchor } from './layout';
 import type { ElementIssue } from './issues';
 import { diagnosticToIssue, issueToDiagnostic } from './issues';
 
@@ -215,8 +216,10 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   const metamodel = metamodelOf(model) as unknown as AnyMetamodel;
   const baseRegistry = props.registry ?? defaultRegistry;
   const registry = useMemo(() => {
+    // Roots other than iStar 2.0 (KAOS, NFR) and extended metamodels have kinds the default
+    // registry lacks; complete it for them.
     const complete =
-      metamodel.extensions.length > 0
+      metamodel.framework !== 'istar-2.0' || metamodel.extensions.length > 0
         ? (registryForMetamodel(metamodel, baseRegistry) as unknown as IstarRegistry)
         : baseRegistry;
     return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
@@ -297,7 +300,8 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       }
       const kind =
         forTool.type === 'dependency' ? (forTool.linkKind ?? 'istar.DependencyLink') : forTool.kind;
-      return canLink(current, source, target, kind);
+      // Dropping on a link's anchor node targets the link itself.
+      return canLink(current, source, linkIdOfAnchor(target) ?? target, kind);
     },
     [store, tool],
   );

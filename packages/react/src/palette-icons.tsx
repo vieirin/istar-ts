@@ -51,7 +51,18 @@ function NodeShape({
         viewBox={shapeViewBox(shape)}
         preserveAspectRatio="none"
       >
-        <path d={shape.path} style={{ ...shapeStyle, vectorEffect: 'non-scaling-stroke' }} />
+        <path
+          d={shape.path}
+          style={{
+            ...shapeStyle,
+            vectorEffect: 'non-scaling-stroke',
+            // The icon is drawn at about 40% of the element: dashes and widths shrink with it.
+            ...(shape.dash ? { strokeDasharray: scaleDash(shape.dash) } : {}),
+            ...(shape.strokeWidth !== undefined
+              ? { strokeWidth: Math.min(3, shape.strokeWidth * 0.75) }
+              : {}),
+          }}
+        />
       </svg>
     );
   }

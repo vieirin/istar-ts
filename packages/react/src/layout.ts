@@ -9,8 +9,11 @@ import type { IstarElement, IstarLink, IstarModel } from '@istar-ts/core';
 import type { AnyIstarModel } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
 import type { Edge, Node } from '@xyflow/react';
+import type { Anchor, Point } from './link-geometry';
+import { linkMidpoint } from './link-geometry';
 import type { IstarRegistry } from './registry';
 import { elementSize } from './registry';
+import { ACTOR_RADIUS } from './shapes';
 
 export interface Box {
   x: number;
@@ -34,9 +37,16 @@ export type ActorNodeData = {
 export type ElementNodeData = { elementId: string };
 export type ActorFlowNode = Node<ActorNodeData, 'istarActor'>;
 export type ElementFlowNode = Node<ElementNodeData, 'istarElement'>;
-export type IstarFlowNode = ActorFlowNode | ElementFlowNode;
+/** The middle of a link that other links target (DSM3's `virtualTarget`); see `linkAnchorId`. */
+export type LinkAnchorNodeData = { linkId: string };
+export type LinkAnchorFlowNode = Node<LinkAnchorNodeData, 'istarLinkAnchor'>;
+export type IstarFlowNode = ActorFlowNode | ElementFlowNode | LinkAnchorFlowNode;
 
-export type IstarEdgeData = { linkId: string };
+export type IstarEdgeData = {
+  linkId: string;
+  /** The link this one points at, for links that target links (NFR's Argument). */
+  targetLinkId?: string;
+};
 export type IstarFlowEdge = Edge<IstarEdgeData, 'istar'>;
 
 /**
@@ -87,6 +97,23 @@ export interface FlowGraph {
   edges: IstarFlowEdge[];
   /** Absolute top-left of each node as laid out (for converting drags back to the model). */
   origins: Map<string, { x: number; y: number }>;
+}
+
+/** Side of the square node placed on the middle of a link that other links target. */
+export const LINK_ANCHOR_SIZE = 12;
+
+const LINK_ANCHOR_PREFIX = 'istar-link-anchor:';
+
+/** The id of the anchor node on the middle of link `linkId`. */
+export function linkAnchorId(linkId: string): string {
+  return `${LINK_ANCHOR_PREFIX}${linkId}`;
+}
+
+/** The link whose anchor node this is, or `undefined` for any other node id. */
+export function linkIdOfAnchor(nodeId: string): string | undefined {
+  return nodeId.startsWith(LINK_ANCHOR_PREFIX)
+    ? nodeId.slice(LINK_ANCHOR_PREFIX.length)
+    : undefined;
 }
 
 /** Class of the actor symbol, the only part of an actor that selects and drags it. */
@@ -178,11 +205,117 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
   }
 
   const edges: IstarFlowEdge[] = [];
+  const edgeById = new Map<string, IstarFlowEdge>();
   for (const link of model.links.values()) {
     const edge = linkToEdge(link, collapsedInto, isDependencyKind(link.kind));
-    if (edge) edges.push(edge);
+    if (edge) {
+      edges.push(edge);
+      edgeById.set(link.id, edge);
+    }
+  }
+  if (edges.some((edge) => model.links.has(edge.target))) {
+    return withLinkAnchors(model, nodes, edges, edgeById, origins);
   }
   return { nodes, edges, origins };
+}
+
+/**
+ * Links that target links end on an anchor node at the middle of the link they point at, as
+ * DSM3-goals draws them. A link whose target link isn't drawn (hidden by a collapsed actor) is
+ * hidden too. Only models with such links take this path, so iStar layouts are unaffected.
+ */
+function withLinkAnchors(
+  model: IstarModel,
+  nodes: IstarFlowNode[],
+  edges: IstarFlowEdge[],
+  edgeById: Map<string, IstarFlowEdge>,
+  origins: Map<string, { x: number; y: number }>,
+): FlowGraph {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const anchors = new Map<string, LinkAnchorFlowNode>();
+  const visiting = new Set<string>();
+
+  const anchorOfNode = (id: string): Anchor | undefined => {
+    const node = nodeById.get(id);
+    const origin = origins.get(id) ?? (node && { x: node.position.x, y: node.position.y });
+    if (!node || !origin) return undefined;
+    const width = node.width ?? 0;
+    const height = node.height ?? 0;
+    if (node.type === 'istarActor' && !node.data.frameless) {
+      const center = { x: origin.x + ACTOR_SYMBOL_OFFSET, y: origin.y + ACTOR_SYMBOL_OFFSET };
+      return { center, radius: ACTOR_RADIUS, width, height };
+    }
+    return { center: { x: origin.x + width / 2, y: origin.y + height / 2 }, width, height };
+  };
+
+  /** The anchor node on the middle of drawn link `linkId`, created on first use. */
+  const anchorFor = (linkId: string): LinkAnchorFlowNode | undefined => {
+    const existing = anchors.get(linkId);
+    if (existing) return existing;
+    const edge = edgeById.get(linkId);
+    if (!edge || visiting.has(linkId)) return undefined;
+    visiting.add(linkId);
+    const source = anchorOfNode(edge.source);
+    // A link that itself targets a link ends on that link's anchor.
+    const target = edge.data?.targetLinkId
+      ? pointAnchor(anchorFor(edge.data.targetLinkId))
+      : anchorOfNode(edge.target);
+    visiting.delete(linkId);
+    if (!source || !target) return undefined;
+    const vertices = model.links.get(linkId)?.display?.vertices ?? [];
+    const middle = linkMidpoint(source, target, vertices);
+    const half = LINK_ANCHOR_SIZE / 2;
+    const anchor: LinkAnchorFlowNode = {
+      id: linkAnchorId(linkId),
+      type: 'istarLinkAnchor',
+      position: { x: middle.x - half, y: middle.y - half },
+      width: LINK_ANCHOR_SIZE,
+      height: LINK_ANCHOR_SIZE,
+      data: { linkId },
+      draggable: false,
+      selectable: false,
+      connectable: true,
+      zIndex: 2,
+      className: 'istar-node istar-link-anchor',
+    };
+    anchors.set(linkId, anchor);
+    nodeById.set(anchor.id, anchor);
+    origins.set(anchor.id, { ...anchor.position });
+    return anchor;
+  };
+
+  // Retarget links that point at links, outermost last, so chains resolve.
+  const retargeted = new Map<string, IstarFlowEdge | null>();
+  const retarget = (edge: IstarFlowEdge): IstarFlowEdge | null => {
+    const done = retargeted.get(edge.id);
+    if (done !== undefined) return done;
+    if (!model.links.has(edge.target)) return edge;
+    const targetLinkId = edge.target;
+    const targetEdge = edgeById.get(targetLinkId);
+    const resolvedTarget = targetEdge && retarget(targetEdge);
+    if (resolvedTarget) edgeById.set(targetLinkId, resolvedTarget);
+    const anchor = resolvedTarget ? anchorFor(targetLinkId) : undefined;
+    const next: IstarFlowEdge | null = anchor
+      ? { ...edge, target: anchor.id, data: { linkId: edge.id, targetLinkId } }
+      : null;
+    retargeted.set(edge.id, next);
+    if (next) edgeById.set(edge.id, next);
+    return next;
+  };
+  const out: IstarFlowEdge[] = [];
+  for (const edge of edges) {
+    const next = retarget(edge);
+    if (next) out.push(next);
+  }
+  return { nodes: [...nodes, ...anchors.values()], edges: out, origins };
+}
+
+/** A point as an anchor: links end exactly on it. */
+function pointAnchor(node: LinkAnchorFlowNode | undefined): Anchor | undefined {
+  if (!node) return undefined;
+  const half = LINK_ANCHOR_SIZE / 2;
+  const center: Point = { x: node.position.x + half, y: node.position.y + half };
+  return { center, width: 0, height: 0 };
 }
 
 function linkToEdge(
