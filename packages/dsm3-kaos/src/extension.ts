@@ -5,17 +5,28 @@
 import { linkIcon } from '@istar-ts/react';
 import type { IstarExtension } from '@istar-ts/react';
 import { AssignmentGlyph, ConflictGlyph } from './glyphs';
-import type { KaosElementKind, KaosLinkKind } from './kinds';
+import type {
+  KaosElementKind,
+  KaosLinkKind,
+  KaosObstacleElementKind,
+  KaosObstacleLinkKind,
+} from './kinds';
 import {
   behavioralGoalProperties,
   conflictProperties,
+  domainPropertyProperties,
+  obstacleProperties,
   refinementProperties,
+  resolutionProperties,
   softgoalProperties,
 } from './properties';
 import {
   KAOS_ASSIGNMENT_GLYPH,
   KAOS_CONFLICT_GLYPH,
+  KAOS_OBSTACLE_SHAPES,
+  KAOS_OBSTRUCTION_MARKER,
   KAOS_REFINEMENT_MARKER,
+  KAOS_RESOLUTION_DASH,
   KAOS_SHAPES,
 } from './shapes';
 
@@ -31,9 +42,13 @@ function addNode(label: string, article: string, order: number) {
 /**
  * The KAOS registry parts. Apply them after the registry is completed for the KAOS metamodel
  * (`applyExtensions(registryForMetamodel(KAOS), [kaosExtension])`), or pass the extension to
- * the canvas.
+ * the canvas. It also carries the obstacle analysis's parts, used when the model's metamodel is
+ * `KAOS_OBSTACLES`; with plain `KAOS` the registry has no such kinds and skips them.
  */
-export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
+export const kaosExtension: IstarExtension<
+  KaosElementKind | KaosObstacleElementKind,
+  KaosLinkKind | KaosObstacleLinkKind
+> = {
   name: 'dsm3-kaos',
   elements: {
     'kaos.BehavioralGoal': {
@@ -59,7 +74,14 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
     'kaos.RefinementLinkHub': { properties: refinementProperties },
     'kaos.DomainProperty': {
       shape: KAOS_SHAPES['kaos.DomainProperty'],
+      properties: domainPropertyProperties,
       palette: addNode('Domain Property', 'a', 14),
+    },
+    // Obstacle analysis (KAOS_OBSTACLES).
+    'kaosObstacles.Obstacle': {
+      shape: KAOS_OBSTACLE_SHAPES['kaosObstacles.Obstacle'],
+      properties: obstacleProperties,
+      palette: addNode('Obstacle', 'an', 15),
     },
   },
   links: {
@@ -107,6 +129,42 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
           label: 'Conflict',
           title: 'Add Conflict link: drag from one conflicting element to the other',
           order: 42,
+          section: 'elements',
+        },
+      ],
+    },
+    // Obstacle analysis (KAOS_OBSTACLES).
+    'kaosObstacles.ObstacleRefinementLink': {
+      line: { marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
+      palette: [
+        {
+          label: 'Obstacle Refinement',
+          title:
+            'Add Obstacle Refinement link: drag from a sub-obstacle or domain property to the obstacle it refines; drop on the circle of an existing refinement to add a leg',
+          order: 43,
+          section: 'elements',
+        },
+      ],
+    },
+    'kaosObstacles.ObstructionLink': {
+      line: { marker: KAOS_OBSTRUCTION_MARKER },
+      palette: [
+        {
+          label: 'Obstruction',
+          title: 'Add Obstruction link: drag from the obstacle to the goal it obstructs',
+          order: 44,
+          section: 'elements',
+        },
+      ],
+    },
+    'kaosObstacles.ResolutionLink': {
+      line: { dash: KAOS_RESOLUTION_DASH, marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
+      properties: resolutionProperties,
+      palette: [
+        {
+          label: 'Resolution',
+          title: 'Add Resolution link: drag from the resolving goal to the obstacle',
+          order: 45,
           section: 'elements',
         },
       ],

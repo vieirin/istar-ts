@@ -22,8 +22,14 @@ const fixture = (name: string): string => {
 };
 
 describe('DSM3-goals fixtures', () => {
-  test('are the three welcome models', () => {
-    expect([...dsm3.keys()]).toEqual(['istar2-welcome.txt', 'kaos-welcome.txt', 'nfr-welcome.txt']);
+  test("are DSM3's three welcome models, and KAOSTools' LAS in our KAOS format", () => {
+    // kaos-las.txt needs the obstacle analysis of @istar-ts/dsm3-kaos; its tests round-trip it.
+    expect([...dsm3.keys()]).toEqual([
+      'istar2-welcome.txt',
+      'kaos-las.txt',
+      'kaos-welcome.txt',
+      'nfr-welcome.txt',
+    ]);
   });
 
   test("DSM3's iStar 2.0 example round-trips byte for byte with ISTAR_2_0", () => {

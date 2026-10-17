@@ -53,6 +53,7 @@ describe('KAOS property schemas', () => {
       'kaos.Softgoal',
       'kaos.RefinementLinkHub',
       'kaos.Conflict',
+      'kaos.DomainProperty',
     ]);
   });
 });

@@ -49,3 +49,47 @@ export const KAOS_REFINEMENT_HUB = 'kaos.RefinementLinkHub' as const;
 
 /** DSM3 fills every KAOS node grey (`rgb(205,205,205)`, language_kaos_shapes.js): `KindShape.fill`. */
 export const KAOS_FILL = 'rgb(205,205,205)';
+
+/**
+ * Obstacle analysis (van Lamsweerde & Letier, TSE 2000) on the KAOS root, as the
+ * `kaosObstacleAnalysis` extension declares it. Not DSM3's: DSM3-goals' KAOS has no obstacles.
+ * The root reserves the `kaos.` prefix, so the kinds live under `kaosObstacles.` and are saved
+ * as `kaos.*` types (`pistarType`), e.g. `kaos.Obstacle`.
+ */
+export const KAOS_OBSTACLE_ELEMENT_KINDS: readonly ['kaosObstacles.Obstacle'] = [
+  'kaosObstacles.Obstacle',
+];
+
+/** The element kinds declared by the obstacle analysis. */
+export type KaosObstacleDeclaredElementKind = (typeof KAOS_OBSTACLE_ELEMENT_KINDS)[number];
+
+/** The obstacle analysis's element kinds, with the hub its n-ary obstacle refinement generates. */
+export type KaosObstacleElementKind =
+  | KaosObstacleDeclaredElementKind
+  | 'kaosObstacles.ObstacleRefinementLinkHub';
+
+/**
+ * Obstacle analysis link kinds. `kaosObstacles.ObstacleRefinementLink` is n-ary like the goal
+ * refinement: sub-obstacles join at a hub (AND), and several hubs on one obstacle are an OR.
+ */
+export const KAOS_OBSTACLE_LINK_KINDS: readonly [
+  'kaosObstacles.ObstacleRefinementLink',
+  'kaosObstacles.ObstructionLink',
+  'kaosObstacles.ResolutionLink',
+] = [
+  'kaosObstacles.ObstacleRefinementLink',
+  'kaosObstacles.ObstructionLink',
+  'kaosObstacles.ResolutionLink',
+];
+
+/** The link kinds declared by the obstacle analysis. */
+export type KaosObstacleDeclaredLinkKind = (typeof KAOS_OBSTACLE_LINK_KINDS)[number];
+
+/** The obstacle analysis's link kinds, with the leg and end kinds its refinement generates. */
+export type KaosObstacleLinkKind =
+  | KaosObstacleDeclaredLinkKind
+  | 'kaosObstacles.ObstacleRefinementLinkStart'
+  | 'kaosObstacles.ObstacleRefinementLinkEnd';
+
+/** The hub kind of an obstacle refinement (saved as `kaos.ObstacleRefinementLinkHub`). */
+export const KAOS_OBSTACLE_REFINEMENT_HUB = 'kaosObstacles.ObstacleRefinementLinkHub' as const;

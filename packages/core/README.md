@@ -176,7 +176,25 @@ const modelIssues = validateModelProperties(model, [resourceSchema]);
 ```
 
 `read` / `validate` accept `customProperties`, a full element/link, or `undefined`. `write` merges
-patches, preserves unknown keys, and serializes typed values back to strings.
+patches, preserves unknown keys, and serializes typed values back to strings. A value that
+didn't change keeps its string as read (`.2` stays `.2`).
+
+Two optional hints:
+
+- `prop.number({ min: 0, max: 1 })`: with `max: 1` (a probability) the reader also accepts a
+  percentage, so `0.2`, `.2` and `20.00%` read as 0.2. A changed value is written in the form
+  the old one was read in (`20.00%` → `35.00%`, `.2` → `.35`).
+- `prop.reference({ kinds })`: the value is another element's (or link's) id. The schema only
+  checks it isn't empty; `validateModelProperties` reports an id that isn't in the model, or
+  whose kind isn't in `kinds`.
+
+Formulas (a KAOS `FormalSpec`, a `BoundaryCondition`) stay `prop.string`: core has no formula
+language.
+
+A schema can be declared for the kinds an n-ary link generates (its hub, legs and end) like for
+any kind; `HubPartKind<'kaos.RefinementLink'>` is `'kaos.RefinementLinkHub' |
+'kaos.RefinementLinkStart' | 'kaos.RefinementLinkEnd'`. Legs keep their `customProperties` on
+disk.
 
 ## Extending the metamodel
 

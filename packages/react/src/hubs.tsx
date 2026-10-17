@@ -10,6 +10,7 @@ import {
   DefaultLinkInspector,
   DiagnosticList,
   ElementPropertiesSection,
+  PropertiesSection,
   topDiagnostics,
 } from './Inspector';
 import type { AnyIstarRegistry, ElementComponentProps, InspectorProps } from './registry';
@@ -97,24 +98,44 @@ export function HubInspector(props: InspectorProps<IstarElement>): ReactElement 
 
 /**
  * Inspector of a hub link's leg or end: the hub's, since both are pieces of one n-ary link
- * (selecting either inspects the link as a whole). Falls back to the default link inspector for
- * a leg or end without a hub.
+ * (selecting either inspects the link as a whole), then the selected part's own properties
+ * under its kind's schema (e.g. a probability per leg of a case-driven KAOS refinement). Falls
+ * back to the default link inspector for a leg or end without a hub.
  */
 export function HubPartInspector(props: InspectorProps<IstarLink>): ReactElement {
   const editor = useIstarEditor();
   const hub = hubOfLink(editor.model, props.target.id);
   if (!hub) return <DefaultLinkInspector {...props} />;
   const config = editor.registry.elements[hub.kind];
+  const part = props.target;
+  const partLabel = editor.registry.links[part.kind]?.label ?? part.kind;
+  const from = editor.model.elements.get(part.source);
+  const isLeg = part.target === hub.id;
   return (
-    <HubInspector
-      key={hub.id}
-      target={hub}
-      model={editor.model}
-      actions={editor.elementActions(hub.id)}
-      readOnly={props.readOnly}
-      {...(config?.properties ? { schema: config.properties as InspectorProps['schema'] } : {})}
-      issues={editor.issuesById.get(hub.id) ?? []}
-      diagnostics={editor.diagnosticsById.get(hub.id) ?? []}
-    />
+    <>
+      <HubInspector
+        key={hub.id}
+        target={hub}
+        model={editor.model}
+        actions={editor.elementActions(hub.id)}
+        readOnly={props.readOnly}
+        {...(config?.properties ? { schema: config.properties as InspectorProps['schema'] } : {})}
+        issues={editor.issuesById.get(hub.id) ?? []}
+        diagnostics={editor.diagnosticsById.get(hub.id) ?? []}
+      />
+      <div className="istar-inspector-body istar-hub-part">
+        <h4 className="istar-inspector-subtitle">
+          {partLabel}
+          {isLeg && from ? `: ${from.name}` : ''}
+        </h4>
+        <PropertiesSection
+          target={part}
+          actions={props.actions}
+          readOnly={props.readOnly}
+          schema={props.schema}
+          diagnostics={props.diagnostics}
+        />
+      </div>
+    </>
   );
 }

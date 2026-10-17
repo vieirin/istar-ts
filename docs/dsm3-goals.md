@@ -94,8 +94,78 @@ sets `sameActor: false`, since neither language has actors. `Description`, which
 element carries, is a plain string that round-trips. The packages don't inject it into new
 elements, as piStar doesn't.
 
+The KAOS package also has an obstacle analysis extension (`kaosObstacleAnalysis`,
+`KAOS_OBSTACLES`; issue [#20](https://github.com/vieirin/istar-ts/issues/20)). **Its file types
+are istar-ts's, not DSM3's**: `kaos.Obstacle`, `kaos.ObstacleRefinementLinkHub`, `…Start`,
+`…End`, `kaos.ObstructionLink` and `kaos.ResolutionLink` don't exist in DSM3-goals, and its KAOS
+editor doesn't know them. The `Kind` key on Domain property is ours too. A model
+without obstacles is still a plain DSM3 file. See "Obstacle analysis" below.
+
 **D8. The playground shows all three.** A "Frameworks" group in the switcher holds KAOS and NFR.
 Opening a file picks its root with `detectFramework` before parsing.
+
+## Obstacle analysis (issue #20)
+
+goal-controller's KAOS stress test (goal-controller#181) needs obstacles, and Cailliau's models
+(KAOSTools, ADS) need properties on refinement legs. Every property those works use falls into
+one of three layers, and only the first belongs here:
+
+| Layer                                                         | Where                                                         |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| KAOS the language: kinds, links, rules, text keys             | `@istar-ts/dsm3-kaos`                                         |
+| A tool's or method's vocabulary (which values `Type` takes)   | a dialect (goal-controller), as enums over these text keys    |
+| An analysis's quantities (probabilities, RSR, ESR, estimates) | that engine's dialect; strings on disk, untouched by istar-ts |
+
+So no quantitative key and no enumeration lives in istar-ts. What it provides:
+
+- **Generic support (core, react).** A schema may name a generated kind (`HubPartKind<K>`:
+  `<K>Hub`, `<K>Start`, `<K>End`), legs keep their `customProperties`, and `HubPartInspector`
+  shows a leg's own schema below the hub's. Two value hints, both optional:
+  `prop.number({ max: 1 })` reads `0.2`, `.2` (CAIRIS, KAOSTools) and `20.00%` (KAOSTools) and
+  writes a value back as read; `prop.reference({ kinds })` holds an element id, with a picker
+  and a dangling-id check in `validateModelProperties`. istar-ts declares neither; a dialect
+  does (a resolution's anchor, a refinement's context, a leg's probability). Formulas stay
+  `prop.string`.
+- **`kaosObstacleAnalysis`.** `Obstacle` (keys `Description`, `FormalSpec`, `Category`), the
+  n-ary `ObstacleRefinementLink` (sub-obstacles and domain properties join at a hub, as in a
+  goal refinement; several hubs on one obstacle are its OR alternatives), `ObstructionLink`
+  (obstacle → goal or domain property, one per pair), `ResolutionLink` (goal → obstacle, one
+  per pair, keys `ResolutionType` and `Anchor`). A domain hypothesis isn't a new kind: the
+  book and Objectiver distinguish it from an invariant on one concept, so Domain property gets
+  an optional `Kind` key. A refinement pattern isn't a new key either: DSM3's hub already has
+  `Tactic` (milestone-driven, case-driven, …), and `SysRef` is RE'11's system reference, the
+  design option the refinement belongs to.
+- **`fixtures/dsm3/kaos-las.txt`.** KAOSTools' London Ambulance model
+  (`Parsing.Tests/Examples/las.kaos`, github.com/ancailliau/KAOSTools at `6a25d84`, MIT per its
+  readme) drawn by hand in the KAOS file format: 10 goals, 6 obstacles, 5 domain properties,
+  3 agents, two milestone refinements, a case refinement whose legs carry `Probability` `.8`
+  and `.2` as las.kaos writes them, the top obstacle's three OR alternatives, an obstruction
+  and a resolution. Three things are not in las.kaos, and are there to exercise the structure
+  only: `RSR` `0.95` and `ESR` `0.9277` on the root goal (the RE'12 figures goal-controller#182
+  checks against), and the resolution's `ResolutionType` `mitigation` with an `Anchor` on the
+  goal the obstacle obstructs. No istar-ts schema declares `Probability`, `RSR` or `ESR`:
+  the fixture proves the file carries an engine's quantities untouched. It round-trips byte
+  for byte.
+
+### Limitations, by design
+
+These are left for the goal-controller side to encode or defer:
+
+- `customProperties` maps strings to strings. A **keyed multi-valued** property (RE'15's
+  estimate per expert, `probability[e4] (q10, q50, q90)`) has to be encoded in the key
+  (`Probability.e4`), and a **structured** value (a distribution with parameters, FSE'04's
+  objective function with `Modal`, `Target`, `Current`) in the string. Core won't grow a
+  structured property type for one engine; if two engines need the same shape, revisit.
+- **Experts, calibrations, design options and evidence** (RE'15, RE'11, HASE'11) are not model
+  elements. They are project resources on the goal-controller side.
+- **Per-environment definitions** (in CAIRIS a goal's definition differs per environment) have
+  no counterpart. A CAIRIS importer flattens them to one environment and reports the rest.
+- **The object model and operations** (entities, associations, attributes, predicates;
+  `DomPre`/`ReqTrig`; `Monitors`/`Controls`) are a later extension. `Anchor`-style references
+  prepare for `Monitors` referencing an object attribute.
+- **Malicious agents and anti-goals** (ICSE'04) are not included. They would be a later
+  extension, if a user asks.
+- **No formula language and no checker** in istar-ts, as before.
 
 ## Provenance and licence
 
@@ -266,3 +336,21 @@ Dated entries, appended as the work goes. Each says what was decided and why.
     `kaosExtension` gives Conflict and Responsibility Assignment
     `linkIcon(kind, undefined, { marker: null, glyph })`. Rendering a `labelComponent` inside the
     icon was rejected: label components are HTML sized for the canvas, not for a 40×24 icon.
+- **2026-10-17** (issue #20, obstacle analysis):
+  1. `extendMetamodel` reserves the root's prefix, so the extension's kinds are
+     `kaosObstacles.*` with `pistarType: 'kaos.*'`. The issue asked for `kaos.Obstacle` as the
+     kind; that is the file type instead. `detectFramework` still recognizes the file as KAOS,
+     since it matches on types.
+  2. The obstacle parts live in `kaosExtension` with the rest of KAOS. With plain `KAOS` the
+     registry has no such kinds and skips them, so one extension serves both metamodels. The
+     playground's KAOS set reads files with `KAOS_OBSTACLES`.
+  3. Obstruction ends in an open arrow with a bar behind it; Resolution is dashed (`6,3`) with
+     the refinement's filled triangle. Neither exists in DSM3, so the choice is ours. Obstacles
+     are DSM3's KAOS grey, as the issue asks, rather than Objectiver's red.
+  4. Domain property's `Kind` is optional with no default, so the DSM3 welcome model saves
+     byte-identically and new domain properties have DSM3's keys.
+  5. `prop.number` accepts a percentage only when `max === 1`, as the issue specifies. `.2`
+     was already accepted by `Number`. "Written back as read" is general: `write` keeps the
+     current string whenever it parses to the patched value, for every type.
+  6. The obstacle refinement's hub has no schema: no tool gives obstacle refinements keys of
+     their own.

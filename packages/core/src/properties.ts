@@ -11,14 +11,25 @@ export interface PropertyOptions<T> {
 }
 
 export interface PropertyType<T> {
-  readonly type: 'string' | 'number' | 'boolean' | 'enum';
+  readonly type: 'string' | 'number' | 'boolean' | 'enum' | 'reference';
   readonly options: PropertyOptions<T>;
   readonly values?: readonly string[];
   readonly integer?: boolean;
   readonly min?: number;
   readonly max?: number;
+  /**
+   * Numbers with `max: 1` (a probability, a rate): the value may also be written as a
+   * percentage (`20.00%`). CAIRIS writes `0.2`, KAOSTools `.2` and `20.00%`.
+   */
+  readonly percent?: boolean;
+  /** References: the element or link kinds the id may name; absent, any kind. */
+  readonly kinds?: readonly string[];
   parse(raw: string): PropertyResult<T>;
-  serialize(value: T): string;
+  /**
+   * The value as a string. `previous`, the raw string being replaced, lets a type keep the form
+   * it was read in (a number read as `20.00%` is written as a percentage).
+   */
+  serialize(value: T, previous?: string): string;
 }
 
 export function string(options?: PropertyOptions<string>): PropertyType<string> {
@@ -35,6 +46,40 @@ export function string(options?: PropertyOptions<string>): PropertyType<string> 
   };
 }
 
+/** `20.00%` → 20.00 as text, or undefined when `raw` isn't a percentage. */
+function percentBody(raw: string): string | undefined {
+  const text = raw.trim();
+  if (!text.endsWith('%')) return undefined;
+  const body = text.slice(0, -1).trim();
+  return body === '' ? undefined : body;
+}
+
+/** Digits after the decimal point of a number written as text (`20.00` → 2). */
+function decimals(text: string): number {
+  const dot = text.indexOf('.');
+  return dot === -1 ? 0 : text.length - dot - 1;
+}
+
+/** `value` without floating-point noise from a ×100 (0.35 * 100 = 35.00000000000001). */
+function plain(value: number): string {
+  return String(Number(value.toPrecision(12)));
+}
+
+/** Writes `value` in the form of `previous`: a percentage, a leading dot, or plain. */
+function formatNumber(value: number, previous: string | undefined, percent: boolean): string {
+  if (previous === undefined) return String(value);
+  const body = percent ? percentBody(previous) : undefined;
+  if (body !== undefined) {
+    const text = plain(value * 100);
+    const places = decimals(body);
+    return `${places > decimals(text) ? (value * 100).toFixed(places) : text}%`;
+  }
+  if (/^\s*[+-]?\.\d/.test(previous) && Math.abs(value) < 1) {
+    return String(value).replace(/^(-?)0\./, '$1.');
+  }
+  return String(value);
+}
+
 export function number(
   options?: PropertyOptions<number> & { integer?: boolean; min?: number; max?: number },
 ): PropertyType<number> {
@@ -42,14 +87,18 @@ export function number(
   const integer = options?.integer;
   const min = options?.min;
   const max = options?.max;
+  // A number in [·, 1] is a probability or a rate, which tools also write as a percentage.
+  const percent = max === 1;
   return {
     type: 'number',
     options: opts,
     integer,
     min,
     max,
+    ...(percent ? { percent } : {}),
     parse(raw: string): PropertyResult<number> {
-      const value = Number(raw);
+      const body = percent ? percentBody(raw) : undefined;
+      const value = body !== undefined ? Number(body) / 100 : Number(raw);
       if (!Number.isFinite(value)) {
         return { ok: false, error: 'must be a finite number' };
       }
@@ -64,8 +113,8 @@ export function number(
       }
       return { ok: true, value };
     },
-    serialize(value: number): string {
-      return String(value);
+    serialize(value: number, previous?: string): string {
+      return formatNumber(value, previous, percent);
     },
   };
 }
@@ -107,16 +156,40 @@ export function enumOf<const V extends readonly string[]>(
   };
 }
 
+/**
+ * A value that is another element's or link's id, e.g. the goal a KAOS resolution restores. The
+ * schema only checks it is non-empty; `validateModelProperties` reports an id that isn't in the
+ * model or names a kind outside `kinds`.
+ */
+export function reference(
+  options?: PropertyOptions<string> & { kinds?: readonly string[] },
+): PropertyType<string> {
+  const { kinds, ...opts } = options ?? {};
+  return {
+    type: 'reference',
+    options: opts,
+    ...(kinds ? { kinds } : {}),
+    parse(raw: string): PropertyResult<string> {
+      return { ok: true, value: raw };
+    },
+    serialize(value: string): string {
+      return value;
+    },
+  };
+}
+
 export const prop: {
   string: typeof string;
   number: typeof number;
   boolean: typeof boolean;
   enum: typeof enumOf;
+  reference: typeof reference;
 } = {
   string,
   number,
   boolean,
   enum: enumOf,
+  reference,
 };
 
 export type PropertyShape = Record<string, PropertyType<unknown>>;
@@ -233,7 +306,9 @@ function readShape<S extends PropertyShape>(
             ? 'must be true or false'
             : field.type === 'enum'
               ? `must be one of: ${field.values?.join(', ') ?? ''}`
-              : 'must be a finite number',
+              : field.type === 'reference'
+                ? 'must be an element or link id'
+                : 'must be a finite number',
       });
       continue;
     }
@@ -247,6 +322,16 @@ function readShape<S extends PropertyShape>(
   }
 
   return { values, issues };
+}
+
+/**
+ * A patched value as a string, written back as read: the current string is kept when it already
+ * holds the value (`.2` stays `.2`), and otherwise the type writes the value in its form.
+ */
+function writeField(field: PropertyType<unknown>, value: unknown, current: string): string {
+  const parsed = field.parse(current);
+  if (parsed.ok && Object.is(parsed.value, value)) return current;
+  return field.serialize(value as never, current);
 }
 
 export function defineProperties<
@@ -286,7 +371,7 @@ export function defineProperties<
             }
             const field = shape[key];
             if (field) {
-              result[key] = field.serialize(patched as never);
+              result[key] = writeField(field, patched, value);
             }
           } else {
             result[key] = value;
@@ -336,25 +421,41 @@ export function validateModelProperties<EK extends string, LK extends string>(
 
   const issues: ModelPropertyIssue[] = [];
 
-  for (const element of model.elements.values()) {
-    const kindSchemas = byKind.get(element.kind);
-    if (!kindSchemas) continue;
+  const check = (owner: PropertyOwner & { readonly id: string }): void => {
+    const kindSchemas = byKind.get(owner.kind);
+    if (!kindSchemas) return;
     for (const schema of kindSchemas) {
-      for (const issue of schema.validate(element)) {
-        issues.push({ ...issue, id: element.id });
+      for (const issue of schema.validate(owner)) {
+        issues.push({ ...issue, id: owner.id });
+      }
+      for (const issue of referenceIssues(model, schema.shape, owner.customProperties)) {
+        issues.push({ ...issue, id: owner.id });
       }
     }
-  }
+  };
+  for (const element of model.elements.values()) check(element);
+  for (const link of model.links.values()) check(link);
 
-  for (const link of model.links.values()) {
-    const kindSchemas = byKind.get(link.kind);
-    if (!kindSchemas) continue;
-    for (const schema of kindSchemas) {
-      for (const issue of schema.validate(link)) {
-        issues.push({ ...issue, id: link.id });
-      }
+  return issues;
+}
+
+/** References (`prop.reference`) to ids that aren't in the model, or to the wrong kind. */
+function referenceIssues<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  shape: PropertyShape,
+  custom: CustomProperties | undefined,
+): PropertyIssue[] {
+  const issues: PropertyIssue[] = [];
+  for (const [key, field] of Object.entries(shape)) {
+    if (field.type !== 'reference') continue;
+    const id = custom?.[key];
+    if (id === undefined || id === '') continue;
+    const target = model.elements.get(id) ?? model.links.get(id);
+    if (!target) {
+      issues.push({ key, message: `refers to "${id}", which is not in the model` });
+    } else if (field.kinds && !field.kinds.includes(target.kind)) {
+      issues.push({ key, message: `must refer to a ${field.kinds.join(' or ')}` });
     }
   }
-
   return issues;
 }

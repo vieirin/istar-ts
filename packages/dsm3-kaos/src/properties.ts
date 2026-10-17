@@ -44,8 +44,16 @@ export const softgoalProperties: PropertySchema<KaosGoalProperties, 'kaos.Softgo
   defineProperties('kaos.Softgoal', goalProperties('softgoal'));
 
 export interface KaosRefinementProperties extends PropertyShape {
+  /**
+   * The system reference: the design option the refinement belongs to (Heaven & Letier, RE
+   * 2011). A dialect may type it.
+   */
   readonly SysRef: PropertyType<string>;
   readonly Status: PropertyType<string>;
+  /**
+   * The refinement tactic or pattern (milestone-driven, case-driven, …; KAOSTools'
+   * `refinedby [milestone]`). Free text here; a dialect types its values.
+   */
   readonly Tactic: PropertyType<string>;
 }
 
@@ -69,10 +77,68 @@ export interface KaosConflictProperties extends PropertyShape {
 export const conflictProperties: PropertySchema<KaosConflictProperties, 'kaos.Conflict'> =
   defineProperties('kaos.Conflict', { BoundaryCondition: text() });
 
+export interface KaosDomainPropertyProperties extends PropertyShape {
+  /**
+   * Whether the domain property is an invariant or a hypothesis (the book and Objectiver
+   * distinguish them on one concept, KAOSTools by declaration). Not DSM3's: optional and
+   * without a default, so DSM3 files and new domain properties don't gain the key. A dialect
+   * types its values (`invariant | hypothesis`).
+   */
+  readonly Kind: PropertyType<string>;
+}
+
+export const domainPropertyProperties: PropertySchema<
+  KaosDomainPropertyProperties,
+  'kaos.DomainProperty'
+> = defineProperties('kaos.DomainProperty', { Kind: prop.string({ optional: true }) });
+
 /** Every KAOS schema, e.g. for core's `validateModelProperties`. */
 export const KAOS_PROPERTY_SCHEMAS: readonly PropertySchema<PropertyShape, string>[] = [
   behavioralGoalProperties,
   softgoalProperties,
   refinementProperties,
   conflictProperties,
+  domainPropertyProperties,
+];
+
+// ---------------------------------------------------------------------------------------------
+// Obstacle analysis (`kaosObstacleAnalysis`): istar-ts's keys, all text, as DSM3's are. Values
+// such as a probability or a resolution strategy's name are a dialect's to type.
+
+export interface KaosObstacleProperties extends PropertyShape {
+  readonly Description: PropertyType<string>;
+  /** The obstacle's formal definition; a string, as core has no formula language. */
+  readonly FormalSpec: PropertyType<string>;
+  readonly Category: PropertyType<string>;
+}
+
+export const obstacleProperties: PropertySchema<KaosObstacleProperties, 'kaosObstacles.Obstacle'> =
+  defineProperties('kaosObstacles.Obstacle', {
+    Description: text(),
+    FormalSpec: text(),
+    Category: text(),
+  });
+
+export interface KaosResolutionProperties extends PropertyShape {
+  /** The resolution strategy (TSE'00's, KAOSTools' `prevention | mitigation`, …). */
+  readonly ResolutionType: PropertyType<string>;
+  /**
+   * The goal a mitigation restores, by id. Text here; a dialect types it as
+   * `prop.reference({ kinds: ['kaos.BehavioralGoal'] })`.
+   */
+  readonly Anchor: PropertyType<string>;
+}
+
+export const resolutionProperties: PropertySchema<
+  KaosResolutionProperties,
+  'kaosObstacles.ResolutionLink'
+> = defineProperties('kaosObstacles.ResolutionLink', {
+  ResolutionType: text(),
+  Anchor: text(),
+});
+
+/** The obstacle analysis's schemas, for models read with `KAOS_OBSTACLES`. */
+export const KAOS_OBSTACLE_PROPERTY_SCHEMAS: readonly PropertySchema<PropertyShape, string>[] = [
+  obstacleProperties,
+  resolutionProperties,
 ];
