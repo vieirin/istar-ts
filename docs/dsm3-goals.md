@@ -149,6 +149,8 @@ Dated entries, appended as the work goes. Each says what was decided and why.
   the framework packages (ESM-only, and their index loads React). Each gets a `./metamodel`
   subpath with ESM and CJS builds instead of making the whole package dual-format, since the
   extension needs React and `@istar-ts/react` stays ESM-only.
+- **2026-10-17**: `typesVersions` on the two framework packages, since TypeScript's `node10`
+  resolution ignores `exports` and goal-controller's lib compiles with `module: commonjs`.
 - **2026-10-16**: The release workflow publishes core, react, dsm3-kaos, dsm3-nfr in that
   order. The two new packages need an npm trusted publisher each, which the repository owner
   creates on npmjs.com.

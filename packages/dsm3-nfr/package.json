@@ -40,6 +40,13 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "metamodel": [
+        "./dist/metamodel.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist",
     "README.md",
