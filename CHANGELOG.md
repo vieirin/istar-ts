@@ -43,6 +43,22 @@ Versions are published from GitHub release tags; see the release notes for full 
     targets is unchanged.
   - **core:** `detectPrefix(json)` and `detectFramework(json, roots)` tell which root metamodel a
     file is written in.
+- **DSM3-goals' KAOS and NFR on the canvas** (issue #7). iStar 2.0 models render exactly as
+  before (a snapshot of `modelToFlow` pins it).
+  - **react:** the provider completes the registry for any root other than iStar 2.0, and
+    `registryForMetamodel` keeps only the metamodel's kinds.
+  - **react:** hubs of n-ary links draw with `HubComponent` and inspect with `HubInspector`, off
+    the palette. Legs have no marker and ends draw like their link. Connecting with an n-ary
+    kind creates a hub or adds a leg, puts the kind's property defaults on a new hub, and
+    selects the hub.
+  - **react:** new link kinds with `possibleLabels` get one palette entry per label.
+  - **react:** links that target links end on the middle of their target link, through an anchor
+    node shown while a link-targeting tool is active (`linkAnchorId`, `linkIdOfAnchor`,
+    canvas class `is-linking-to-links`). The link inspector names a link target by its kind.
+  - **react:** node kinds with `info.canBeOnPaper` are added outside actors.
+  - **react:** `ShapeSpec` is core's `KindShape`; `PathShape` and palette icons draw its `dash`
+    and `strokeWidth`. New `polygonPath(points)`.
+  - **react:** `resolveLinkStyle` accepts a registry of any metamodel.
 
 ## 0.12.0
 

@@ -104,8 +104,15 @@ export type { FittedLabelProps, LabelFit, TextBox } from './label-fit';
 export type { PathBounds } from './svg-path';
 export { OPEN_ARROW, resolveLinkStyle } from './edges';
 export type { ResolvedLinkStyle } from './edges';
-export { ACTOR_PADDING, actorBoundary, modelToFlow } from './layout';
-export type { Box, FlowGraph } from './layout';
+export {
+  ACTOR_PADDING,
+  LINK_ANCHOR_SIZE,
+  actorBoundary,
+  linkAnchorId,
+  linkIdOfAnchor,
+  modelToFlow,
+} from './layout';
+export type { Box, FlowGraph, IstarEdgeData, LinkAnchorNodeData } from './layout';
 export {
   CommitText,
   CustomPropertiesEditor,

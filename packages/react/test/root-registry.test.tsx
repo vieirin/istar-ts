@@ -13,6 +13,7 @@ import {
   IstarCanvas,
   OPEN_ARROW,
   defaultRegistry,
+  modelToFlow,
   registryForMetamodel,
   resolveLinkStyle,
 } from '../src';
@@ -111,3 +112,22 @@ function createLined(): AnyIstarRegistry {
     },
   };
 }
+
+describe('modelToFlow with hubs', () => {
+  test('draws each refinement as a hub node, legs into it and one end out of it', () => {
+    const model = parsePistar(dsm3('kaos-welcome.txt'), { metamodel: KAOS });
+    const { nodes, edges } = modelToFlow(model as never, kaos() as never);
+    const hubs = nodes.filter((n) => model.elements.get(n.id)?.kind === 'kaos.RefinementLinkHub');
+    expect(hubs).toHaveLength(4);
+    for (const hub of hubs) expect([hub.width, hub.height]).toEqual([20, 20]);
+    const hubIds = new Set(hubs.map((h) => h.id));
+    const kindOf = (id: string) => model.links.get(id)?.kind;
+    const legs = edges.filter((e) => kindOf(e.id) === 'kaos.RefinementLinkStart');
+    const ends = edges.filter((e) => kindOf(e.id) === 'kaos.RefinementLinkEnd');
+    expect(legs).toHaveLength(5);
+    expect(ends).toHaveLength(4);
+    expect(legs.every((e) => hubIds.has(e.target))).toBe(true);
+    expect(ends.every((e) => hubIds.has(e.source))).toBe(true);
+    expect(new Set(ends.map((e) => e.source))).toEqual(hubIds);
+  });
+});

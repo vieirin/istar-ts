@@ -337,6 +337,41 @@ function Editor({ text }: { text: string }) {
 The playground's "iStar4RationalAgents" extension (`examples/playground/src/extensions/`) and the
 `fixtures/extensions/rationalAgents.txt` example show it end to end.
 
+### Other root metamodels, hubs and link-anchored links
+
+A model whose metamodel is a root other than iStar 2.0, such as KAOS or the NFR Framework built
+with core's `defineMetamodel`, gets a registry of its own. The canvas completes the registry for
+it and keeps only its kinds, so a KAOS canvas has no iStar palette. A framework package then
+applies its presentation on top:
+
+```tsx
+import { applyExtensions, registryForMetamodel } from '@istar-ts/react';
+
+<IstarCanvas store={store} extensions={[kaosExtension]} />;
+// or, standalone:
+const registry = applyExtensions(registryForMetamodel(KAOS), [kaosExtension]);
+```
+
+- **Paper.** A node kind whose metamodel `info.canBeOnPaper` is true is added where you click on
+  empty canvas, or on a node outside any actor. iStar 2.0's node kinds still need an actor.
+- **Hubs.** An n-ary link kind (`arity: 'n'`, e.g. KAOS's refinement) is drawn as DSM3-goals
+  draws it: a circle (`HubComponent`), a leg from each source to it, and an end from it to the
+  target. The hub isn't on the palette, and its inspector (`HubInspector`) is titled with the
+  link and edits the link kind's `properties`, which are kept on the hub. Legs have no marker;
+  the end is drawn like the base kind's `line`. The base kind has one tool: dragging from a
+  source to a target creates the hub, its first leg and the end; dragging onto an existing hub
+  adds a leg. Either way the hub is selected.
+- **Changeable labels.** A new link kind with `info.possibleLabels` gets one palette entry per
+  label, grouped in a dropdown, as iStar's Contribution has.
+- **Links that target links.** A link kind whose rules target links (NFR's Argument, core's
+  `targetsLinks`) is drawn to the middle of the link it points at, and follows it while its
+  nodes are dragged. While such a tool is active (canvas class `is-linking-to-links`), each
+  targeted link shows an anchor on its middle to drop the new link on. `linkAnchorId(linkId)`
+  and `linkIdOfAnchor(nodeId)` convert between a link and its anchor node.
+- **Shapes.** A `shape` may give a `dash` and a `strokeWidth` for its outline, as KAOS's dashed
+  Softgoal and NFR's bold Operationalization need. `polygonPath(points)` turns SVG polygon
+  points into path data.
+
 ### Link labels
 
 By default links are labelled as in piStar: Is-A and Participates-In links show their fixed text, and
