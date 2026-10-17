@@ -2,6 +2,15 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.5
+
+- **core:** the registries kept beside models (their metamodel, the host part of it, their
+  file's layout) are shared across every copy of `@istar-ts/core` in a process, through one
+  `Symbol.for` key on `globalThis`. A bundle that loads the package twice (ESM for the
+  application, CommonJS for a dependency) no longer sees a model parsed by one copy as iStar 2.0
+  in the other, so `metamodelOf`, `getSourceLayout` and `toPistar` agree. For goal-controller
+  #171.
+
 ## 0.13.4
 
 - **core:** `toPistar` writes every element, link, hub entry and the diagram with the key order

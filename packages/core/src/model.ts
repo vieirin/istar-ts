@@ -1,6 +1,7 @@
 import type { ActorKind, ElementKind, LinkKind, NodeKind, Size } from './metamodel';
 import type { AnyMetamodel, Metamodel } from './metamodels';
 import { ISTAR_2_0, isActorKindIn } from './metamodels';
+import { sharedWeakMap } from './shared';
 
 /**
  * piStar stores every custom property value as a string (e.g. `"initialValue": "false"`).
@@ -133,7 +134,7 @@ export type AnyIstarModel = IstarModel<string, string>;
  * so a model's shape (and `JSON.stringify`, deep equality, snapshots) is the same as before
  * metamodels existed. Operations and the store carry it to every model they derive.
  */
-const metamodels = new WeakMap<object, AnyMetamodel>();
+const metamodels = sharedWeakMap<AnyMetamodel>('metamodels');
 
 /**
  * Associates `metamodel` with `model` and returns the same model, typed for it. Use when a
@@ -153,7 +154,7 @@ export function withMetamodel<EK extends string, LK extends string>(
  * For models whose file declares part of their metamodel (see `withFileMetamodel`): the
  * metamodel the host supplied, without the file's kinds.
  */
-const hostMetamodels = new WeakMap<object, AnyMetamodel>();
+const hostMetamodels = sharedWeakMap<AnyMetamodel>('hostMetamodels');
 
 /** @internal Records the host part of a model's metamodel (used by serialization). */
 export function setHostMetamodel(model: object, metamodel: AnyMetamodel | undefined): void {
