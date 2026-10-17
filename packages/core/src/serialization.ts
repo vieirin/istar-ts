@@ -8,6 +8,7 @@
 import type { ElementKind, LinkKind } from './metamodel';
 import type { AnyMetamodel, Metamodel } from './metamodels';
 import { ISTAR_2_0, MetamodelError, extendMetamodel } from './metamodels';
+import { sharedWeakMap } from './shared';
 import type { FileMetamodel } from './file-metamodel';
 import {
   FILE_METAMODEL_KEY,
@@ -148,7 +149,7 @@ export function hubEntryLayoutKey(hubId: string): string {
 /** The `objects` key of the diagram in a `SourceLayout`. */
 export const DIAGRAM_LAYOUT_KEY = '\u0000diagram';
 
-const layouts = new WeakMap<object, SourceLayout>();
+const layouts = sharedWeakMap<SourceLayout>('layouts');
 
 /** The key order recorded when `model` was parsed, if it came from `parsePistar`. */
 export function getSourceLayout<EK extends string, LK extends string>(

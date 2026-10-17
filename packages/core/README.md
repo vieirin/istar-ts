@@ -37,6 +37,9 @@ writeFileSync('model.pistar', toPistar(model));
 - Pass `{ saveDate: new Date() }` when saving an edited model (piStar updates `saveDate` on save).
   Omit it to preserve the model’s existing `saveDate` on a load/save cycle; a file that had none
   keeps none until a save passes one.
+- A model's metamodel and layout are kept beside it, in registries shared by every copy of
+  `@istar-ts/core` in the process (ESM and CommonJS builds alike), so a model parsed by one copy
+  is read correctly by another.
 - A parsed file is written back with its own key order at every level (top level, each element,
   link, hub entry and the diagram), so files other tools wrote stay byte-identical. `inheritSourceLayout`
   carries that over to an edited model; the store does it on every edit.
