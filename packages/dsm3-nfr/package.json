@@ -25,6 +25,17 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./metamodel": {
+      "@istar-ts/source": "./src/headless.ts",
+      "import": {
+        "types": "./dist/metamodel.d.ts",
+        "default": "./dist/metamodel.js"
+      },
+      "require": {
+        "types": "./dist/metamodel.d.cts",
+        "default": "./dist/metamodel.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.js",

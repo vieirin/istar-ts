@@ -4,6 +4,12 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **dsm3-kaos / dsm3-nfr:** a React-free `./metamodel` subpath (`@istar-ts/dsm3-kaos/metamodel`,
+  `@istar-ts/dsm3-nfr/metamodel`) with the root metamodel, its declaration, kind names,
+  property schemas and labels, built for `import` and `require` as `@istar-ts/core` is. The
+  package roots stay ESM-only. For CommonJS consumers such as mocha + ts-node (goal-controller
+  #171).
+
 - **KAOS polish** (issue #12).
   - **react:** selecting a leg or the end of an n-ary link inspects the whole link through its hub
     (`HubPartInspector`, the default for generated leg and end kinds). `HubInspector` lists the
