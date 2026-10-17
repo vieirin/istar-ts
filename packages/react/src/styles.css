@@ -821,3 +821,23 @@
   cursor: crosshair;
   border-radius: 50%;
 }
+
+/* Hub inspector: the n-ary link's sources and target. */
+.istar-hub-ends {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 12px;
+}
+.istar-hub-ends dt {
+  opacity: 0.7;
+}
+.istar-hub-ends dd {
+  margin: 0;
+}
+.istar-hub-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

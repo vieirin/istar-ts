@@ -37,7 +37,7 @@ import {
 } from '@istar-ts/core';
 import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
-import { HubComponent, HubInspector } from './hubs';
+import { HubComponent, HubInspector, HubPartInspector } from './hubs';
 import type { ElementIssue } from './issues';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 import type { LabelFit, TextBox } from './label-fit';
@@ -244,6 +244,12 @@ export interface LinkKindConfig<K extends string = LinkKind, DK extends string =
    * A `labelComponent` receives them as `labels.header`.
    */
   readonly labelHeader?: (link: IstarLink<string>) => readonly string[] | null;
+  /**
+   * Palette icon for this kind's entries that have none of their own. Default: drawn from the
+   * kind's line (`linkIcon`). Kinds whose `labelComponent` draws a glyph on the link can show it
+   * here too, e.g. `linkIcon(kind, undefined, { marker: null, glyph })`.
+   */
+  readonly icon?: ReactNode;
 }
 
 /** Props of a link kind's `labelComponent`. */
@@ -653,10 +659,12 @@ export function registryForMetamodel<EK extends string, LK extends string>(
   for (const definition of meta.links.values()) {
     if (links[definition.kind]) continue;
     if (definition.role === 'leg' || definition.role === 'end') {
-      // Drawn with the base kind's tool: dragging onto a hub adds a leg.
+      // Drawn with the base kind's tool: dragging onto a hub adds a leg. Selecting one inspects
+      // the whole link, through its hub.
       links[definition.kind] = {
         kind: definition.kind,
         label: definition.label,
+        inspector: HubPartInspector,
         ...(definition.line ? { line: definition.line } : {}),
         palette: false,
       };

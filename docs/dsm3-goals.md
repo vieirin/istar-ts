@@ -244,3 +244,17 @@ Dated entries, appended as the work goes. Each says what was decided and why.
 - **2026-10-16** (PR4 review): DSM3's "must be an element" branches are tested per link kind. A
   link id as the source fails with `unknown-element`; as the target of a kind whose rules name
   elements only, with `invalid-target`.
+- **2026-10-16** (issue #12, KAOS polish):
+  - Selecting a leg or an end of an n-ary link inspects the whole link. Their registry entries
+    get `HubPartInspector`, which renders the hub's `HubInspector` for the hub `hubOfLink` finds,
+    with the hub's actions, schema and diagnostics. The selection stays on the leg or end, so the
+    canvas still highlights what was clicked. A leg or end without a hub falls back to the
+    default link inspector. This works for any `arity: 'n'` kind, and packages need no change.
+  - `HubInspector` lists the link's sources, one per leg in link order, by element name, and
+    its target, above the properties.
+  - Palette icons for glyph links: `LinkKindConfig.icon` is used for a kind's entries that have
+    no icon of their own; an entry's own icon still wins. `LinkIconStyle.glyph` draws a path at
+    the icon line's middle, unrotated and scaled down, like the canvas's `labelComponent`.
+    `kaosExtension` gives Conflict and Responsibility Assignment
+    `linkIcon(kind, undefined, { marker: null, glyph })`. Rendering a `labelComponent` inside the
+    icon was rejected: label components are HTML sized for the canvas, not for a 40×24 icon.

@@ -167,6 +167,11 @@ export interface LinkIconStyle {
   readonly dash?: string;
   /** Target marker (JointJS convention, as in the canvas); `null` for none. */
   readonly marker?: { readonly d: string; readonly filled: boolean } | null;
+  /**
+   * Path data drawn at the line's middle, as a link's `labelComponent` draws it on the canvas
+   * (e.g. DSM3's KAOS Conflict bolt): (0,0) is the middle, not rotated, scaled down to the icon.
+   */
+  readonly glyph?: string;
 }
 
 /**
@@ -192,6 +197,16 @@ export function linkIcon(
           d={marker.d}
           transform={`translate(${END.x} ${END.y}) rotate(${BACK_ANGLE}) scale(0.7)`}
           style={{ ...lineStyle, fill: marker.filled ? 'var(--istar-stroke)' : 'none' }}
+        />
+      ) : (
+        <g />
+      )}
+      {style?.glyph ? (
+        <path
+          className="istar-palette-glyph"
+          d={style.glyph}
+          transform={`translate(${W / 2} ${H / 2}) scale(0.45)`}
+          style={{ ...lineStyle, fill: 'var(--istar-canvas-bg, #fff)', strokeWidth: 2.5 }}
         />
       ) : (
         <g />

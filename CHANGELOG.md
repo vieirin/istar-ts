@@ -2,6 +2,16 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## Unreleased
+
+- **KAOS polish** (issue #12).
+  - **react:** selecting a leg or the end of an n-ary link inspects the whole link through its hub
+    (`HubPartInspector`, the default for generated leg and end kinds). `HubInspector` lists the
+    link's sources and its target.
+  - **react:** `LinkKindConfig.icon` sets the palette icon of a link kind's entries that have
+    none, and `linkIcon`'s style takes a `glyph` drawn at the line's middle.
+  - **dsm3-kaos:** Conflict and Responsibility Assignment palette icons show their glyphs.
+
 ## 0.13.0
 
 - **Root metamodels** (issue #7, groundwork for DSM3-goals' KAOS and NFR). iStar 2.0 is no longer

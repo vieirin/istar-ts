@@ -2,10 +2,16 @@
  * The circle of an n-ary link (DSM3-goals' "split link", e.g. a KAOS refinement): the element
  * its legs point at and its end leaves from. It has no name; its properties are the link's.
  */
-import type { IstarElement } from '@istar-ts/core';
+import type { IstarElement, IstarLink } from '@istar-ts/core';
+import { hubLinkOf, hubOfLink } from '@istar-ts/core';
 import type { ReactElement } from 'react';
 import { useIstarEditor } from './context';
-import { DiagnosticList, ElementPropertiesSection, topDiagnostics } from './Inspector';
+import {
+  DefaultLinkInspector,
+  DiagnosticList,
+  ElementPropertiesSection,
+  topDiagnostics,
+} from './Inspector';
 import type { AnyIstarRegistry, ElementComponentProps, InspectorProps } from './registry';
 
 /** DSM3's hub: a white circle of radius 10 in its 20×20 box, scaled to the element. */
@@ -37,13 +43,16 @@ export function HubComponent({ width, height, element }: ElementComponentProps):
 }
 
 /**
- * Inspector of a hub: the link's title, its property fields (the hub kind's schema, else the
- * base link kind's), and deleting the whole link. No name or colour field, as DSM3 has none
+ * Inspector of a hub, standing for its whole n-ary link: the link's title, its sources (one per
+ * leg, in link order) and target, its property fields (the hub kind's schema, else the base
+ * link kind's), and deleting the whole link. No name or colour field, as DSM3 has none
  * for the circle.
  */
 export function HubInspector(props: InspectorProps<IstarElement>): ReactElement {
   const { target, actions, readOnly, diagnostics } = props;
-  const { registry, metamodel } = useIstarEditor();
+  const { registry, metamodel, model } = useIstarEditor();
+  const parts = hubLinkOf(model, target.id);
+  const nameOf = (id: string): string => model.elements.get(id)?.name ?? id;
   const label = registry.elements[target.kind].label;
   // The hub keeps the link's properties: the hub kind's schema, else the base link kind's.
   const of = metamodel.elements.get(target.kind)?.of;
@@ -60,6 +69,22 @@ export function HubInspector(props: InspectorProps<IstarElement>): ReactElement 
         showKey
         className="istar-inspector-diagnostics"
       />
+      <dl className="istar-hub-ends">
+        <dt>Sources</dt>
+        <dd>
+          {parts && parts.legs.length > 0 ? (
+            <ul className="istar-hub-sources">
+              {parts.legs.map((leg) => (
+                <li key={leg.id}>{nameOf(leg.source)}</li>
+              ))}
+            </ul>
+          ) : (
+            '—'
+          )}
+        </dd>
+        <dt>Target</dt>
+        <dd className="istar-hub-target">{parts?.end ? nameOf(parts.end.target) : '—'}</dd>
+      </dl>
       <ElementPropertiesSection {...props} {...(schema ? { schema } : {})} />
       {!readOnly && (
         <button type="button" className="istar-danger-button" onClick={actions.remove}>
@@ -67,5 +92,29 @@ export function HubInspector(props: InspectorProps<IstarElement>): ReactElement 
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * Inspector of a hub link's leg or end: the hub's, since both are pieces of one n-ary link
+ * (selecting either inspects the link as a whole). Falls back to the default link inspector for
+ * a leg or end without a hub.
+ */
+export function HubPartInspector(props: InspectorProps<IstarLink>): ReactElement {
+  const editor = useIstarEditor();
+  const hub = hubOfLink(editor.model, props.target.id);
+  if (!hub) return <DefaultLinkInspector {...props} />;
+  const config = editor.registry.elements[hub.kind];
+  return (
+    <HubInspector
+      key={hub.id}
+      target={hub}
+      model={editor.model}
+      actions={editor.elementActions(hub.id)}
+      readOnly={props.readOnly}
+      {...(config?.properties ? { schema: config.properties as InspectorProps['schema'] } : {})}
+      issues={editor.issuesById.get(hub.id) ?? []}
+      diagnostics={editor.diagnosticsById.get(hub.id) ?? []}
+    />
   );
 }

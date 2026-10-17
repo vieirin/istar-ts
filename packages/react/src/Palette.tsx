@@ -115,6 +115,9 @@ export function paletteSections(registry: IstarRegistry, given?: AnyMetamodel): 
     const dependency = metamodel.links.get(kind)?.category === 'dependency';
     for (const raw of config.palette) {
       let entry: PaletteEntry & { readonly value?: string; readonly dependum?: string } = raw;
+      if (entry.icon === undefined && config.icon !== undefined) {
+        entry = { ...entry, icon: config.icon };
+      }
       if (entry.icon === undefined) {
         const style = resolveLinkStyle(metamodel, registry, kind);
         entry = {
