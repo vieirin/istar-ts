@@ -59,6 +59,7 @@ export {
   EditableLabel,
 } from './default-components';
 export type { EditableLabelProps } from './default-components';
+export { HubComponent, HubInspector } from './hubs';
 export { ElementIssuesBadge, describeDiagnostic } from './ElementIssuesBadge';
 export type { ElementIssuesBadgeProps } from './ElementIssuesBadge';
 export { diagnosticToIssue, groupIssuesById, issueToDiagnostic, worstSeverity } from './issues';

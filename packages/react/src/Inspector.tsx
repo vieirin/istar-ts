@@ -387,37 +387,23 @@ export function CustomPropertiesEditor({
 // ---------------------------------------------------------------------------------------------
 // Default inspectors
 
-export function DefaultElementInspector({
+/**
+ * The typed fields of an element's schema, its cross-field issues and its other properties: the
+ * part of the element inspector that doesn't depend on the kind (shared with the hub inspector).
+ */
+export function ElementPropertiesSection({
   target,
   actions,
   readOnly,
   schema,
   diagnostics,
 }: InspectorProps<IstarElement>): ReactElement {
-  const { registry, metamodel } = useIstarEditor();
-  const nameId = useId();
-  const colorId = useId();
   const typed = useTypedProperties(schema, target, actions);
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const crossIssues = typed.issues.filter((i) => !schemaKeys.includes(i.key));
-  const kindLabel = registry.elements[target.kind].label;
   const rows = splitDiagnostics(diagnostics, schemaKeys, target.customProperties);
   return (
-    <div className="istar-inspector-body">
-      <h3 className="istar-inspector-title">
-        {kindLabel}
-        {target.isDependum ? ' (dependum)' : ''}
-      </h3>
-      <DiagnosticList diagnostics={rows.top} showKey className="istar-inspector-diagnostics" />
-      <InspectorField label="Name" htmlFor={nameId}>
-        <CommitText
-          id={nameId}
-          multiline
-          value={target.name}
-          readOnly={readOnly}
-          onCommit={actions.rename}
-        />
-      </InspectorField>
+    <>
       {schemaKeys.map((key) => (
         <PropertyField
           key={key}
@@ -445,6 +431,50 @@ export function DefaultElementInspector({
         readOnly={readOnly}
         diagnostics={diagnostics}
       />
+    </>
+  );
+}
+
+/** Diagnostics of a target not tied to one of its schema's properties. */
+export function topDiagnostics(
+  diagnostics: readonly GoalDiagnostic[] | undefined,
+  schema: InspectorProps<IstarElement>['schema'],
+  target: IstarElement,
+): readonly GoalDiagnostic[] {
+  return splitDiagnostics(
+    diagnostics,
+    schema ? Object.keys(schema.shape) : [],
+    target.customProperties,
+  ).top;
+}
+
+export function DefaultElementInspector(props: InspectorProps<IstarElement>): ReactElement {
+  const { target, actions, readOnly, schema, diagnostics } = props;
+  const { registry, metamodel } = useIstarEditor();
+  const nameId = useId();
+  const colorId = useId();
+  const kindLabel = registry.elements[target.kind].label;
+  return (
+    <div className="istar-inspector-body">
+      <h3 className="istar-inspector-title">
+        {kindLabel}
+        {target.isDependum ? ' (dependum)' : ''}
+      </h3>
+      <DiagnosticList
+        diagnostics={topDiagnostics(diagnostics, schema, target)}
+        showKey
+        className="istar-inspector-diagnostics"
+      />
+      <InspectorField label="Name" htmlFor={nameId}>
+        <CommitText
+          id={nameId}
+          multiline
+          value={target.name}
+          readOnly={readOnly}
+          onCommit={actions.rename}
+        />
+      </InspectorField>
+      <ElementPropertiesSection {...props} />
       <InspectorField label="Color" htmlFor={colorId}>
         <div className="istar-color-field">
           <input
@@ -478,10 +508,6 @@ export function DefaultElementInspector({
   );
 }
 
-/**
- * Diagnostics for the top of an inspector (about the element, or about a property without a
- * row) and a lookup for the rows of schema properties. Custom-property rows filter their own.
- */
 function splitDiagnostics(
   diagnostics: readonly GoalDiagnostic[] | undefined,
   schemaKeys: readonly string[],
