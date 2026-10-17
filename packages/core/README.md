@@ -35,7 +35,11 @@ writeFileSync('model.pistar', toPistar(model));
 - Files saved by the piStar web tool round-trip **byte-identically** through
   `toPistar(parsePistar(file))` when you do not edit the model.
 - Pass `{ saveDate: new Date() }` when saving an edited model (piStar updates `saveDate` on save).
-  Omit it to preserve the model’s existing `saveDate` on a load/save cycle.
+  Omit it to preserve the model’s existing `saveDate` on a load/save cycle; a file that had none
+  keeps none until a save passes one.
+- A parsed file is written back with its own key order at every level (top level, each element,
+  link, hub entry and the diagram), so files other tools wrote stay byte-identical. `inheritSourceLayout`
+  carries that over to an edited model; the store does it on every edit.
 
 ```ts
 toPistar(editedModel, { saveDate: new Date() });

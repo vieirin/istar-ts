@@ -133,7 +133,20 @@ export interface SourceLayout {
   readonly keys: readonly string[];
   /** `display` ids in file order. */
   readonly display: readonly string[];
+  /**
+   * Each element's, link's and hub entry's keys in file order, by id (a hub's entry under
+   * `hubEntryLayoutKey(id)`), and the diagram's under `DIAGRAM_LAYOUT_KEY`. Files written by
+   * other tools order keys differently from piStar; this keeps them as they were.
+   */
+  readonly objects?: ReadonlyMap<string, readonly string[]>;
 }
+
+/** The `objects` key of a hub's entry (`{ hub, starts, end }`) in a `SourceLayout`. */
+export function hubEntryLayoutKey(hubId: string): string {
+  return `${hubId}\u0000entry`;
+}
+/** The `objects` key of the diagram in a `SourceLayout`. */
+export const DIAGRAM_LAYOUT_KEY = '\u0000diagram';
 
 const layouts = new WeakMap<object, SourceLayout>();
 
@@ -271,6 +284,7 @@ export function parsePistar(
     return entry;
   };
 
+  const objects = new Map<string, readonly string[]>();
   const readElement = (
     raw: unknown,
     where: string,
@@ -303,6 +317,7 @@ export function parsePistar(
       ...optional('extra', extraOf(raw, known)),
     };
     elements.set(id, element);
+    objects.set(id, Object.keys(raw));
     return element;
   };
 
@@ -362,6 +377,7 @@ export function parsePistar(
       ...optional('extra', extraOf(raw, LINK_KEYS)),
     };
     links.set(id, link);
+    objects.set(id, Object.keys(raw));
     return link;
   };
 
@@ -372,6 +388,7 @@ export function parsePistar(
     if (hubKind?.role !== 'hub') {
       throw new PistarParseError(`${where}.hub (${hub.id}): ${hub.kind} is not a hub kind`);
     }
+    objects.set(hubEntryLayoutKey(hub.id), Object.keys(raw));
     const entryExtra = extraOf(raw, HUB_ENTRY_KEYS);
     if (entryExtra) {
       elements.set(hub.id, { ...hub, extra: { ...hub.extra, [HUB_ENTRY_KEY]: entryExtra } });
@@ -418,6 +435,7 @@ export function parsePistar(
         : {}),
       ...optional('extra', extraOf(d, DIAGRAM_KEYS)),
     };
+    objects.set(DIAGRAM_LAYOUT_KEY, Object.keys(d));
   }
 
   const model: AnyIstarModel = {
@@ -430,7 +448,7 @@ export function parsePistar(
     ...optional('extraDisplay', extraDisplay),
     ...optional('extra', extraOf(json, TOP_LEVEL_KEY_SET)),
   };
-  layouts.set(model, { keys: Object.keys(json), display: Object.keys(display) });
+  layouts.set(model, { keys: Object.keys(json), display: Object.keys(display), objects });
   // The block stays in `extra`, so it is written back exactly as read.
   setHostMetamodel(model, host);
   return withMetamodel(model, metamodel);
@@ -522,8 +540,8 @@ export interface ToPistarOptions {
   metamodel?: AnyMetamodel;
   /**
    * Value for `saveDate`. Defaults to the model's own `saveDate` (so a load/save round trip is
-   * lossless), or the current time for models that never had one. Pass `new Date()` when
-   * saving an edited model, as piStar does.
+   * lossless); a parsed file that had none keeps none, and a model that was never a file gets
+   * the current time. Pass `new Date()` when saving an edited model, as piStar does.
    */
   saveDate?: string | Date;
 }
@@ -540,6 +558,20 @@ function pistarTypeOf(type: string | undefined, kind: string, metamodel: AnyMeta
     );
   }
   return type;
+}
+
+/**
+ * `value` with its keys in the order `keys` gives (those present), then the rest as built (piStar's
+ * order): an object read from a file is written back with the file's key order, and keys the
+ * file lacked follow.
+ */
+function inSourceOrder<T extends object>(value: T, keys: readonly string[] | undefined): T {
+  if (!keys) return value;
+  const result: Record<string, unknown> = {};
+  const record = value as Record<string, unknown>;
+  for (const key of keys) if (key in record) result[key] = record[key];
+  for (const key of Object.keys(record)) if (!(key in result)) result[key] = record[key];
+  return result as T;
 }
 
 function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): PistarElementJson {
@@ -569,48 +601,58 @@ export function toPistarObject<EK extends string, LK extends string>(
   const orphans: PistarElementJson[] = [];
   const dependencies: PistarDependencyJson[] = [];
   const children = new Map<string, PistarElementJson[]>();
+  const layout = layouts.get(model);
+  const sourceOrder = <T extends object>(id: string, value: T): T =>
+    inSourceOrder(value, layout?.objects?.get(id));
 
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (element.parent !== undefined && !isActorKind(element.kind)) {
       let list = children.get(element.parent);
       if (!list) children.set(element.parent, (list = []));
-      list.push({ ...elementJson(element, metamodel), ...element.extra });
+      list.push(sourceOrder(element.id, { ...elementJson(element, metamodel), ...element.extra }));
     }
   }
 
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
-      actors.push({
-        ...elementJson(element, metamodel),
-        nodes: children.get(element.id) ?? [],
-        ...element.extra,
-      });
+      actors.push(
+        sourceOrder(element.id, {
+          ...elementJson(element, metamodel),
+          nodes: children.get(element.id) ?? [],
+          ...element.extra,
+        }),
+      );
     } else if (element.isDependum) {
       // Like piStar, derive depender/dependee from the dependency links.
       const { inbound, outbound } = dependencyLinksOf(model, element.id);
-      dependencies.push({
-        ...elementJson(element, metamodel),
-        source: inbound?.source ?? element.dependency?.source ?? '',
-        target: outbound?.target ?? element.dependency?.target ?? '',
-        ...element.extra,
-      });
+      dependencies.push(
+        sourceOrder(element.id, {
+          ...elementJson(element, metamodel),
+          source: inbound?.source ?? element.dependency?.source ?? '',
+          target: outbound?.target ?? element.dependency?.target ?? '',
+          ...element.extra,
+        }),
+      );
     } else if (element.parent === undefined || !model.elements.has(element.parent)) {
-      orphans.push({ ...elementJson(element, metamodel), ...element.extra });
+      orphans.push(
+        sourceOrder(element.id, { ...elementJson(element, metamodel), ...element.extra }),
+      );
     }
   }
 
-  const linkJson = (link: IstarLink<string>): PistarLinkJson => ({
-    id: link.id,
-    type: pistarTypeOf(metamodel.links.get(link.kind)?.pistarType, link.kind, metamodel),
-    source: link.source,
-    target: link.target,
-    ...(link.name !== undefined ? { name: link.name } : {}),
-    ...(link.customProperties ? { customProperties: { ...link.customProperties } } : {}),
-    ...(link.label !== undefined ? { label: link.label } : {}),
-    ...link.extra,
-  });
+  const linkJson = (link: IstarLink<string>): PistarLinkJson =>
+    sourceOrder(link.id, {
+      id: link.id,
+      type: pistarTypeOf(metamodel.links.get(link.kind)?.pistarType, link.kind, metamodel),
+      source: link.source,
+      target: link.target,
+      ...(link.name !== undefined ? { name: link.name } : {}),
+      ...(link.customProperties ? { customProperties: { ...link.customProperties } } : {}),
+      ...(link.label !== undefined ? { label: link.label } : {}),
+      ...link.extra,
+    });
 
   // Each hub's legs (in link order) and end; its entry goes where its first leg or end is.
   const hubs = new Map<string, { legs: IstarLink<string>[]; end?: IstarLink<string> }>();
@@ -635,19 +677,19 @@ export function toPistarObject<EK extends string, LK extends string>(
   const hubEntry = (hub: IstarElement<string>): PistarHubLinkJson => {
     const parts = hubs.get(hub.id) ?? { legs: [] };
     const { [HUB_ENTRY_KEY]: entryExtra, ...hubExtra } = hub.extra ?? {};
-    return {
-      hub: {
+    return sourceOrder(hubEntryLayoutKey(hub.id), {
+      hub: sourceOrder(hub.id, {
         id: hub.id,
         type: pistarTypeOf(metamodel.elements.get(hub.kind)?.pistarType, hub.kind, metamodel),
         x: hub.x,
         y: hub.y,
         ...(hub.customProperties ? { customProperties: { ...hub.customProperties } } : {}),
         ...hubExtra,
-      },
+      }),
       starts: parts.legs.map(linkJson),
       ...(parts.end ? { end: linkJson(parts.end) } : {}),
       ...(isRecord(entryExtra) ? entryExtra : {}),
-    };
+    });
   };
 
   const links: (PistarLinkJson | PistarHubLinkJson)[] = [];
@@ -668,7 +710,6 @@ export function toPistarObject<EK extends string, LK extends string>(
     if (isHub(element) && !written.has(element.id)) links.push(hubEntry(element));
   }
 
-  const layout = layouts.get(model);
   const display: Record<string, Record<string, unknown>> = {};
   const displayOf = (id: string): Record<string, unknown> | undefined => {
     const owner = model.elements.get(id) ?? model.links.get(id);
@@ -686,18 +727,23 @@ export function toPistarObject<EK extends string, LK extends string>(
     if (!(id in display)) display[id] = entry as Record<string, unknown>;
   }
 
+  // A file that had no saveDate keeps none until a save passes one (an edit, as piStar does).
   let saveDate: string | undefined;
   if (options.saveDate instanceof Date) saveDate = formatDate(options.saveDate);
-  else saveDate = options.saveDate ?? model.saveDate ?? formatDate(new Date());
+  else if (options.saveDate !== undefined || model.saveDate !== undefined)
+    saveDate = options.saveDate ?? model.saveDate;
+  else if (!layout || layout.keys.includes('saveDate')) saveDate = formatDate(new Date());
 
   const d = model.diagram;
-  const diagram: PistarDiagramJson | undefined = d && {
-    ...(d.width !== undefined ? { width: d.width } : {}),
-    ...(d.height !== undefined ? { height: d.height } : {}),
-    ...(d.name !== undefined ? { name: d.name } : {}),
-    ...(d.customProperties ? { customProperties: { ...d.customProperties } } : {}),
-    ...d.extra,
-  };
+  const diagram: PistarDiagramJson | undefined =
+    d &&
+    sourceOrder(DIAGRAM_LAYOUT_KEY, {
+      ...(d.width !== undefined ? { width: d.width } : {}),
+      ...(d.height !== undefined ? { height: d.height } : {}),
+      ...(d.name !== undefined ? { name: d.name } : {}),
+      ...(d.customProperties ? { customProperties: { ...d.customProperties } } : {}),
+      ...d.extra,
+    });
 
   const values: Record<string, unknown> = {
     ...model.extra,
