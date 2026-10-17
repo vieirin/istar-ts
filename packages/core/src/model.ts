@@ -239,7 +239,10 @@ export function childrenOf<EK extends string, LK extends string>(
   return result;
 }
 
-/** Links that have the element as source or target. */
+/**
+ * Links that have the element as source or target. Given a link id, the links that target that
+ * link (see `LinkRules`).
+ */
 export function linksOf<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
   elementId: string,
@@ -265,4 +268,12 @@ export function dependencyLinksOf<EK extends string, LK extends string>(
     if (link.source === dependumId && !outbound) outbound = link;
   }
   return { inbound, outbound };
+}
+
+/** What a link points at: an element, or a link for kinds whose rules target links. */
+export function linkTargetOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  link: IstarLink<LK>,
+): IstarElement<EK> | IstarLink<LK> | undefined {
+  return model.elements.get(link.target) ?? model.links.get(link.target);
 }

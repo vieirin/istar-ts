@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { ISTAR_2_0, parsePistar, toPistar } from '../src';
+import type { LinkCheck } from '../src';
+import { ISTAR_2_0, createModelStore, parsePistar, toPistar, validateModel } from '../src';
+import { NFR, NFR_CONTRIBUTION_LABELS } from './dsm3-roots';
 import { loadDsm3Fixtures } from './fixtures';
 
 const dsm3 = new Map(loadDsm3Fixtures().map((f) => [f.name.replace(/^dsm3\//, ''), f.text]));
@@ -20,5 +22,129 @@ describe('DSM3-goals fixtures', () => {
     expect(model.tool).toBe('dsm3-goals');
     expect(model.extra).toEqual({ metamodelVersion: '1.0' });
     expect(toPistar(model)).toBe(text);
+  });
+});
+
+/** An NFR model: two NFRs, an Operationalization contributing to the first, a Claim. */
+function nfrSetup() {
+  const store = createModelStore(undefined, { metamodel: NFR });
+  const add = (kind: 'nfr.NFR' | 'nfr.Operationalization' | 'nfr.Claim') =>
+    store.addElement({ kind, x: 0, y: 0 }).id;
+  const n1 = add('nfr.NFR');
+  const n2 = add('nfr.NFR');
+  const op = add('nfr.Operationalization');
+  const claim = add('nfr.Claim');
+  const contribution = store.connect({
+    kind: 'nfr.ContributionLink',
+    source: op,
+    target: n1,
+    label: '+',
+  });
+  if (!contribution.ok) throw new Error(contribution.reason);
+  return { store, n1, n2, op, claim, link: contribution.link.id };
+}
+
+function code(check: LinkCheck): string | undefined {
+  return check.ok ? undefined : check.code;
+}
+
+describe('NFR', () => {
+  test('the welcome model round-trips byte for byte', () => {
+    const text = fixture('nfr-welcome.txt');
+    const model = parsePistar(text, { metamodel: NFR });
+    expect(toPistar(model)).toBe(text);
+    expect(validateModel(model)).toEqual([]);
+    // The Argument link targets a Contribution link.
+    const argument = model.links.get('fb3215c7-154c-41ab-bcf8-f2145aa8af1c');
+    expect(argument?.target).toBe('3a57f4d9-a905-4b55-9d17-82e951a79558');
+    expect(model.links.has(argument!.target)).toBe(true);
+  });
+
+  test("the fixture's labels are NFR's", () => {
+    const model = parsePistar(fixture('nfr-welcome.txt'), { metamodel: NFR });
+    const labels = [...model.links.values()].flatMap((l) => (l.label ? [l.label] : []));
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(NFR_CONTRIBUTION_LABELS).toContain(label);
+  });
+
+  /**
+   * One test per `isValid` branch of DSM3-goals' `language_nfr_constraints.js`. Its messages
+   * differ from the generic ones; what matters is that the same links are refused.
+   */
+  describe('constraints (language_nfr_constraints.js)', () => {
+    const refinements = [
+      ['AndRefinementLink', 'you cannot refine an Operationalization with a NFR'],
+      ['OrRefinementLink', 'you cannot refine an Operationalization with a NFR'],
+      ['ContributionLink', 'you cannot have a NFR contributing to an Operationalization'],
+      ['CorrelationLink', 'you cannot have an Operationalization as the target of a Correlation'],
+    ] as const;
+
+    describe.each(refinements)('%s.isValid', (name, nfrToOperationalization) => {
+      const kind = `nfr.${name}` as const;
+      test('source === target', () => {
+        const { store, n1 } = nfrSetup();
+        expect(code(store.canLink(n1, n1, kind))).toBe('self-link');
+      });
+      test('source.isNFR() && target.isOperationalization()', () => {
+        const { store, n1, n2, op } = nfrSetup();
+        expect(store.canLink(n2, op, kind)).toEqual({
+          ok: false,
+          code: 'invalid-target',
+          reason: nfrToOperationalization,
+        });
+        expect(store.canLink(op, n2, kind)).toEqual({ ok: true });
+        expect(store.canLink(n1, n2, kind)).toEqual({ ok: true });
+      });
+      test('source.isClaim() || target.isClaim()', () => {
+        const { store, n1, claim } = nfrSetup();
+        expect(code(store.canLink(claim, n1, kind))).toBe('invalid-source');
+        expect(code(store.canLink(n1, claim, kind))).toBe('invalid-target');
+      });
+      test('!source.isElement()', () => {
+        const { store, n1, link } = nfrSetup();
+        expect(code(store.canLink(link, n1, kind))).toBe('unknown-element');
+      });
+      test('!target.isElement()', () => {
+        const { store, n1, link } = nfrSetup();
+        expect(code(store.canLink(n1, link, kind))).toBe('invalid-target');
+      });
+    });
+
+    test.each(refinements.slice(0, 3))('%s.isValid: isThereLinkBetween(source, target)', (name) => {
+      const kind = `nfr.${name}` as const;
+      const { store, n1, n2 } = nfrSetup();
+      expect(store.connect({ kind, source: n2, target: n1 }).ok).toBe(true);
+      expect(code(store.canLink(n2, n1, kind))).toBe('duplicate-link');
+    });
+
+    test('CorrelationLink.isValid has no limit of one per pair', () => {
+      const kind = 'nfr.CorrelationLink';
+      const { store, n1, n2 } = nfrSetup();
+      expect(store.connect({ kind, source: n2, target: n1 }).ok).toBe(true);
+      expect(store.canLink(n2, n1, kind)).toEqual({ ok: true });
+    });
+
+    describe('ArgumentLink.isValid', () => {
+      const kind = 'nfr.ArgumentLink';
+      test('source === target', () => {
+        const { store, claim } = nfrSetup();
+        expect(code(store.canLink(claim, claim, kind))).toBe('invalid-target');
+      });
+      test('!source.isClaim()', () => {
+        const { store, n2, link } = nfrSetup();
+        expect(code(store.canLink(n2, link, kind))).toBe('invalid-source');
+      });
+      test('isThereLinkBetween(source, target)', () => {
+        // DSM3 asks for a ContributionLink here, which never joins a Claim and a link; the
+        // intent, one Argument per pair, is what the rules implement.
+        const { store, claim, link } = nfrSetup();
+        expect(store.connect({ kind, source: claim, target: link }).ok).toBe(true);
+        expect(code(store.canLink(claim, link, kind))).toBe('duplicate-link');
+      });
+      test('!target.isLink()', () => {
+        const { store, claim, n1 } = nfrSetup();
+        expect(code(store.canLink(claim, n1, kind))).toBe('invalid-target');
+      });
+    });
   });
 });

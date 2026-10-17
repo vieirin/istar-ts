@@ -236,7 +236,8 @@ export function nestElement<EK extends string = ElementKind, LK extends string =
 
 /**
  * Removes elements and everything that depends on them: inner elements of removed actors,
- * links touching removed elements, and the rest of any dependency that loses a part.
+ * links touching removed elements (and links targeting removed links), and the rest of any
+ * dependency that loses a part.
  */
 export function removeElements<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -274,7 +275,8 @@ function removeCascade(
     }
     for (const link of model.links.values()) {
       if (linkIds.has(link.id)) continue;
-      if (elementIds.has(link.source) || elementIds.has(link.target)) {
+      // A link goes with its endpoints, including a link it targets (see `LinkRules`).
+      if (elementIds.has(link.source) || elementIds.has(link.target) || linkIds.has(link.target)) {
         linkIds.add(link.id);
         changed = true;
       }
@@ -306,6 +308,7 @@ export interface NewLink<K extends string = LinkKind> {
   /** Any link kind except dependency kinds (use `addDependency` for those). */
   readonly kind: Exclude<K, DependencyLinkKind>;
   readonly source: string;
+  /** An element id, or a link id for kinds whose rules target links. */
   readonly target: string;
   readonly id?: string;
   /** Contribution value: make, help, hurt or break. */
@@ -360,7 +363,7 @@ export function connect<EK extends string = ElementKind, LK extends string = Lin
       throw new ModelOperationError(`unknown link kind "${kind}" in ${metamodel.name}`);
     }
     requireElement(m, source);
-    requireElement(m, target);
+    if (!m.links.has(target)) requireElement(m, target);
   }
   const id = input.id ?? (options.createId ?? defaultIdGenerator)();
   if (m.elements.has(id) || m.links.has(id)) {
@@ -470,7 +473,10 @@ export function addDependency<EK extends string = ElementKind, LK extends string
   };
 }
 
-/** Removes a link. Removing either half of a dependency removes the whole dependency. */
+/**
+ * Removes a link, and the links that target it. Removing either half of a dependency removes
+ * the whole dependency.
+ */
 export function disconnect<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
   id: string,

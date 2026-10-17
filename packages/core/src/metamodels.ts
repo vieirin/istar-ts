@@ -82,9 +82,13 @@ export interface ElementKindDefinition<K extends string = string> {
  * which kinds may be the source and target. Entries are kind names (`istar.Goal`,
  * `rationalAgents.Plan`) or categories (`node`, `actor`, `*`). A kind name also matches kinds
  * that behave like it, so `istar.Task` accepts a Planning that behaves like a Task.
+ *
+ * A link may also target another link (NFR's Argument link points at a Contribution): `targets`
+ * then holds `link` (any link) or link kind names. Sources are always elements.
  */
 export interface LinkRules {
   readonly sources: readonly string[];
+  /** Element selectors as for `sources`, plus `link` and link kind names. */
   readonly targets: readonly string[];
   /**
    * Source and target must belong to the same actor (iStar 2.0 Guide, page 14). Default true
@@ -256,6 +260,8 @@ export function defineMetamodelExtension<
 const KIND_NAME = /^[A-Za-z_][\w-]*\.[A-Za-z_][\w-]*$/;
 const PREFIX_NAME = /^[A-Za-z_][\w-]*$/;
 const CATEGORY_SELECTORS: ReadonlySet<string> = new Set(['node', 'actor', '*']);
+/** The `targets` selector for any link (see `LinkRules`). */
+export const LINK_SELECTOR = 'link';
 
 /** piStar-ext's defaults for an extension's new nodes (tool/language/metamodel.js). */
 const EXTENSION_NODE_INFO: NodeKindInfo = {
@@ -437,7 +443,13 @@ function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>)
         throw new MetamodelError(`${where}: link kind "${kind}" needs at least one of ${side}`);
       }
       for (const selector of selectors) {
-        if (!CATEGORY_SELECTORS.has(selector) && !table.elements.has(selector)) {
+        const known =
+          CATEGORY_SELECTORS.has(selector) ||
+          table.elements.has(selector) ||
+          // Targets may also name links: any, an earlier kind, or this kind itself.
+          (side === 'targets' &&
+            (selector === LINK_SELECTOR || table.links.has(selector) || selector === kind));
+        if (!known) {
           throw new MetamodelError(
             `${where}: ${side} of "${kind}" names unknown element kind "${selector}"`,
           );
@@ -665,6 +677,28 @@ export function effectiveLinkKind(metamodel: AnyMetamodel, kind: string): string
     current = next;
   }
   return current?.kind ?? kind;
+}
+
+/** True when link `kind` is `ancestor` or (transitively) behaves like it. */
+export function linkBehavesLike(metamodel: AnyMetamodel, kind: string, ancestor: string): boolean {
+  let current: string | undefined = kind;
+  const seen = new Set<string>();
+  while (current !== undefined && !seen.has(current)) {
+    if (current === ancestor) return true;
+    seen.add(current);
+    current = metamodel.links.get(current)?.behavesLike;
+  }
+  return false;
+}
+
+/** True when a link kind's rules let it target links (`link` or a link kind in `targets`). */
+export function targetsLinks(metamodel: AnyMetamodel, kind: string): boolean {
+  const root = metamodel.links.get(effectiveLinkKind(metamodel, kind));
+  return (
+    root?.rules?.targets.some(
+      (selector) => selector === LINK_SELECTOR || metamodel.links.has(selector),
+    ) ?? false
+  );
 }
 
 /** True when `kind` is `ancestor` or (transitively) behaves like it. */

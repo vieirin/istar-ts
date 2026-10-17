@@ -11,7 +11,7 @@ import type { LinkCheck } from './constraints';
 import { canLink } from './constraints';
 import type { ElementKind, LinkKind } from './metamodel';
 import type { Metamodel } from './metamodels';
-import type { AnyIstarModel, Diagram, IstarElement, IstarModel } from './model';
+import type { AnyIstarModel, Diagram, IstarElement, IstarLink, IstarModel } from './model';
 import { createEmptyModel } from './model';
 import type {
   ConnectOptions,
@@ -68,7 +68,7 @@ export interface ModelStore<EK extends string = ElementKind, LK extends string =
 
   canLink(
     source: string | IstarElement<EK>,
-    target: string | IstarElement<EK>,
+    target: string | IstarElement<EK> | IstarLink<LK>,
     kind: LK,
   ): LinkCheck;
 
