@@ -2,7 +2,7 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
-## Unreleased
+## 0.13.0
 
 - **Root metamodels** (issue #7, groundwork for DSM3-goals' KAOS and NFR). iStar 2.0 is no longer
   the only language a metamodel can start from.
