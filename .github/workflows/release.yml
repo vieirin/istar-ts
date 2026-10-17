@@ -85,6 +85,11 @@ jobs:
           for pkg in core react dsm3-kaos dsm3-nfr; do
             (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
             tarball="$RUNNER_TEMP/tarballs/istar-ts-$pkg-$VERSION.tgz"
+            # Every workspace dependency must have been rewritten to the released version.
+            if tar -xOf "$tarball" package/package.json | grep -q '0.0.0-development'; then
+              echo "::error::@istar-ts/$pkg tarball still references 0.0.0-development (stamp every package before packing)"
+              exit 1
+            fi
             if npm view "@istar-ts/$pkg@$VERSION" version >/dev/null 2>&1; then
               echo "@istar-ts/$pkg@$VERSION is already published, skipping"
               continue
