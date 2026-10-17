@@ -1,16 +1,19 @@
 /**
- * Metamodels as values: iStar 2.0 (`ISTAR_2_0`) plus dialects built with `extendMetamodel`,
- * which add element kinds (e.g. iStar4RationalAgents' Planning and Plan) and link kinds.
+ * Metamodels as values. A root metamodel (`defineMetamodel`) is a whole modelling language:
+ * iStar 2.0 (`ISTAR_2_0`) is one, and other goal languages (KAOS, NFR, …) can be others.
+ * Dialects of a root are built with `extendMetamodel`, which adds element kinds (e.g.
+ * iStar4RationalAgents' Planning and Plan) and link kinds.
  *
  * The constants in `metamodel.ts` (`ELEMENT_KINDS`, `NODE_KIND_INFO`, …) describe iStar 2.0 and
- * stay as they are; this module builds `ISTAR_2_0` from them. Everything that accepts a
+ * stay as they are; this module declares `ISTAR_2_0` from them. Everything that accepts a
  * metamodel defaults to `ISTAR_2_0`, so code that never mentions one behaves exactly as before.
  *
  * Extensions follow piStar-ext (Gonçalves et al., iStar 2020): a new construct has a name, a
  * node-or-link category and, for links, the kinds it may connect. Two additions make them
  * usable as a library: `behavesLike` lets a new kind reuse an existing kind's link rules
  * (Planning behaves like a Task, so it can be refined and be a dependum), and kinds are
- * namespaced (`rationalAgents.Planning`), with `istar.` reserved for iStar 2.0.
+ * namespaced (`rationalAgents.Planning`), with the root's prefix (`istar.` for iStar 2.0)
+ * reserved for the root.
  */
 import type { LinkCheck, LinkRuleContext } from './constraints';
 import type { ElementKind, LinkKind, LinkKindInfo, NodeKindInfo, Size } from './metamodel';
@@ -35,6 +38,10 @@ export type ElementCategory = 'actor' | 'node';
 export interface KindShape {
   readonly path: string;
   readonly viewBox?: string;
+  /** SVG `stroke-dasharray` of the outline, e.g. `'8,4'` for a dashed shape. */
+  readonly dash?: string;
+  /** Outline width, when it differs from the renderer's default. */
+  readonly strokeWidth?: number;
 }
 export interface KindTextBox {
   readonly top: number;
@@ -113,12 +120,36 @@ export interface LinkKindDefinition<K extends string = string> {
   readonly line?: KindLine;
 }
 
+/**
+ * How a root metamodel's files look, for models that don't come from a file (`createEmptyModel`)
+ * and for writing them (`toPistar`). Files that were read keep their own layout.
+ */
+export interface MetamodelFileHints {
+  /** The `tool` a new model records. Default: piStar's `pistar.2.1.0`. */
+  readonly tool?: string;
+  /** The `istar` version a new model records; only iStar 2.0 sets it (`'2.0'`). */
+  readonly istar?: string;
+  /** Extra top-level keys of a new model (its `extra`), e.g. `{ metamodelVersion: '1.0' }`. */
+  readonly extra?: Readonly<Record<string, unknown>>;
+  /** Top-level key order for models without a source layout. Default: piStar's. */
+  readonly keys?: readonly string[];
+}
+
 /** A metamodel: the element and link kinds a model may use, and their rules. */
 export interface Metamodel<EK extends string = ElementKind, LK extends string = LinkKind> {
-  /** `istar-2.0`, followed by the names of the extensions applied, e.g. `istar-2.0+rationalAgents`. */
+  /**
+   * The root's name (`istar-2.0`), followed by the names of the extensions applied, e.g.
+   * `istar-2.0+rationalAgents`.
+   */
   readonly name: string;
+  /** The root metamodel's name, e.g. `istar-2.0`; extensions keep it. */
+  readonly framework: string;
+  /** The root's namespace (`istar`). Extensions may not declare kinds in it. */
+  readonly prefix: string;
+  /** How the root's files look (see `MetamodelFileHints`); extensions keep it. */
+  readonly file: MetamodelFileHints;
   readonly extensions: readonly string[];
-  /** In declaration order: iStar 2.0 kinds first, then each extension's. */
+  /** In declaration order: the root's kinds first, then each extension's. */
   readonly elements: ReadonlyMap<EK, ElementKindDefinition<EK>>;
   readonly links: ReadonlyMap<LK, LinkKindDefinition<LK>>;
   /** `type` in piStar files → kind. */
@@ -134,74 +165,7 @@ export type LinkKindOf<M> = M extends Metamodel<string, infer LK> ? LK : never;
 export type AnyMetamodel = Metamodel<string, string>;
 
 // ---------------------------------------------------------------------------------------------
-// iStar 2.0
-
-function shortName(kind: string): string {
-  const dot = kind.indexOf('.');
-  return dot === -1 ? kind : kind.slice(dot + 1);
-}
-
-function buildIstar(): Metamodel {
-  const elements = new Map<ElementKind, ElementKindDefinition<ElementKind>>();
-  for (const kind of ACTOR_KINDS) {
-    elements.set(kind, {
-      kind,
-      category: 'actor',
-      label: shortName(kind),
-      size: DEFAULT_ELEMENT_SIZE[kind],
-      pistarType: kind,
-    });
-  }
-  for (const kind of NODE_KINDS) {
-    elements.set(kind, {
-      kind,
-      category: 'node',
-      label: shortName(kind),
-      size: DEFAULT_ELEMENT_SIZE[kind],
-      info: NODE_KIND_INFO[kind],
-      pistarType: kind,
-    });
-  }
-  const links = new Map<LinkKind, LinkKindDefinition<LinkKind>>();
-  const labels: Record<LinkKind, string> = {
-    'istar.IsALink': 'Is-A',
-    'istar.ParticipatesInLink': 'Participates-In',
-    'istar.DependencyLink': 'Dependency',
-    'istar.AndRefinementLink': 'And-Refinement',
-    'istar.OrRefinementLink': 'Or-Refinement',
-    'istar.NeededByLink': 'Needed-By',
-    'istar.QualificationLink': 'Qualification',
-    'istar.ContributionLink': 'Contribution',
-  };
-  const add = (kinds: readonly LinkKind[], category: LinkCategory): void => {
-    for (const kind of kinds) {
-      links.set(kind, {
-        kind,
-        category,
-        label: labels[kind],
-        info: LINK_KIND_INFO[kind],
-        pistarType: kind,
-      });
-    }
-  };
-  add(ACTOR_LINK_KINDS, 'actor');
-  add(DEPENDENCY_LINK_KINDS, 'dependency');
-  add(NODE_LINK_KINDS, 'node');
-  return {
-    name: 'istar-2.0',
-    extensions: [],
-    elements,
-    links,
-    elementsByPistarType: new Map([...elements.keys()].map((k) => [k, k])),
-    linksByPistarType: new Map([...links.keys()].map((k) => [k, k])),
-  };
-}
-
-/** iStar 2.0, as the piStar tool implements it. The default metamodel everywhere. */
-export const ISTAR_2_0: Metamodel = buildIstar();
-
-// ---------------------------------------------------------------------------------------------
-// Extensions
+// Declarations
 
 export interface ElementKindDeclaration<K extends string = string> {
   /** Namespaced kind name, e.g. `rationalAgents.Planning`. */
@@ -212,7 +176,10 @@ export interface ElementKindDeclaration<K extends string = string> {
   readonly category?: ElementCategory;
   /** An existing element kind whose link rules this kind follows, e.g. `istar.Task`. */
   readonly behavesLike?: string;
-  /** Containment rules for nodes. Default: those of `behavesLike`, else piStar-ext's (inner, dependum). */
+  /**
+   * Containment rules for nodes. Default: those of `behavesLike`, else piStar-ext's (inner,
+   * dependum) in an extension and DSM3's (inner, dependum, on paper) in a root.
+   */
   readonly info?: Partial<NodeKindInfo>;
   /** Default: that of `behavesLike`, else piStar-ext's 90×55 for nodes and 200×120 for actors. */
   readonly size?: Size;
@@ -233,7 +200,10 @@ export interface LinkKindDeclaration<K extends string = string> {
   readonly category?: LinkCategory;
   /** An existing link kind whose rules this kind takes on, e.g. `istar.OrRefinementLink`. */
   readonly behavesLike?: string;
-  /** Declarative rules; give these or `behavesLike`, not both. */
+  /**
+   * Declarative rules; give these or `behavesLike`, not both. A root's link kind may give
+   * neither when the library has built-in rules for it (iStar 2.0's links).
+   */
   readonly rules?: LinkRules;
   /** An extra predicate, checked after the other rules pass. */
   readonly check?: (context: LinkRuleContext) => LinkCheck;
@@ -242,6 +212,17 @@ export interface LinkKindDeclaration<K extends string = string> {
   readonly pistarType?: string;
   /** Presentation hint, kept as data for renderers (`@istar-ts/react` draws it). */
   readonly line?: KindLine;
+}
+
+/** A whole modelling language, turned into a `Metamodel` by `defineMetamodel`. */
+export interface RootMetamodelDeclaration<EK extends string = string, LK extends string = string> {
+  /** Identifies the language; the metamodel's `name` and `framework`, e.g. `istar-2.0`. */
+  readonly name: string;
+  /** The language's namespace, e.g. `istar`. Extensions may not declare kinds in it. */
+  readonly prefix: string;
+  readonly elements: readonly ElementKindDeclaration<EK>[];
+  readonly links: readonly LinkKindDeclaration<LK>[];
+  readonly file?: MetamodelFileHints;
 }
 
 /** A named set of new kinds, applied to a metamodel with `extendMetamodel`. */
@@ -267,14 +248,330 @@ export function defineMetamodelExtension<
   return extension;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Building kinds. `defineMetamodel` and `extendMetamodel` add kinds to a mutable table, one
+// declaration at a time, so `behavesLike` and rule selectors resolve against the kinds the
+// table already holds: the base metamodel's, then those declared earlier.
+
 const KIND_NAME = /^[A-Za-z_][\w-]*\.[A-Za-z_][\w-]*$/;
+const PREFIX_NAME = /^[A-Za-z_][\w-]*$/;
 const CATEGORY_SELECTORS: ReadonlySet<string> = new Set(['node', 'actor', '*']);
 
+/** piStar-ext's defaults for an extension's new nodes (tool/language/metamodel.js). */
+const EXTENSION_NODE_INFO: NodeKindInfo = {
+  canBeInnerElement: true,
+  canBeDependum: true,
+  canBeOnPaper: false,
+};
+
+/** DSM3-goals' defaults for a root's nodes (istarcore metamodelManager). */
+const ROOT_NODE_INFO: NodeKindInfo = {
+  canBeInnerElement: true,
+  canBeDependum: true,
+  canBeOnPaper: true,
+};
+
+interface KindTable {
+  /** `extension "x"` or `metamodel "x"`, opening every error message. */
+  readonly where: string;
+  /** The namespace suggested in errors: the extension's name, or the root's prefix. */
+  readonly namespace: string;
+  /** The root's prefix, when the table builds an extension (a root may use any namespace). */
+  readonly reserved?: string;
+  /** Name of the extension being built; absent for a root. */
+  readonly extension?: string;
+  readonly elements: Map<string, ElementKindDefinition<string>>;
+  readonly links: Map<string, LinkKindDefinition<string>>;
+  readonly elementsByType: Map<string, string>;
+  readonly linksByType: Map<string, string>;
+}
+
+function shortName(kind: string): string {
+  const dot = kind.indexOf('.');
+  return dot === -1 ? kind : kind.slice(dot + 1);
+}
+
+function claimName(table: KindTable, kind: string, what: string): void {
+  const { where } = table;
+  if (typeof kind !== 'string' || !KIND_NAME.test(kind)) {
+    throw new MetamodelError(
+      `${where}: ${what} kind ${JSON.stringify(kind)} must be namespaced, e.g. "${table.namespace}.Name"`,
+    );
+  }
+  if (table.reserved !== undefined && kind.startsWith(`${table.reserved}.`)) {
+    throw new MetamodelError(
+      `${where}: ${what} kind "${kind}" uses the reserved "${table.reserved}." prefix; ` +
+        `name it "${table.namespace}.${shortName(kind)}" and set pistarType: "${kind}" to read files that use it`,
+    );
+  }
+  if (table.elements.has(kind) || table.links.has(kind)) {
+    throw new MetamodelError(`${where}: kind "${kind}" already exists`);
+  }
+}
+
+function claimType(table: KindTable, type: string, kind: string): void {
+  const { where } = table;
+  if (typeof type !== 'string' || type === '') {
+    throw new MetamodelError(`${where}: kind "${kind}" has an empty pistarType`);
+  }
+  if (
+    table.elementsByType.has(type) ||
+    table.linksByType.has(type) ||
+    table.elements.has(type) ||
+    table.links.has(type)
+  ) {
+    throw new MetamodelError(
+      `${where}: pistarType "${type}" of kind "${kind}" is already used by another kind`,
+    );
+  }
+}
+
+function isCompleteNodeInfo(info: Partial<NodeKindInfo> | undefined): info is NodeKindInfo {
+  return (
+    info !== undefined &&
+    typeof info.canBeInnerElement === 'boolean' &&
+    typeof info.canBeDependum === 'boolean' &&
+    typeof info.canBeOnPaper === 'boolean'
+  );
+}
+
+function addElementKind(table: KindTable, declaration: ElementKindDeclaration<string>): void {
+  const { where } = table;
+  const { kind } = declaration;
+  claimName(table, kind, 'element');
+  let parent: ElementKindDefinition<string> | undefined;
+  if (declaration.behavesLike !== undefined) {
+    parent = table.elements.get(declaration.behavesLike);
+    if (!parent) {
+      throw new MetamodelError(
+        `${where}: "${kind}" behaves like unknown element kind "${declaration.behavesLike}"`,
+      );
+    }
+  }
+  const category = declaration.category ?? parent?.category;
+  if (category !== 'actor' && category !== 'node') {
+    throw new MetamodelError(
+      `${where}: element kind "${kind}" needs a category ("node" or "actor") or behavesLike`,
+    );
+  }
+  if (parent && parent.category !== category) {
+    throw new MetamodelError(
+      `${where}: "${kind}" is a ${category} but behaves like "${parent.kind}", a ${parent.category}`,
+    );
+  }
+  const type = declaration.pistarType ?? kind;
+  claimType(table, type, kind);
+  // A complete `info` is kept as given (iStar 2.0's `NODE_KIND_INFO` objects keep their identity).
+  const info: NodeKindInfo = isCompleteNodeInfo(declaration.info)
+    ? declaration.info
+    : {
+        ...(parent?.info ?? (table.extension === undefined ? ROOT_NODE_INFO : EXTENSION_NODE_INFO)),
+        ...declaration.info,
+      };
+  const definition: ElementKindDefinition<string> = {
+    kind,
+    category,
+    label: declaration.label ?? shortName(kind),
+    size:
+      declaration.size ??
+      parent?.size ??
+      (category === 'actor' ? { width: 200, height: 120 } : { width: 90, height: 55 }),
+    ...(category === 'node' ? { info } : {}),
+    ...(parent ? { behavesLike: parent.kind } : {}),
+    pistarType: type,
+    ...(table.extension !== undefined ? { extension: table.extension } : {}),
+    ...(declaration.shape ? { shape: declaration.shape } : {}),
+    ...(declaration.textBox ? { textBox: declaration.textBox } : {}),
+  };
+  table.elements.set(kind, definition);
+  table.elementsByType.set(type, kind);
+}
+
+function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>): void {
+  const { where } = table;
+  const { kind } = declaration;
+  claimName(table, kind, 'link');
+  const isRoot = table.extension === undefined;
+  if (declaration.behavesLike !== undefined && declaration.rules !== undefined) {
+    throw new MetamodelError(
+      isRoot
+        ? `${where}: link kind "${kind}" needs at most one of behavesLike or rules`
+        : `${where}: link kind "${kind}" needs exactly one of behavesLike or rules`,
+    );
+  }
+  // A root's link kind may give neither: its rules are then built in (iStar 2.0's links).
+  if (!isRoot && declaration.behavesLike === undefined && declaration.rules === undefined) {
+    throw new MetamodelError(
+      `${where}: link kind "${kind}" needs exactly one of behavesLike or rules`,
+    );
+  }
+  let parent: LinkKindDefinition<string> | undefined;
+  if (declaration.behavesLike !== undefined) {
+    parent = table.links.get(declaration.behavesLike);
+    if (!parent) {
+      throw new MetamodelError(
+        `${where}: "${kind}" behaves like unknown link kind "${declaration.behavesLike}"`,
+      );
+    }
+  }
+  const category = declaration.category ?? parent?.category ?? 'node';
+  if (category !== 'node' && category !== 'actor' && category !== 'dependency') {
+    throw new MetamodelError(`${where}: link kind "${kind}" has an unknown category "${category}"`);
+  }
+  if (parent && parent.category !== category) {
+    throw new MetamodelError(
+      `${where}: "${kind}" is a ${category} link but behaves like "${parent.kind}", a ${parent.category} link`,
+    );
+  }
+  if (category === 'dependency' && !parent && (!isRoot || declaration.rules !== undefined)) {
+    throw new MetamodelError(
+      `${where}: dependency link kind "${kind}" must behave like a dependency link (its dependum makes declarative rules ambiguous)`,
+    );
+  }
+  if (declaration.rules) {
+    for (const [side, selectors] of [
+      ['sources', declaration.rules.sources],
+      ['targets', declaration.rules.targets],
+    ] as const) {
+      if (!Array.isArray(selectors) || selectors.length === 0) {
+        throw new MetamodelError(`${where}: link kind "${kind}" needs at least one of ${side}`);
+      }
+      for (const selector of selectors) {
+        if (!CATEGORY_SELECTORS.has(selector) && !table.elements.has(selector)) {
+          throw new MetamodelError(
+            `${where}: ${side} of "${kind}" names unknown element kind "${selector}"`,
+          );
+        }
+      }
+    }
+  }
+  const type = declaration.pistarType ?? kind;
+  claimType(table, type, kind);
+  const definition: LinkKindDefinition<string> = {
+    kind,
+    category,
+    label: declaration.label ?? shortName(kind),
+    info: declaration.info ?? parent?.info ?? {},
+    ...(parent ? { behavesLike: parent.kind } : {}),
+    ...(declaration.rules ? { rules: declaration.rules } : {}),
+    ...(declaration.check ? { check: declaration.check } : {}),
+    pistarType: type,
+    ...(table.extension !== undefined ? { extension: table.extension } : {}),
+    ...(declaration.line ? { line: declaration.line } : {}),
+  };
+  table.links.set(kind, definition);
+  table.linksByType.set(type, kind);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Root metamodels
+
 /**
- * Returns a new metamodel with the extension's kinds added. `base` is not modified.
+ * Builds a root metamodel: a modelling language of its own, such as iStar 2.0, KAOS or NFR.
+ * Kinds are namespaced (any namespace; usually `prefix`), declared in order: `behavesLike` and
+ * link rules refer to kinds declared before them. Extensions of the result may not use `prefix`.
  *
- * Throws `MetamodelError` when a kind name isn't namespaced, uses the reserved `istar.`
- * prefix, collides with an existing kind or piStar type, or refers to an unknown kind.
+ * Throws `MetamodelError` on the same declaration errors as `extendMetamodel`.
+ */
+export function defineMetamodel<const EK extends string, const LK extends string>(
+  declaration: RootMetamodelDeclaration<EK, LK>,
+): Metamodel<EK, LK> {
+  const { name, prefix } = declaration;
+  if (!name || typeof name !== 'string') {
+    throw new MetamodelError('a root metamodel needs a name');
+  }
+  const where = `metamodel "${name}"`;
+  if (typeof prefix !== 'string' || !PREFIX_NAME.test(prefix)) {
+    throw new MetamodelError(
+      `${where}: prefix ${JSON.stringify(prefix)} must be a name without dots, e.g. "istar"`,
+    );
+  }
+  const table: KindTable = {
+    where,
+    namespace: prefix,
+    elements: new Map(),
+    links: new Map(),
+    elementsByType: new Map(),
+    linksByType: new Map(),
+  };
+  for (const element of declaration.elements) addElementKind(table, element);
+  for (const link of declaration.links) addLinkKind(table, link);
+  return {
+    name,
+    framework: name,
+    prefix,
+    file: declaration.file ?? {},
+    extensions: [],
+    elements: table.elements,
+    links: table.links,
+    elementsByPistarType: table.elementsByType,
+    linksByPistarType: table.linksByType,
+  } as unknown as Metamodel<EK, LK>;
+}
+
+const ISTAR_LINK_LABELS: Readonly<Record<LinkKind, string>> = {
+  'istar.IsALink': 'Is-A',
+  'istar.ParticipatesInLink': 'Participates-In',
+  'istar.DependencyLink': 'Dependency',
+  'istar.AndRefinementLink': 'And-Refinement',
+  'istar.OrRefinementLink': 'Or-Refinement',
+  'istar.NeededByLink': 'Needed-By',
+  'istar.QualificationLink': 'Qualification',
+  'istar.ContributionLink': 'Contribution',
+};
+
+function istarLinks(
+  kinds: readonly LinkKind[],
+  category: LinkCategory,
+): LinkKindDeclaration<LinkKind>[] {
+  // No rules: iStar 2.0's link rules are built in (`constraints.ts`).
+  return kinds.map((kind) => ({
+    kind,
+    category,
+    label: ISTAR_LINK_LABELS[kind],
+    info: LINK_KIND_INFO[kind],
+  }));
+}
+
+/** iStar 2.0's declaration, built from the constants in `metamodel.ts`. */
+export const ISTAR_2_0_DECLARATION: RootMetamodelDeclaration<ElementKind, LinkKind> = {
+  name: 'istar-2.0',
+  prefix: ISTAR_PREFIX,
+  elements: [
+    ...ACTOR_KINDS.map((kind): ElementKindDeclaration<ElementKind> => ({
+      kind,
+      category: 'actor',
+      size: DEFAULT_ELEMENT_SIZE[kind],
+    })),
+    ...NODE_KINDS.map((kind): ElementKindDeclaration<ElementKind> => ({
+      kind,
+      category: 'node',
+      size: DEFAULT_ELEMENT_SIZE[kind],
+      info: NODE_KIND_INFO[kind],
+    })),
+  ],
+  links: [
+    ...istarLinks(ACTOR_LINK_KINDS, 'actor'),
+    ...istarLinks(DEPENDENCY_LINK_KINDS, 'dependency'),
+    ...istarLinks(NODE_LINK_KINDS, 'node'),
+  ],
+  // `PISTAR_TOOL` and `ISTAR_VERSION` (model.ts), which can't be imported here without a cycle.
+  file: { tool: 'pistar.2.1.0', istar: '2.0' },
+};
+
+/** iStar 2.0, as the piStar tool implements it. The default metamodel everywhere. */
+export const ISTAR_2_0: Metamodel = defineMetamodel(ISTAR_2_0_DECLARATION);
+
+// ---------------------------------------------------------------------------------------------
+// Extensions
+
+/**
+ * Returns a new metamodel with the extension's kinds added. `base` is not modified. The result
+ * keeps `base`'s `framework`, `prefix` and `file`.
+ *
+ * Throws `MetamodelError` when a kind name isn't namespaced, uses the root's reserved prefix
+ * (`istar.` for iStar 2.0), collides with an existing kind or piStar type, or refers to an
+ * unknown kind.
  */
 export function extendMetamodel<
   EK extends string,
@@ -282,176 +579,35 @@ export function extendMetamodel<
   const NEK extends string = never,
   const NLK extends string = never,
 >(base: Metamodel<EK, LK>, extension: MetamodelExtension<NEK, NLK>): Metamodel<EK | NEK, LK | NLK> {
-  const where = `extension "${extension.name}"`;
   if (!extension.name || typeof extension.name !== 'string') {
     throw new MetamodelError('an extension needs a name');
   }
+  const where = `extension "${extension.name}"`;
   if (base.extensions.includes(extension.name)) {
     throw new MetamodelError(`${where} is already applied`);
   }
-
-  const elements = new Map<string, ElementKindDefinition<string>>(base.elements);
-  const links = new Map<string, LinkKindDefinition<string>>(base.links);
-  const elementsByType = new Map<string, string>(base.elementsByPistarType);
-  const linksByType = new Map<string, string>(base.linksByPistarType);
-
-  const claimName = (kind: string, what: string): void => {
-    if (typeof kind !== 'string' || !KIND_NAME.test(kind)) {
-      throw new MetamodelError(
-        `${where}: ${what} kind ${JSON.stringify(kind)} must be namespaced, e.g. "${extension.name}.Name"`,
-      );
-    }
-    if (kind.startsWith(`${ISTAR_PREFIX}.`)) {
-      throw new MetamodelError(
-        `${where}: ${what} kind "${kind}" uses the reserved "${ISTAR_PREFIX}." prefix; ` +
-          `name it "${extension.name}.${shortName(kind)}" and set pistarType: "${kind}" to read files that use it`,
-      );
-    }
-    if (elements.has(kind) || links.has(kind)) {
-      throw new MetamodelError(`${where}: kind "${kind}" already exists`);
-    }
+  const table: KindTable = {
+    where,
+    namespace: extension.name,
+    reserved: base.prefix,
+    extension: extension.name,
+    elements: new Map<string, ElementKindDefinition<string>>(base.elements),
+    links: new Map<string, LinkKindDefinition<string>>(base.links),
+    elementsByType: new Map<string, string>(base.elementsByPistarType),
+    linksByType: new Map<string, string>(base.linksByPistarType),
   };
-  const claimType = (type: string, kind: string): void => {
-    if (typeof type !== 'string' || type === '') {
-      throw new MetamodelError(`${where}: kind "${kind}" has an empty pistarType`);
-    }
-    if (
-      elementsByType.has(type) ||
-      linksByType.has(type) ||
-      elements.has(type) ||
-      links.has(type)
-    ) {
-      throw new MetamodelError(
-        `${where}: pistarType "${type}" of kind "${kind}" is already used by another kind`,
-      );
-    }
-  };
-
-  for (const declaration of extension.elements ?? []) {
-    const { kind } = declaration;
-    claimName(kind, 'element');
-    let parent: ElementKindDefinition<string> | undefined;
-    if (declaration.behavesLike !== undefined) {
-      parent = elements.get(declaration.behavesLike);
-      if (!parent) {
-        throw new MetamodelError(
-          `${where}: "${kind}" behaves like unknown element kind "${declaration.behavesLike}"`,
-        );
-      }
-    }
-    const category = declaration.category ?? parent?.category;
-    if (category !== 'actor' && category !== 'node') {
-      throw new MetamodelError(
-        `${where}: element kind "${kind}" needs a category ("node" or "actor") or behavesLike`,
-      );
-    }
-    if (parent && parent.category !== category) {
-      throw new MetamodelError(
-        `${where}: "${kind}" is a ${category} but behaves like "${parent.kind}", a ${parent.category}`,
-      );
-    }
-    const type = declaration.pistarType ?? kind;
-    claimType(type, kind);
-    const baseInfo: NodeKindInfo = parent?.info ?? {
-      // piStar-ext's defaults for new nodes (tool/language/metamodel.js).
-      canBeInnerElement: true,
-      canBeDependum: true,
-      canBeOnPaper: false,
-    };
-    const definition: ElementKindDefinition<string> = {
-      kind,
-      category,
-      label: declaration.label ?? shortName(kind),
-      size:
-        declaration.size ??
-        parent?.size ??
-        (category === 'actor' ? { width: 200, height: 120 } : { width: 90, height: 55 }),
-      ...(category === 'node' ? { info: { ...baseInfo, ...declaration.info } } : {}),
-      ...(parent ? { behavesLike: parent.kind } : {}),
-      pistarType: type,
-      extension: extension.name,
-      ...(declaration.shape ? { shape: declaration.shape } : {}),
-      ...(declaration.textBox ? { textBox: declaration.textBox } : {}),
-    };
-    elements.set(kind, definition);
-    elementsByType.set(type, kind);
-  }
-
-  for (const declaration of extension.links ?? []) {
-    const { kind } = declaration;
-    claimName(kind, 'link');
-    if ((declaration.behavesLike === undefined) === (declaration.rules === undefined)) {
-      throw new MetamodelError(
-        `${where}: link kind "${kind}" needs exactly one of behavesLike or rules`,
-      );
-    }
-    let parent: LinkKindDefinition<string> | undefined;
-    if (declaration.behavesLike !== undefined) {
-      parent = links.get(declaration.behavesLike);
-      if (!parent) {
-        throw new MetamodelError(
-          `${where}: "${kind}" behaves like unknown link kind "${declaration.behavesLike}"`,
-        );
-      }
-    }
-    const category = declaration.category ?? parent?.category ?? 'node';
-    if (category !== 'node' && category !== 'actor' && category !== 'dependency') {
-      throw new MetamodelError(
-        `${where}: link kind "${kind}" has an unknown category "${category}"`,
-      );
-    }
-    if (parent && parent.category !== category) {
-      throw new MetamodelError(
-        `${where}: "${kind}" is a ${category} link but behaves like "${parent.kind}", a ${parent.category} link`,
-      );
-    }
-    if (category === 'dependency' && !parent) {
-      throw new MetamodelError(
-        `${where}: dependency link kind "${kind}" must behave like a dependency link (its dependum makes declarative rules ambiguous)`,
-      );
-    }
-    if (declaration.rules) {
-      for (const [side, selectors] of [
-        ['sources', declaration.rules.sources],
-        ['targets', declaration.rules.targets],
-      ] as const) {
-        if (!Array.isArray(selectors) || selectors.length === 0) {
-          throw new MetamodelError(`${where}: link kind "${kind}" needs at least one of ${side}`);
-        }
-        for (const selector of selectors) {
-          if (!CATEGORY_SELECTORS.has(selector) && !elements.has(selector)) {
-            throw new MetamodelError(
-              `${where}: ${side} of "${kind}" names unknown element kind "${selector}"`,
-            );
-          }
-        }
-      }
-    }
-    const type = declaration.pistarType ?? kind;
-    claimType(type, kind);
-    const definition: LinkKindDefinition<string> = {
-      kind,
-      category,
-      label: declaration.label ?? shortName(kind),
-      info: declaration.info ?? parent?.info ?? {},
-      ...(parent ? { behavesLike: parent.kind } : {}),
-      ...(declaration.rules ? { rules: declaration.rules } : {}),
-      ...(declaration.check ? { check: declaration.check } : {}),
-      pistarType: type,
-      extension: extension.name,
-      ...(declaration.line ? { line: declaration.line } : {}),
-    };
-    links.set(kind, definition);
-    linksByType.set(type, kind);
-  }
-
+  for (const element of extension.elements ?? []) addElementKind(table, element);
+  for (const link of extension.links ?? []) addLinkKind(table, link);
   return {
     name: `${base.name}+${extension.name}`,
+    framework: base.framework,
+    prefix: base.prefix,
+    file: base.file,
     extensions: [...base.extensions, extension.name],
-    elements,
-    links,
-    elementsByPistarType: elementsByType,
-    linksByPistarType: linksByType,
+    elements: table.elements,
+    links: table.links,
+    elementsByPistarType: table.elementsByType,
+    linksByPistarType: table.linksByType,
   } as unknown as Metamodel<EK | NEK, LK | NLK>;
 }
 
