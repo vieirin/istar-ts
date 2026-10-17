@@ -31,7 +31,11 @@ export type ConstraintCode =
   | 'contributed-depender'
   | 'depender-target'
   | 'mixed-refinement'
-  | 'contribution-and-qualification';
+  | 'contribution-and-qualification'
+  /** A link other than a leg towards the hub of an n-ary link. */
+  | 'hub-target'
+  /** `validateModel`: the hub of an n-ary link lacks its end or every leg. */
+  | 'incomplete-hub';
 
 export type LinkCheck = { ok: true } | { ok: false; reason: string; code: ConstraintCode };
 
@@ -69,6 +73,9 @@ export interface CanLinkOptions<EK extends string = ElementKind, LK extends stri
  * like, or with their declarative rules, then with their extra predicate.
  *
  * `target` may be a link (or a link id) for kinds whose rules target links (`LinkRules`).
+ *
+ * For an n-ary kind (`arity: 'n'`), a `target` that is one of its hubs is checked as a new leg
+ * of that hub; any other target, as a new link from `source` to `target`.
  */
 export function canLink<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -83,8 +90,12 @@ export function canLink<EK extends string = ElementKind, LK extends string = Lin
   const t = resolve(any, target) ?? any.links.get(refId(target));
   if (!s) return fail('unknown-element', `unknown source element "${refId(source)}"`);
   if (!t) return fail('unknown-element', `unknown target element "${refId(target)}"`);
-  const definition = metamodel.links.get(kind);
+  let definition = metamodel.links.get(kind);
   if (!definition) return fail('unknown-link-kind', `unknown link kind "${String(kind)}"`);
+  // Linking to one of the kind's own hubs adds a leg to it.
+  if (definition.parts && !isLinkRef(t) && metamodel.elements.get(t.kind)?.of === definition.kind) {
+    definition = metamodel.links.get(definition.parts.leg) ?? definition;
+  }
   return checkWith(new Graph(any, metamodel), definition, s, t);
 }
 
@@ -112,11 +123,50 @@ function checkWith(
   else if (builtIn) result = builtIn(graph, source, target);
   else result = fail('unknown-link-kind', `link kind "${definition.kind}" has no rules`);
   if (!result.ok) return result;
+  if (definition.role !== undefined && !isLinkRef(target)) {
+    const hubResult = hubCheck(graph, definition, source, target);
+    if (!hubResult.ok) return hubResult;
+  }
   const context = graph.context(definition.kind, source, target);
   for (const step of chain.toReversed()) {
     if (!step.check) continue;
     const extra = step.check(context);
     if (!extra.ok) return extra;
+  }
+  return OK;
+}
+
+/**
+ * What a leg or end must also respect: an n-ary link has one end, and the base kind's same-actor
+ * rule holds between each leg's source and the end's target (the hub belongs to no actor).
+ */
+function hubCheck(
+  graph: Graph,
+  definition: LinkKindDefinition,
+  source: IstarElement<string>,
+  target: IstarElement<string>,
+): LinkCheck {
+  const base = definition.of === undefined ? undefined : graph.metamodel.links.get(definition.of);
+  if (!base) return OK;
+  const roleOf = (link: IstarLink<string>): string | undefined =>
+    graph.metamodel.links.get(link.kind)?.role;
+  if (definition.role === 'end') {
+    for (const link of graph.model.links.values()) {
+      if (link.source === source.id && roleOf(link) === 'end') {
+        return fail('duplicate-link', `the hub of a ${base.label} link has only one end`);
+      }
+    }
+    return OK;
+  }
+  if (base.rules?.sameActor === false) return OK;
+  for (const link of graph.model.links.values()) {
+    if (link.source !== target.id || roleOf(link) !== 'end') continue;
+    if (graph.model.elements.get(link.target)?.parent !== source.parent) {
+      return fail(
+        'different-actors',
+        `the sources and target of a ${base.label} link must pertain to the same actor`,
+      );
+    }
   }
   return OK;
 }
@@ -592,6 +642,10 @@ function matchesSelector(
     return selector === LINK_SELECTOR || linkBehavesLike(graph.metamodel, element.kind, selector);
   }
   if (selector === LINK_SELECTOR) return false;
+  // A hub is only matched by its own kind's name: categories never include it.
+  if (graph.metamodel.elements.get(element.kind)?.role === 'hub') {
+    return element.kind === selector;
+  }
   if (selector === '*') return true;
   const category = graph.metamodel.elements.get(element.kind)?.category;
   if (selector === 'node' || selector === 'actor') return category === selector;
@@ -621,6 +675,17 @@ function declarativeCheck(
     );
   }
   if (!rules.targets.some((selector) => matchesSelector(graph, target, selector))) {
+    const targetKind = isLinkRef(target) ? undefined : graph.metamodel.elements.get(target.kind);
+    const hubOf =
+      targetKind?.role === 'hub' && targetKind.of !== undefined
+        ? graph.metamodel.links.get(targetKind.of)
+        : undefined;
+    if (hubOf) {
+      return fail(
+        'hub-target',
+        `you cannot make ${article} ${name} link towards the hub of ${/^[aeiou]/i.test(hubOf.label) ? 'an' : 'a'} ${hubOf.label} link`,
+      );
+    }
     return fail(
       'invalid-target',
       `the target of ${article} ${name} link must be ${describe(graph, rules.targets)}`,
@@ -681,7 +746,8 @@ export interface ModelIssue<LK extends string = LinkKind> {
  * Re-validates every link of a model, the way piStar does when loading a file: dependencies
  * first (each checked before its own links are added), then the remaining links in file
  * order, each against the graph built so far, and last the links that target links. Invalid
- * links are reported, not removed.
+ * links are reported, not removed. A hub without an end or legs is reported with code
+ * `incomplete-hub`, the hub's id as `linkId` and the n-ary kind as `kind`.
  */
 export function validateModel<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
@@ -767,6 +833,29 @@ export function validateModel<EK extends string = ElementKind, LK extends string
       });
     }
     accepted.set(link.id, link);
+  }
+
+  // Each hub needs an end and at least one leg.
+  for (const hub of any.elements.values()) {
+    const hubKind = metamodel.elements.get(hub.kind);
+    if (hubKind?.role !== 'hub' || hubKind.of === undefined) continue;
+    const base = metamodel.links.get(hubKind.of);
+    const roleOf = (link: IstarLink<string>): string | undefined =>
+      metamodel.links.get(link.kind)?.role;
+    const legs = rest.filter((l) => l.target === hub.id && roleOf(l) === 'leg');
+    const end = rest.find((l) => l.source === hub.id && roleOf(l) === 'end');
+    if (legs.length > 0 && end) continue;
+    const label = base?.label ?? hubKind.of;
+    issues.push({
+      linkId: hub.id,
+      kind: hubKind.of as LK,
+      source: legs[0]?.source ?? hub.id,
+      target: end?.target ?? hub.id,
+      code: 'incomplete-hub',
+      message: end
+        ? `the hub of a ${label} link needs at least one leg`
+        : `the hub of a ${label} link needs an end`,
+    });
   }
   return issues;
 }

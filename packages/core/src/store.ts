@@ -31,7 +31,9 @@ export type ModelChange =
   | { type: 'moveElement'; id: string; x: number; y: number }
   | { type: 'nestElement'; id: string; parent: string | null }
   | { type: 'removeElements'; ids: readonly string[] }
-  | { type: 'connect'; id: string }
+  /** `hubId`: the n-ary link's hub, when the new link is a leg or a new hub's end. */
+  | { type: 'connect'; id: string; hubId?: string }
+  | { type: 'removeLeg'; id: string }
   | { type: 'addDependency'; dependumId: string; linkIds: readonly [string, string] }
   | { type: 'updateLink'; id: string; patch: LinkPatch }
   | { type: 'disconnect'; id: string }
@@ -88,6 +90,14 @@ export interface ModelStore<EK extends string = ElementKind, LK extends string =
     input: NewDependency<EK, LK>,
     options?: Omit<ConnectOptions, 'createId' | 'tryReversed'>,
   ): ops.AddDependencyResult<EK, LK>;
+  /** Adds a leg from `source` to the hub of an n-ary link (see `ops.addLeg`). */
+  addLeg(
+    hubId: string,
+    source: string,
+    options?: Omit<ConnectOptions, 'createId' | 'tryReversed'> & { readonly id?: string },
+  ): ops.ConnectResult<EK, LK>;
+  /** Removes a leg; the last one takes its hub and end with it. */
+  removeLeg(id: string): void;
   updateLink(id: string, patch: LinkPatch): void;
   disconnect(id: string): void;
   updateDiagram(patch: Partial<Diagram>): void;
@@ -195,8 +205,22 @@ export function createModelStore(
 
     connect(input, connectOptions) {
       const result = ops.connect(model, input, { ...connectOptions, ...ctx });
-      if (result.ok) commit(result.model, { type: 'connect', id: result.link.id });
+      if (result.ok) {
+        commit(result.model, {
+          type: 'connect',
+          id: result.link.id,
+          ...(result.hub ? { hubId: result.hub.hub.id } : {}),
+        });
+      }
       return result;
+    },
+    addLeg(hubId, source, legOptions) {
+      const result = ops.addLeg(model, hubId, source, { ...legOptions, ...ctx });
+      if (result.ok) commit(result.model, { type: 'connect', id: result.link.id, hubId });
+      return result;
+    },
+    removeLeg(id) {
+      commit(ops.removeLeg(model, id), { type: 'removeLeg', id });
     },
     addDependency(input, dependencyOptions) {
       const result = ops.addDependency(model, input, { ...dependencyOptions, ...ctx });

@@ -93,3 +93,66 @@ export const NFR = defineMetamodel({
   ],
   file: DSM3_FILE,
 });
+
+const KAOS_NODE = { canBeInnerElement: false, canBeDependum: false, canBeOnPaper: true };
+const KAOS_SIZE = { width: 135, height: 36 };
+const kaosNode = <K extends string>(kind: K) =>
+  ({ kind, category: 'node', info: KAOS_NODE, size: KAOS_SIZE }) as const;
+
+/** KAOS's element kinds, with the hub its n-ary Refinement generates. */
+export type KaosElementKind =
+  | 'kaos.BehavioralGoal'
+  | 'kaos.Softgoal'
+  | 'kaos.Agent'
+  | 'kaos.EnvironmentAgent'
+  | 'kaos.DomainProperty'
+  | 'kaos.RefinementLinkHub';
+
+/** KAOS's link kinds, with the leg and end kinds its n-ary Refinement generates. */
+export type KaosLinkKind =
+  | 'kaos.RefinementLink'
+  | 'kaos.RefinementLinkStart'
+  | 'kaos.RefinementLinkEnd'
+  | 'kaos.ResponsibilityAssignment'
+  | 'kaos.Conflict';
+
+// Generated kinds aren't inferred from the declaration: name them in the type arguments.
+export const KAOS = defineMetamodel<KaosElementKind, KaosLinkKind>({
+  name: 'kaos',
+  prefix: 'kaos',
+  elements: [
+    kaosNode('kaos.BehavioralGoal'),
+    kaosNode('kaos.Softgoal'),
+    kaosNode('kaos.Agent'),
+    kaosNode('kaos.EnvironmentAgent'),
+    kaosNode('kaos.DomainProperty'),
+  ],
+  links: [
+    {
+      kind: 'kaos.RefinementLink',
+      label: 'Refinement',
+      // DSM3-goals' `sourceMultiplicity: -1`: one target, many sources, joined at a hub.
+      arity: 'n',
+      rules: {
+        sources: ['kaos.BehavioralGoal', 'kaos.Softgoal', 'kaos.DomainProperty'],
+        targets: ['node'],
+        sameActor: false,
+        unique: false,
+      },
+    },
+    {
+      kind: 'kaos.ResponsibilityAssignment',
+      label: 'Responsibility Assignment',
+      rules: {
+        sources: ['kaos.Agent', 'kaos.EnvironmentAgent'],
+        targets: ['node'],
+        sameActor: false,
+      },
+    },
+    {
+      kind: 'kaos.Conflict',
+      rules: { sources: ['node'], targets: ['node'], sameActor: false },
+    },
+  ],
+  file: DSM3_FILE,
+});

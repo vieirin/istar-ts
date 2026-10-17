@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { LinkCheck } from '../src';
 import { ISTAR_2_0, createModelStore, parsePistar, toPistar, validateModel } from '../src';
-import { NFR, NFR_CONTRIBUTION_LABELS } from './dsm3-roots';
+import { KAOS, NFR, NFR_CONTRIBUTION_LABELS } from './dsm3-roots';
 import { loadDsm3Fixtures } from './fixtures';
 
 const dsm3 = new Map(loadDsm3Fixtures().map((f) => [f.name.replace(/^dsm3\//, ''), f.text]));
@@ -145,6 +145,142 @@ describe('NFR', () => {
         const { store, claim, n1 } = nfrSetup();
         expect(code(store.canLink(claim, n1, kind))).toBe('invalid-target');
       });
+    });
+  });
+});
+
+/** A KAOS model: goals, a domain property, an agent, a refinement of `parent` by `child`. */
+function kaosSetup() {
+  const store = createModelStore(undefined, { metamodel: KAOS });
+  const add = (kind: 'kaos.BehavioralGoal' | 'kaos.DomainProperty' | 'kaos.Agent') =>
+    store.addElement({ kind, x: 0, y: 0 }).id;
+  const parent = add('kaos.BehavioralGoal');
+  const child = add('kaos.BehavioralGoal');
+  const other = add('kaos.BehavioralGoal');
+  const property = add('kaos.DomainProperty');
+  const agent = add('kaos.Agent');
+  const refinement = store.connect({ kind: 'kaos.RefinementLink', source: child, target: parent });
+  if (!refinement.ok) throw new Error(refinement.reason);
+  const hub = refinement.hub!.hub.id;
+  return { store, parent, child, other, property, agent, hub, link: refinement.link.id };
+}
+
+/**
+ * One test per `isValid` branch of DSM3-goals' `language_kaos_constraints.js`. Its messages
+ * differ from the generic ones; what matters is that the same links are refused.
+ */
+describe('KAOS constraints (language_kaos_constraints.js)', () => {
+  describe('RefinementLink.isValid', () => {
+    const kind = 'kaos.RefinementLink';
+    test('source === target', () => {
+      const { store, other } = kaosSetup();
+      expect(code(store.canLink(other, other, kind))).toBe('self-link');
+    });
+    test('source.isAgent() || source.isEnvironmentAgent()', () => {
+      const { store, agent, parent } = kaosSetup();
+      expect(code(store.canLink(agent, parent, kind))).toBe('invalid-source');
+    });
+    test('target.isRefinementLinkHub(): here, a new leg of that refinement', () => {
+      // DSM3 refuses and asks for a leg instead; connect adds the leg directly.
+      const { store, property, hub } = kaosSetup();
+      expect(store.canLink(property, hub, kind)).toEqual({ ok: true });
+      const leg = store.connect({ kind, source: property, target: hub });
+      expect(leg.ok && leg.link.kind).toBe('kaos.RefinementLinkStart');
+    });
+    test('several refinements may join the same two elements (its uniqueness is commented out)', () => {
+      const { store, child, parent } = kaosSetup();
+      expect(store.canLink(child, parent, kind)).toEqual({ ok: true });
+    });
+    test('!source.isElement()', () => {
+      const { store, link, parent } = kaosSetup();
+      expect(code(store.canLink(link, parent, kind))).toBe('unknown-element');
+    });
+    test('!target.isElement()', () => {
+      const { store, other, link } = kaosSetup();
+      expect(code(store.canLink(other, link, kind))).toBe('invalid-target');
+    });
+  });
+
+  describe('ResponsibilityAssignment.isValid', () => {
+    const kind = 'kaos.ResponsibilityAssignment';
+    test('source === target', () => {
+      const { store, agent } = kaosSetup();
+      expect(code(store.canLink(agent, agent, kind))).toBe('self-link');
+    });
+    test('!(source.isAgent() || source.isEnvironmentAgent())', () => {
+      const { store, other, parent } = kaosSetup();
+      expect(code(store.canLink(other, parent, kind))).toBe('invalid-source');
+    });
+    test('target.isRefinementLinkHub()', () => {
+      const { store, agent, hub } = kaosSetup();
+      expect(code(store.canLink(agent, hub, kind))).toBe('hub-target');
+    });
+    test('isThereLinkBetween(source, target)', () => {
+      const { store, agent, parent } = kaosSetup();
+      expect(store.connect({ kind, source: agent, target: parent }).ok).toBe(true);
+      expect(code(store.canLink(agent, parent, kind))).toBe('duplicate-link');
+    });
+    test('!source.isElement()', () => {
+      const { store, link, parent } = kaosSetup();
+      expect(code(store.canLink(link, parent, kind))).toBe('unknown-element');
+    });
+    test('!target.isElement()', () => {
+      const { store, agent, link } = kaosSetup();
+      expect(code(store.canLink(agent, link, kind))).toBe('invalid-target');
+    });
+  });
+
+  describe('Conflict.isValid', () => {
+    const kind = 'kaos.Conflict';
+    test('source === target', () => {
+      const { store, other } = kaosSetup();
+      expect(code(store.canLink(other, other, kind))).toBe('self-link');
+    });
+    test('target.isRefinementLinkHub()', () => {
+      const { store, other, hub } = kaosSetup();
+      expect(code(store.canLink(other, hub, kind))).toBe('hub-target');
+    });
+    test('isThereLinkBetween(source, target)', () => {
+      const { store, other, parent } = kaosSetup();
+      expect(store.connect({ kind, source: other, target: parent }).ok).toBe(true);
+      expect(code(store.canLink(parent, other, kind))).toBe('duplicate-link');
+    });
+    test('!source.isElement()', () => {
+      const { store, link, parent } = kaosSetup();
+      expect(code(store.canLink(link, parent, kind))).toBe('unknown-element');
+    });
+    test('!target.isElement()', () => {
+      const { store, other, link } = kaosSetup();
+      expect(code(store.canLink(other, link, kind))).toBe('invalid-target');
+    });
+  });
+
+  describe('RefinementLinkStart.isValid', () => {
+    const kind = 'kaos.RefinementLinkStart';
+    test('source === target', () => {
+      const { store, hub } = kaosSetup();
+      expect(code(store.canLink(hub, hub, kind))).toBe('invalid-source');
+    });
+    test('source.isAgent() || source.isEnvironmentAgent()', () => {
+      const { store, agent, hub } = kaosSetup();
+      expect(code(store.canLink(agent, hub, kind))).toBe('invalid-source');
+    });
+    test('!target.isRefinementLinkHub()', () => {
+      const { store, other, parent } = kaosSetup();
+      expect(code(store.canLink(other, parent, kind))).toBe('invalid-target');
+    });
+    test('isThereLinkBetween(source, target)', () => {
+      const { store, child, other, hub } = kaosSetup();
+      expect(code(store.canLink(child, hub, kind))).toBe('duplicate-link');
+      expect(store.canLink(other, hub, kind)).toEqual({ ok: true });
+    });
+    test('!source.isElement()', () => {
+      const { store, link, hub } = kaosSetup();
+      expect(code(store.canLink(link, hub, kind))).toBe('unknown-element');
+    });
+    test('!target.isElement()', () => {
+      const { store, other, link } = kaosSetup();
+      expect(code(store.canLink(other, link, kind))).toBe('invalid-target');
     });
   });
 });
