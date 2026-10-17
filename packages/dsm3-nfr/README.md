@@ -20,7 +20,7 @@ Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes i
   Framework has no actors; every node lies on the paper.
 - **Labels**: `NFR_CONTRIBUTION_LABELS`, the values of Contribution and Correlation links, as
   DSM3 writes them (`–` is U+2013 EN DASH).
-- **Shapes**: DSM3's cloud (`NFR_SHAPES`): bold for Operationalizations, dashed for Claims; the
+- **Shapes**: DSM3's cloud (`NFR_SHAPES`, on white, `NFR_FILL`): bold for Operationalizations, dashed for Claims; the
   And bar and Or triangle markers.
 - **`nfrExtension`**: an `IstarExtension` for `@istar-ts/react` with the shapes, lines and
   palette entries, one per label for Contribution and Correlation.

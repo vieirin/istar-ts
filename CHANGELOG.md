@@ -2,6 +2,14 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.6
+
+- **core / react:** `KindShape.fill`, a kind's default fill (any CSS colour) for its elements
+  without a `display.backgroundColor` and for its palette icon; absent, the theme's node fill as
+  before. **dsm3-kaos** fills every KAOS node DSM3's grey (`KAOS_FILL`), **dsm3-nfr** draws its
+  clouds on white (`NFR_FILL`), so the canvas and palette look as DSM3's do. For goal-controller
+  #171.
+
 ## 0.13.5
 
 - **core:** the registries kept beside models (their metamodel, the host part of it, their

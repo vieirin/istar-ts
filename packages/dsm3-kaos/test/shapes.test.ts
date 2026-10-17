@@ -11,6 +11,10 @@ describe('KAOS_SHAPES', () => {
     }
   });
 
+  it('fills every node grey, as DSM3 does', () => {
+    for (const kind of KAOS_ELEMENT_KINDS) expect(KAOS_SHAPES[kind].fill).toBe('rgb(205,205,205)');
+  });
+
   it('dashes the Softgoal as DSM3 does, and only the Softgoal', () => {
     expect(KAOS_SHAPES['kaos.Softgoal'].dash).toBe('8,4');
     const dashed = KAOS_ELEMENT_KINDS.filter((kind) => KAOS_SHAPES[kind].dash);

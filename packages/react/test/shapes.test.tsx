@@ -54,3 +54,24 @@ describe('PathShape', () => {
     expect(style.strokeWidth).toBe('3');
   });
 });
+
+describe('KindShape.fill', () => {
+  const path = polygonPath(GOAL_POINTS);
+
+  test('a palette icon is filled with the kind’s default fill', () => {
+    const { container } = render(
+      elementIcon('kaos.Agent', { shape: { path, fill: 'rgb(205,205,205)' } }),
+    );
+    // jsdom normalises the colour's spacing
+    expect((container.querySelector('path') as SVGPathElement).style.fill).toBe(
+      'rgb(205, 205, 205)',
+    );
+  });
+
+  test('without one, the icon keeps the theme’s node fill', () => {
+    const { container } = render(elementIcon('kaos.Agent', { shape: { path } }));
+    expect((container.querySelector('path') as SVGPathElement).style.fill).toBe(
+      'var(--istar-node-fill)',
+    );
+  });
+});
