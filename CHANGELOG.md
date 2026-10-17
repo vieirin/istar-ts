@@ -2,6 +2,12 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.3
+
+- **dsm3-kaos / dsm3-nfr:** `typesVersions` maps the `./metamodel` subpath's types for TypeScript's
+  `node10` module resolution (`module: commonjs` without `moduleResolution`), which ignores
+  `exports`. The 0.13.2 subpath resolved at runtime but not for types under that setting.
+
 ## 0.13.2
 
 - **dsm3-kaos / dsm3-nfr:** a React-free `./metamodel` subpath (`@istar-ts/dsm3-kaos/metamodel`,
