@@ -2,6 +2,16 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.4
+
+- **core:** `toPistar` writes every element, link, hub entry and the diagram with the key order
+  its file had (`SourceLayout.objects`, recorded by `parsePistar`, carried over edits by
+  `inheritSourceLayout`), so files other tools wrote (a link's `label` before its
+  `customProperties`, an actor's `x`/`y` after its `nodes`) round-trip byte for byte. Objects the
+  file lacked follow in piStar's order. A parsed file that had no `saveDate` keeps none until a
+  save passes one; a model that was never a file still gets the current time. For
+  goal-controller #171.
+
 ## 0.13.3
 
 - **dsm3-kaos / dsm3-nfr:** `typesVersions` maps the `./metamodel` subpath's types for TypeScript's

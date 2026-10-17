@@ -3,6 +3,7 @@ import {
   PistarParseError,
   childrenOf,
   createEmptyModel,
+  inheritSourceLayout,
   parsePistar,
   toPistar,
   toPistarObject,
@@ -198,5 +199,117 @@ describe('toPistar', () => {
       display: {},
     });
     expect(toPistarObject(model).dependencies?.[0]).toMatchObject({ source: 'a', target: 'b' });
+  });
+});
+
+describe('source key order (per object) and an absent saveDate', () => {
+  // A file another tool wrote: keys in its own order, no saveDate. Every object's order is kept.
+  const foreign = `{
+  "actors": [
+    {
+      "id": "A1",
+      "text": "Actor",
+      "type": "istar.Actor",
+      "nodes": [
+        {
+          "id": "G1",
+          "text": "Goal",
+          "type": "istar.Goal",
+          "customProperties": {
+            "Description": ""
+          },
+          "x": 10,
+          "y": 20
+        },
+        {
+          "id": "T1",
+          "text": "Task",
+          "type": "istar.Task",
+          "x": 30,
+          "y": 40,
+          "customProperties": {
+            "Description": ""
+          }
+        }
+      ],
+      "x": 40,
+      "y": 40
+    }
+  ],
+  "links": [
+    {
+      "id": "L1",
+      "type": "istar.AndRefinementLink",
+      "source": "T1",
+      "target": "G1",
+      "label": "a label",
+      "customProperties": {
+        "Description": ""
+      }
+    }
+  ],
+  "diagram": {
+    "customProperties": {
+      "Description": ""
+    },
+    "name": "Diagram",
+    "width": 800,
+    "height": 600
+  },
+  "tool": "pistar.2.0.0",
+  "istar": "2.0"
+}`;
+
+  test('writes a foreign file back byte for byte', () => {
+    expect(toPistar(parsePistar(foreign))).toBe(foreign);
+  });
+
+  test('keeps the order through edits, and new objects get piStar’s order', () => {
+    const model = parsePistar(foreign);
+    const edited = inheritSourceLayout(model, {
+      ...model,
+      elements: new Map([
+        ...model.elements,
+        ['G2', { id: 'G2', kind: 'istar.Goal', name: 'New', x: 1, y: 2, parent: 'A1' }],
+      ]),
+    });
+    const json = toPistarObject(edited);
+    const actor = json.actors[0]!;
+    expect(Object.keys(actor)).toEqual(['id', 'text', 'type', 'nodes', 'x', 'y']);
+    expect(Object.keys(actor.nodes[0]!)).toEqual([
+      'id',
+      'text',
+      'type',
+      'customProperties',
+      'x',
+      'y',
+    ]);
+    expect(Object.keys(actor.nodes[2]!)).toEqual(['id', 'text', 'type', 'x', 'y']);
+    expect(Object.keys(json.links![0]!)).toEqual([
+      'id',
+      'type',
+      'source',
+      'target',
+      'label',
+      'customProperties',
+    ]);
+    expect(Object.keys(json.diagram!)).toEqual(['customProperties', 'name', 'width', 'height']);
+    expect(json.saveDate).toBeUndefined();
+  });
+
+  test('a save that passes saveDate adds it to a file that had none', () => {
+    const json = toPistarObject(parsePistar(foreign), { saveDate: new Date(Date.UTC(2024, 0, 1)) });
+    expect(json.saveDate).toBe('Mon, 01 Jan 2024 00:00:00 GMT');
+    expect(Object.keys(json).at(-1)).toBe('saveDate');
+  });
+
+  test('a model that was never a file still gets a saveDate', () => {
+    expect(typeof toPistarObject(createEmptyModel()).saveDate).toBe('string');
+  });
+
+  test('an unordered model (no layout) writes piStar’s order', () => {
+    const json = toPistarObject(parsePistar(foreign));
+    const copy = toPistarObject(parsePistar(JSON.stringify(json)));
+    expect(copy).toEqual(json);
   });
 });

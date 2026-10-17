@@ -348,14 +348,14 @@ describe('hub entries on disk', () => {
       color: 'red',
       [HUB_ENTRY_KEY]: { note: 'entry', after: 1 },
     });
-    // Entry keys come back after hub, starts and end.
+    // The entry's keys come back in the file's order (the source layout), byte for byte.
     const written = toPistar(model);
-    expect(JSON.parse(written)).toEqual(JSON.parse(text));
+    expect(written).toBe(text);
     expect(Object.keys((JSON.parse(written) as PistarFile).links![0]!)).toEqual([
+      'note',
       'hub',
       'starts',
       'end',
-      'note',
       'after',
     ]);
   });
