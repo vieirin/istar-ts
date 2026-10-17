@@ -95,6 +95,13 @@ export interface HubLinkParts {
 }
 
 /**
+ * The kinds an n-ary link kind `K` generates under the default names: its hub element kind
+ * (`<K>Hub`), its leg (`<K>Start`) and its end (`<K>End`). A schema for one of them is declared
+ * like any other: `defineProperties('kaos.RefinementLinkStart', { … })`.
+ */
+export type HubPartKind<K extends string> = `${K}Hub` | `${K}Start` | `${K}End`;
+
+/**
  * Declarative link rules, as piStar-ext's "Create a new Construct" dialog collects them:
  * which kinds may be the source and target. Entries are kind names (`istar.Goal`,
  * `rationalAgents.Plan`) or categories (`node`, `actor`, `*`). A kind name also matches kinds
