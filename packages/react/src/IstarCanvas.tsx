@@ -1,4 +1,6 @@
+import { targetsLinks } from '@istar-ts/core';
 import type {
+  AnyMetamodel,
   DiagnosticsStore,
   ElementKind,
   GoalDiagnostic,
@@ -57,7 +59,7 @@ import type { Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
-import { ACTOR_SYMBOL_CLASS, adoptFlowNode, modelToFlow } from './layout';
+import { ACTOR_SYMBOL_CLASS, adoptFlowNode, linkIdOfAnchor, modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
 import type { AnyIstarRegistry, IstarExtension, IstarRegistry } from './registry';
@@ -305,7 +307,7 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
       >
         {placement !== 'bottom' && palette}
         <div className="istar-canvas-body">
-          <div className={`istar-canvas-flow${toolClass(editor.tool)}`}>
+          <div className={`istar-canvas-flow${toolClass(editor.tool, editor.metamodel)}`}>
             <Diagram
               controls={props.controls ?? true}
               background={props.background ?? false}
@@ -325,9 +327,13 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
   );
 }
 
-function toolClass(tool: Tool | null): string {
+function toolClass(tool: Tool | null, metamodel: AnyMetamodel): string {
   if (!tool) return '';
-  return tool.type === 'element' ? ' is-adding' : ' is-linking';
+  if (tool.type === 'element') return ' is-adding';
+  // A tool whose links may target links shows the anchors on the middle of links.
+  return tool.type === 'link' && targetsLinks(metamodel, tool.kind)
+    ? ' is-linking is-linking-to-links'
+    : ' is-linking';
 }
 
 function Diagram({
@@ -434,6 +440,7 @@ function Diagram({
     (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
       store.transaction(() => {
         for (const node of dragged) {
+          if (node.type === 'istarLinkAnchor') continue;
           const before = graph.nodes.find((n) => n.id === node.id);
           const element = store.getModel().elements.get(node.id);
           if (!before || !element) continue;
@@ -598,7 +605,8 @@ function Diagram({
           : store.connect({
               kind: tool.kind,
               source: connection.source,
-              target: connection.target,
+              // Dropped on a link's anchor node: the link itself is the target.
+              target: linkIdOfAnchor(connection.target) ?? connection.target,
               label: tool.value,
               // A new n-ary link's properties live on its hub (DSM3's split link).
               ...(isNary(tool.kind) && {

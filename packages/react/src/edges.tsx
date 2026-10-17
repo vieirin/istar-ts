@@ -16,15 +16,19 @@ import { useCanvasOptions } from './canvas-options';
 import { useIstarEditor } from './context';
 import { ElementIssuesBadge } from './ElementIssuesBadge';
 import type { IstarFlowEdge } from './layout';
-import { ACTOR_SYMBOL_OFFSET } from './layout';
+import { ACTOR_SYMBOL_OFFSET, linkAnchorId } from './layout';
 import { ACTOR_RADIUS } from './shapes';
 import type { Anchor, Point } from './link-geometry';
-import { linkPath, pointAlong } from './link-geometry';
+import { linkMidpoint, linkPath, pointAlong } from './link-geometry';
 
 function anchorOf(node: InternalNode): Anchor {
   const pos = node.internals.positionAbsolute;
   const width = node.measured.width ?? node.width ?? 0;
   const height = node.measured.height ?? node.height ?? 0;
+  // A link anchor is a point: links that target a link end exactly on its middle.
+  if (node.type === 'istarLinkAnchor') {
+    return { center: { x: pos.x + width / 2, y: pos.y + height / 2 }, width: 0, height: 0 };
+  }
   if (node.type === 'istarActor' && !(node.data as { frameless?: boolean }).frameless) {
     return {
       center: { x: pos.x + ACTOR_SYMBOL_OFFSET, y: pos.y + ACTOR_SYMBOL_OFFSET },
@@ -121,16 +125,35 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const { linkShape, linkNames } = useCanvasOptions();
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+  // A link that targets a link ends on that link's live middle, so it follows while the
+  // target link's nodes are dragged (the anchor node only moves once the drag is committed).
+  const targetLink = data?.targetLinkId ? model.links.get(data.targetLinkId) : undefined;
+  const targetLinkSource = useInternalNode(targetLink?.source ?? '');
+  const targetLinkTarget = useInternalNode(
+    targetLink
+      ? model.links.has(targetLink.target)
+        ? linkAnchorId(targetLink.target)
+        : targetLink.target
+      : '',
+  );
   const link = data ? model.links.get(data.linkId) : undefined;
   if (!sourceNode || !targetNode || !link) return null;
 
   const vertices = link.display?.vertices ?? [];
-  const { d: path, points } = linkPath(
-    anchorOf(sourceNode),
-    anchorOf(targetNode),
-    vertices,
-    linkShape,
-  );
+  const targetAnchor: Anchor =
+    targetLink && targetLinkSource && targetLinkTarget
+      ? {
+          center: linkMidpoint(
+            anchorOf(targetLinkSource),
+            anchorOf(targetLinkTarget),
+            targetLink.display?.vertices ?? [],
+            linkShape,
+          ),
+          width: 0,
+          height: 0,
+        }
+      : anchorOf(targetNode);
+  const { d: path, points } = linkPath(anchorOf(sourceNode), targetAnchor, vertices, linkShape);
   const end = points[points.length - 1]!;
   const beforeEnd = points[points.length - 2]!;
   const backAngle = (Math.atan2(beforeEnd.y - end.y, beforeEnd.x - end.x) * 180) / Math.PI;

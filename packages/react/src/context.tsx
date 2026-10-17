@@ -36,6 +36,7 @@ import {
 } from 'react';
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
 import { applyExtensions, defaultRegistry, registryForMetamodel } from './registry';
+import { linkIdOfAnchor } from './layout';
 import type { ElementIssue } from './issues';
 import { diagnosticToIssue, issueToDiagnostic } from './issues';
 
@@ -299,7 +300,8 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       }
       const kind =
         forTool.type === 'dependency' ? (forTool.linkKind ?? 'istar.DependencyLink') : forTool.kind;
-      return canLink(current, source, target, kind);
+      // Dropping on a link's anchor node targets the link itself.
+      return canLink(current, source, linkIdOfAnchor(target) ?? target, kind);
     },
     [store, tool],
   );

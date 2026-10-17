@@ -797,3 +797,27 @@
   border-color: var(--istar-selection);
   opacity: 0.5;
 }
+
+/* Anchors on the middle of links that other links target (NFR's Argument): drop targets shown
+   only while a tool whose links may target links is active. */
+.istar-canvas .react-flow__node-istarLinkAnchor {
+  pointer-events: none;
+  visibility: hidden;
+}
+.istar-canvas-flow.is-linking-to-links .react-flow__node-istarLinkAnchor {
+  pointer-events: all;
+  visibility: visible;
+}
+.istar-link-anchor-body {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--istar-selection);
+  background: var(--istar-canvas-bg, #fff);
+  box-sizing: border-box;
+}
+.istar-canvas-flow.is-linking-to-links .react-flow__handle.istar-anchor-handle {
+  pointer-events: all;
+  cursor: crosshair;
+  border-radius: 50%;
+}
