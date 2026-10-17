@@ -55,7 +55,6 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
   },
   links: {
     'kaos.RefinementLink': {
-      label: 'Refinement',
       // The hub's end draws like its base link: DSM3's filled triangle at the refined goal.
       line: { marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
       properties: refinementProperties,
@@ -70,7 +69,6 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
       ],
     },
     'kaos.ResponsibilityAssignment': {
-      label: 'Responsibility Assignment',
       line: { marker: false },
       labelComponent: AssignmentGlyph,
       palette: [
@@ -84,7 +82,6 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
       ],
     },
     'kaos.Conflict': {
-      label: 'Conflict',
       line: { marker: false },
       labelComponent: ConflictGlyph,
       properties: conflictProperties,

@@ -4,11 +4,15 @@
 João Pimentel's [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/) tool. Files saved by
 DSM3-goals' KAOS editor open and save byte for byte.
 
-Status: in progress (issue [#7](https://github.com/vieirin/istar-ts/issues/7)). The shapes,
-property schemas and registry parts are here; the `KAOS` metamodel follows once
-`@istar-ts/core` can declare root metamodels and n-ary links.
+Status: in progress (issue [#7](https://github.com/vieirin/istar-ts/issues/7)). The `KAOS`
+root metamodel, property schemas, shapes and registry parts are here. The refinement's several
+sub-goals (DSM3's split link, with its circle) follow once `@istar-ts/core` has n-ary links.
 
 ## What it has
+
+- **`KAOS`**: the root metamodel (`defineMetamodel`), for `parsePistar`, `createEmptyModel`
+  and `canLink`. New files record `tool: "dsm3-goals"` and `metamodelVersion: "1.0"`, as
+  DSM3 writes them.
 
 - **Kinds**: Behavioral goal, Softgoal, Agent, Environment agent and Domain property; the
   Refinement (n-ary: several sub-goals join at a circle), Responsibility assignment and

@@ -3,19 +3,8 @@
  * read 2026-10-16; no licence stated, see docs/dsm3-goals.md). The polygons keep DSM3's
  * `points`, on its 130×36 drawing; elements are 135×36 and the shape scales to them.
  */
+import type { KindShape } from '@istar-ts/core';
 import type { KaosElementKind } from './kinds';
-
-/**
- * A kind's shape as SVG path data, with the dash array and stroke width DSM3 draws it with.
- * Structurally a react `ShapeSpec` (and core `KindShape`) plus their drawing hints.
- */
-export interface KaosShape {
-  readonly path: string;
-  readonly viewBox?: string;
-  /** SVG dash array, e.g. '8,4'. */
-  readonly dash?: string;
-  readonly strokeWidth?: number;
-}
 
 /**
  * Path data for an SVG polygon's `points` ("x1,y1 x2,y2 …"): a closed path through them.
@@ -52,7 +41,7 @@ export const KAOS_VIEWBOX = '-1 -1 132 38';
 const STICK_FIGURE =
   'M 25 12 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0 M 22 17 L 38 17 M 30 17 L 30 27 M 30 27 L 25 32 M 30 27 L 35 32';
 
-export const KAOS_SHAPES: Readonly<Record<KaosElementKind, KaosShape>> = {
+export const KAOS_SHAPES: Readonly<Record<KaosElementKind, KindShape>> = {
   'kaos.BehavioralGoal': { path: polygonPath(KAOS_GOAL_POINTS), viewBox: KAOS_VIEWBOX },
   'kaos.Softgoal': { path: polygonPath(KAOS_GOAL_POINTS), viewBox: KAOS_VIEWBOX, dash: '8,4' },
   'kaos.Agent': { path: polygonPath(KAOS_AGENT_POINTS), viewBox: KAOS_VIEWBOX },

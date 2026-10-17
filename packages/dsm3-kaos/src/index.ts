@@ -1,3 +1,4 @@
+export { DSM3_FILE_KEYS, KAOS, KAOS_DECLARATION } from './metamodel';
 export { KAOS_ELEMENT_KINDS, KAOS_LINK_KINDS, KAOS_REFINEMENT_HUB } from './kinds';
 export type { KaosElementKind, KaosLinkKind } from './kinds';
 export {
@@ -11,7 +12,6 @@ export {
   KAOS_VIEWBOX,
   polygonPath,
 } from './shapes';
-export type { KaosShape } from './shapes';
 export {
   KAOS_PROPERTY_SCHEMAS,
   behavioralGoalProperties,

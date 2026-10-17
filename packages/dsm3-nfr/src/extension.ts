@@ -30,7 +30,6 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
   name: 'dsm3-nfr',
   elements: {
     'nfr.NFR': {
-      label: 'NFR softgoal',
       shape: NFR_SHAPES['nfr.NFR'],
       palette: {
         label: 'NFR',
@@ -60,7 +59,6 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
   },
   links: {
     'nfr.AndRefinementLink': {
-      label: 'And-Refinement',
       line: { marker: NFR_AND_MARKER },
       palette: [
         {
@@ -72,7 +70,6 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
       ],
     },
     'nfr.OrRefinementLink': {
-      label: 'Or-Refinement',
       line: { marker: NFR_OR_MARKER, markerFilled: true },
       palette: [
         {
@@ -85,16 +82,13 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
     },
     // Contribution, Correlation and Argument draw DSM3's open arrow, the default marker.
     'nfr.ContributionLink': {
-      label: 'Contribution',
       palette: labelEntries('Contribution', 'nfr-contributions', 50),
     },
     'nfr.CorrelationLink': {
-      label: 'Correlation',
       line: { dash: LINE_DASHES.dashed },
       palette: labelEntries('Correlation', 'nfr-correlations', 51),
     },
     'nfr.ArgumentLink': {
-      label: 'Argument',
       palette: [
         {
           label: 'Argument',

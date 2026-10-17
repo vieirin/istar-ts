@@ -1,4 +1,3 @@
-import { ISTAR_2_0, extendMetamodel } from '@istar-ts/core';
 import { LINE_DASHES, applyExtensions, registryForMetamodel } from '@istar-ts/react';
 import type { AnyIstarRegistry, LinkToolEntry } from '@istar-ts/react';
 import { describe, expect, it } from 'vitest';
@@ -6,21 +5,13 @@ import {
   NFR_AND_MARKER,
   NFR_CONTRIBUTION_LABELS,
   NFR_ELEMENT_KINDS,
-  NFR_LINK_KINDS,
   NFR_SHAPES,
+  NFR,
   nfrExtension,
 } from '../src';
 
-// Until core can declare the NFR root, an extension of iStar 2.0 with the same kind names
-// stands in for it: the registry parts only look at kind names.
-const standIn = extendMetamodel(ISTAR_2_0, {
-  name: 'nfr-stand-in',
-  elements: NFR_ELEMENT_KINDS.map((kind) => ({ kind, category: 'node' as const })),
-  links: NFR_LINK_KINDS.map((kind) => ({ kind, rules: { sources: ['node'], targets: ['node'] } })),
-});
-
 function nfrRegistry(): AnyIstarRegistry {
-  return applyExtensions<string, string>(registryForMetamodel(standIn) as AnyIstarRegistry, [
+  return applyExtensions<string, string>(registryForMetamodel(NFR) as AnyIstarRegistry, [
     nfrExtension,
   ]);
 }

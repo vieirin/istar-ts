@@ -143,3 +143,36 @@ Dated entries, appended as the work goes. Each says what was decided and why.
 - **2026-10-16**: The release workflow publishes core, react, dsm3-kaos, dsm3-nfr in that
   order. The two new packages need an npm trusted publisher each, which the repository owner
   creates on npmjs.com.
+- **2026-10-16** (agent-blue, PR1, core root metamodels):
+  1. `isCustomPropertiesRecord` recognises a model object by a namespaced `kind` (one that
+     contains `.`) plus a numeric `x` or a string `source` and `target`. A bag such as
+     `{kind: 'plain', source, target}` stays a bag.
+  2. A complete `info` in a declaration is kept as given, so `NODE_KIND_INFO` keeps its object
+     identity. A partial one merges over the defaults. Root defaults are inner, dependum and on
+     paper all true. Extension defaults are piStar-ext's: inner and dependum true, on paper false.
+  3. In a root, giving both `rules` and `behavesLike` is an error ("needs at most one of
+     behavesLike or rules"). A root link may give neither, and then uses the built-in checks. A
+     root dependency-category link may skip `behavesLike` only when it has no rules.
+  4. A root link with neither rules nor built-in checks is accepted when it is defined;
+     `canLink` then fails with `unknown-link-kind`. Checking against the built-in checks at
+     definition time would create an import cycle.
+  5. `defineMetamodel` validates `name` (non-empty) and `prefix` (`/^[A-Za-z_][\w-]*$/`).
+  6. `ISTAR_2_0_DECLARATION.file` writes `pistar.2.1.0` and `2.0` literally, because importing
+     them from `model.ts` would be a cycle. A test asserts they match.
+  7. The namespace reserved against extensions is the root's `prefix`. Roots may declare kinds
+     in any namespace.
+- **2026-10-16**: With PR1 on main, the packages' shapes are typed as core's `KindShape`, which
+  now has `dash` and `strokeWidth`. The local shape interfaces are gone, and react's
+  `ShapeSpec` is the same type.
+- **2026-10-16**: `KAOS` and `NFR` are declared with `defineMetamodel`. Labels and sizes live
+  in the declaration, and the extensions no longer repeat them. Shapes stay in the extensions,
+  as plain data the registry draws, so the declarations carry kinds and rules only.
+- **2026-10-16**: Until core has n-ary links, `kaos.RefinementLink` is declared as an ordinary
+  link with DSM3's source rules. `nfr.ArgumentLink` is left out of `NFR` until links can
+  target links; its kind name, label and palette entry are ready.
+- **2026-10-16**: DSM3's "NFR softgoal towards an Operationalization" rule is a `check`
+  predicate, `notNfrToOperationalization(reason)`, carrying DSM3's message for each link kind.
+  Self links, Claims and duplicates are caught by the declarative rules with core's messages.
+- **2026-10-16**: Both packages export `DSM3_FILE_KEYS`, DSM3's top-level key order. The two
+  copies are identical. A shared home would be core, or a third package, and that choice is
+  left to review.

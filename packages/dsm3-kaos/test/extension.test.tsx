@@ -1,4 +1,3 @@
-import { ISTAR_2_0, extendMetamodel } from '@istar-ts/core';
 import type { IstarLink } from '@istar-ts/core';
 import { applyExtensions, registryForMetamodel } from '@istar-ts/react';
 import type { AnyIstarRegistry, LinkLabelProps } from '@istar-ts/react';
@@ -8,22 +7,14 @@ import {
   ConflictGlyph,
   KAOS_CONFLICT_GLYPH,
   KAOS_ELEMENT_KINDS,
-  KAOS_LINK_KINDS,
   KAOS_REFINEMENT_MARKER,
   KAOS_SHAPES,
+  KAOS,
   kaosExtension,
 } from '../src';
 
-// Until core can declare the KAOS root, an extension of iStar 2.0 with the same kind names
-// stands in for it: the registry parts only look at kind names.
-const standIn = extendMetamodel(ISTAR_2_0, {
-  name: 'kaos-stand-in',
-  elements: KAOS_ELEMENT_KINDS.map((kind) => ({ kind, category: 'node' as const })),
-  links: KAOS_LINK_KINDS.map((kind) => ({ kind, rules: { sources: ['node'], targets: ['node'] } })),
-});
-
 function kaosRegistry(): AnyIstarRegistry {
-  return applyExtensions<string, string>(registryForMetamodel(standIn) as AnyIstarRegistry, [
+  return applyExtensions<string, string>(registryForMetamodel(KAOS) as AnyIstarRegistry, [
     kaosExtension,
   ]);
 }
