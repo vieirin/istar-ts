@@ -21,6 +21,28 @@ Versions are published from GitHub release tags; see the release notes for full 
     only `istar.*` ones.
   - **core:** `KindShape` gains optional `dash` and `strokeWidth` hints. They are types only for
     now; `@istar-ts/react` will draw them.
+- **DSM3-goals' KAOS and NFR in core** (issue #7). Its three welcome models round-trip byte for
+  byte.
+  - **core:** n-ary links. A link kind with `arity: 'n'` generates a hub element kind and leg and
+    end link kinds, as DSM3-goals does. `connect` with it creates a hub, a leg and the end, or
+    adds a leg when the target is one of its hubs. New: `addLeg` and `removeLeg`, also on the
+    store, plus `hubLinkOf`, `hubOfLink`, `isHubElement`, `elementCenter` and
+    `defaultHubPosition`. Removing a hub's end or last leg removes the hub.
+  - **core:** category selectors never match a hub. New `ConstraintCode`s are `hub-target`, for
+    a link of another kind towards a hub, and `incomplete-hub`, from `validateModel`.
+  - **core:** hub entries `{ hub, starts, end }` are read and written as DSM3-goals saves them,
+    with an entry's unknown keys under `HUB_ENTRY_KEY`. `PistarFile.links` may now hold
+    `PistarHubLinkJson` entries.
+  - **core:** links that target links. `LinkRules.targets` may hold `link` or link kind names, and
+    `canLink` accepts a link as the target. `validateModel` checks such links last, and removing a
+    link removes the links that target it. New: `isLinkRef`, `linkTargetOf`, `linkBehavesLike`,
+    `targetsLinks` and `LINK_SELECTOR`.
+  - **core:** `LinkRuleContext.target` is now `IstarElement | IstarLink`, and
+    `isThereLinkBetween` accepts anything with an `id`. This is a type-level change for `check`
+    authors: narrow with `isLinkRef` before reading element fields. Runtime behaviour for element
+    targets is unchanged.
+  - **core:** `detectPrefix(json)` and `detectFramework(json, roots)` tell which root metamodel a
+    file is written in.
 
 ## 0.12.0
 
