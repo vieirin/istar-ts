@@ -2,6 +2,14 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.1
+
+- **dsm3-kaos / dsm3-nfr:** republished with correct dependency ranges. 0.13.0 of both declared
+  `@istar-ts/core@^0.0.0-development` and cannot be installed; use 0.13.1. core and react are
+  unchanged.
+- **Release workflow:** npm trusted publishing only (no token), manual re-run by tag, and a guard
+  against tarballs that still reference `0.0.0-development`.
+
 ## 0.13.0
 
 - **Root metamodels** (issue #7, groundwork for DSM3-goals' KAOS and NFR). iStar 2.0 is no longer
