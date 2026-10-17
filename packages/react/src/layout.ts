@@ -5,8 +5,7 @@
  * relative to their parent, so each actor's boundary is computed first and inner elements are
  * offset from its top-left corner.
  */
-import type { IstarElement, IstarLink, IstarModel } from '@istar-ts/core';
-import type { AnyIstarModel } from '@istar-ts/core';
+import type { ElementKind, IstarElement, IstarLink, IstarModel, LinkKind } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
 import type { Edge, Node } from '@xyflow/react';
 import type { Anchor, Point } from './link-geometry';
@@ -71,11 +70,11 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
  * Actor `display.width`/`height` are the last saved expanded size in piStar files — using them
  * as the floor would leave empty space after children move inward.
  */
-export function actorBoundary(
-  model: IstarModel,
-  registry: IstarRegistry,
-  actor: IstarElement,
-  children: readonly IstarElement[],
+export function actorBoundary<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  registry: IstarRegistry<EK, LK>,
+  actor: IstarElement<EK>,
+  children: readonly IstarElement<EK>[],
 ): Box {
   const size = registry.elements[actor.kind].size;
   let minX = actor.x;
@@ -119,15 +118,18 @@ export function linkIdOfAnchor(nodeId: string): string | undefined {
 /** Class of the actor symbol, the only part of an actor that selects and drags it. */
 export const ACTOR_SYMBOL_CLASS = 'istar-actor-symbol';
 
-export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGraph {
+export function modelToFlow<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  registry: IstarRegistry<EK, LK>,
+): FlowGraph {
   // Categories come from the model's metamodel, so extended actor kinds are actors too.
-  const metamodel = metamodelOf(model as unknown as AnyIstarModel);
-  const isActorKind = (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor';
-  const isDependencyKind = (kind: string): boolean =>
+  const metamodel = metamodelOf(model);
+  const isActorKind = (kind: EK): boolean => metamodel.elements.get(kind)?.category === 'actor';
+  const isDependencyKind = (kind: LK): boolean =>
     metamodel.links.get(kind)?.category === 'dependency';
   const nodes: IstarFlowNode[] = [];
   const origins = new Map<string, { x: number; y: number }>();
-  const children = new Map<string, IstarElement[]>();
+  const children = new Map<string, IstarElement<EK>[]>();
   for (const element of model.elements.values()) {
     if (element.parent !== undefined && !isActorKind(element.kind)) {
       const list = children.get(element.parent) ?? [];
@@ -225,7 +227,7 @@ export function modelToFlow(model: IstarModel, registry: IstarRegistry): FlowGra
  * hidden too. Only models with such links take this path, so iStar layouts are unaffected.
  */
 function withLinkAnchors(
-  model: IstarModel,
+  model: IstarModel<string, string>,
   nodes: IstarFlowNode[],
   edges: IstarFlowEdge[],
   edgeById: Map<string, IstarFlowEdge>,
@@ -319,7 +321,7 @@ function pointAnchor(node: LinkAnchorFlowNode | undefined): Anchor | undefined {
 }
 
 function linkToEdge(
-  link: IstarLink,
+  link: IstarLink<string>,
   collapsedInto: Map<string, string>,
   isDependency: boolean,
 ): IstarFlowEdge | null {
