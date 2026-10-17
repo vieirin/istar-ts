@@ -37,8 +37,10 @@ pnpm dev         # playground app (examples/playground)
 Versions come from git tags; don't edit `version` in `package.json` (it stays
 `0.0.0-development`). To release, publish a GitHub release with a semver tag, e.g. `v0.2.0`
 (`gh release create v0.2.0 --generate-notes`). The [Release workflow](.github/workflows/release.yml)
-runs the full check, stamps that version on every package and publishes them to npm with the
-`NPM_SECRET_KEY` secret of the `publish` environment. Pre-release tags like `v0.3.0-beta.1` go to the `next` dist-tag.
+runs the full check, stamps that version on every package and publishes them to npm through
+npm trusted publishing (each package trusts `vieirin/istar-ts` / `release.yml` / environment
+`publish`); no npm token is involved. Run the workflow manually with an existing tag to finish a
+release where a package failed to publish. Pre-release tags like `v0.3.0-beta.1` go to the `next` dist-tag.
 
 ## Credits
 

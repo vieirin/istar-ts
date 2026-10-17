@@ -1,22 +1,29 @@
 # Publishes @istar-ts/core, @istar-ts/react, @istar-ts/dsm3-kaos and @istar-ts/dsm3-nfr to npm when
-# a GitHub release is published.
+# a GitHub release is published, or on demand for an existing release tag (workflow_dispatch,
+# e.g. to finish a release where one package failed to publish).
 #
 # The release tag is the version: tag `v1.2.3` publishes 1.2.3 of every package (the versions in
 # package.json are overwritten for the publish, so they don't need bumping in the repo).
 # Pre-release tags such as `v1.3.0-beta.1` are published under the `next` dist-tag.
 #
-# Authentication: npm trusted publishing (configure a trusted publisher for each package on
-# npmjs.com: repository vieirin/istar-ts, workflow release.yml, environment publish). Until
-# then, the NPM_SECRET_KEY secret of the `publish` environment is used as a token.
+# Authentication: npm trusted publishing (OIDC) only. Every package has a trusted publisher on
+# npmjs.com: repository vieirin/istar-ts, workflow release.yml, environment publish, with
+# `npm publish` and `npm dist-tag` allowed. No npm token is used.
 name: Release
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)publish, e.g. v0.13.0
+        required: true
+        type: string
 
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # npm trusted publishing and provenance
 
 concurrency:
   group: release
@@ -25,10 +32,13 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # NPM_SECRET_KEY is an environment secret of the `publish` environment.
     environment: publish
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
 
       # pnpm version comes from "packageManager" in package.json.
       - uses: pnpm/action-setup@v6
@@ -39,14 +49,15 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing needs npm 11.5.1 or newer.
+      - run: npm install -g npm@latest && npm --version
+
       - run: pnpm install --frozen-lockfile
 
       # Lint, format, typecheck, tests and build, before touching package.json.
       - run: pnpm check
 
       - name: Set package versions from the release tag
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="${TAG#v}"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -64,26 +75,32 @@ jobs:
           fi
 
       # pnpm packs each package (running `prepack`: LICENSE + build) and rewrites `workspace:^`
-      # to the published version; npm publishes the tarballs, dependencies first (core, react, then
-      # the framework packages). npm's CLI is used for
-      # the upload because it supports trusted publishing (OIDC): once the packages have a
-      # trusted publisher on npmjs.com, no token is needed and NPM_SECRET_KEY can be deleted.
+      # to the published version; npm publishes the tarballs, dependencies first (core, react,
+      # then the framework packages). A version that is already on the registry, or already
+      # staged there, is skipped so a re-run finishes a partial release.
       - name: Publish to npm
         run: |
-          npm --version
           mkdir -p "$RUNNER_TEMP/tarballs"
+          failed=0
           for pkg in core react dsm3-kaos dsm3-nfr; do
             (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
             tarball="$RUNNER_TEMP/tarballs/istar-ts-$pkg-$VERSION.tgz"
             if npm view "@istar-ts/$pkg@$VERSION" version >/dev/null 2>&1; then
               echo "@istar-ts/$pkg@$VERSION is already published, skipping"
+              continue
+            fi
+            if npm publish "$tarball" --access public --tag "$DIST_TAG" 2>&1 | tee "$RUNNER_TEMP/$pkg.log"; then
+              continue
+            fi
+            if grep -q "cannot publish over the previously published versions" "$RUNNER_TEMP/$pkg.log"; then
+              echo "::warning::@istar-ts/$pkg@$VERSION already exists on npm (possibly staged for review), skipping"
             else
-              npm publish "$tarball" --access public --tag "$DIST_TAG"
+              echo "::error::@istar-ts/$pkg@$VERSION failed to publish"
+              failed=1
             fi
           done
+          exit $failed
         env:
-          # Fallback until trusted publishing is configured; unused afterwards.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET_KEY }}
           # Provenance attestations require a public repository.
           NPM_CONFIG_PROVENANCE: ${{ !github.event.repository.private }}
 
