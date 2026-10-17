@@ -18,7 +18,10 @@ element or link kinds (such as piStar-ext's iStar4RationalAgents) are supported 
 `extendMetamodel`: see "Extending the metamodel" in the package READMEs and
 [docs/metamodel-extensions.md](docs/metamodel-extensions.md). Other goal languages that share
 piStar's core, KAOS and the NFR Framework as DSM3-goals defines them, come as their own packages
-(see [docs/dsm3-goals.md](docs/dsm3-goals.md)).
+(see [docs/dsm3-goals.md](docs/dsm3-goals.md)). `@istar-ts/dsm3-kaos` also has an obstacle
+analysis extension (`KAOS_OBSTACLES`). Its file types (`kaos.Obstacle`,
+`kaos.ObstacleRefinementLink*`, `kaos.ObstructionLink`, `kaos.ResolutionLink`) are istar-ts's,
+not DSM3-goals': DSM3's KAOS editor doesn't know them.
 
 ## Development
 

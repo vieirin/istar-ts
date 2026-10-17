@@ -361,7 +361,12 @@ const registry = applyExtensions(registryForMetamodel(KAOS), [kaosExtension]);
   the end is drawn like the base kind's `line`. The base kind has one tool: dragging from a
   source to a target creates the hub, its first leg and the end; dragging onto an existing hub
   adds a leg. Either way the hub is selected. Selecting a leg or the end inspects the whole link
-  too (`HubPartInspector`), with its sources and target.
+  too (`HubPartInspector`), with its sources and target, followed by the selected part's own
+  properties under its kind's schema: a leg kind (`<Kind>Start`, see core's `HubPartKind`) may
+  have `properties` of its own, such as a probability per leg of a case-driven refinement.
+- **Value hints.** `prop.reference({ kinds })` renders a select of the model's elements of
+  those kinds, by name; an id that isn't in the model stays shown, marked missing. A
+  `prop.number({ max: 1 })` is a text input, so `.2` and `20.00%` stay as typed.
 - **Glyph links.** A link drawn with a glyph at its middle (a `labelComponent` and
   `line.marker: false`) can show it in the palette: give the kind an `icon`, e.g.
   `linkIcon(kind, undefined, { marker: null, glyph })`.
