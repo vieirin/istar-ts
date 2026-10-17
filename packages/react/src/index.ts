@@ -93,6 +93,7 @@ export {
   QualityShape,
   ResourceShape,
   TaskShape,
+  polygonPath,
   shapeViewBox,
 } from './shapes';
 export type { ShapeProps, ShapeSpec } from './shapes';
