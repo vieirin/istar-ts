@@ -4,7 +4,12 @@
  */
 import { defineMetamodel } from '@istar-ts/core';
 import type { Metamodel, NodeKindInfo, RootMetamodelDeclaration } from '@istar-ts/core';
-import type { KaosElementKind, KaosLinkKind } from './kinds';
+import type {
+  KaosDeclaredElementKind,
+  KaosDeclaredLinkKind,
+  KaosElementKind,
+  KaosLinkKind,
+} from './kinds';
 
 /** KAOS nodes lie on the paper: KAOS has no actors to put them in. */
 const ON_PAPER: NodeKindInfo = {
@@ -32,7 +37,10 @@ export const DSM3_FILE_KEYS: readonly string[] = [
   'diagram',
 ];
 
-export const KAOS_DECLARATION: RootMetamodelDeclaration<KaosElementKind, KaosLinkKind> = {
+export const KAOS_DECLARATION: RootMetamodelDeclaration<
+  KaosDeclaredElementKind,
+  KaosDeclaredLinkKind
+> = {
   name: 'kaos',
   prefix: 'kaos',
   elements: [
@@ -62,11 +70,13 @@ export const KAOS_DECLARATION: RootMetamodelDeclaration<KaosElementKind, KaosLin
   ],
   links: [
     {
-      // DSM3's RefinementLink.isValid: not onto itself, not from an agent, any element target.
-      // DSM3 leaves the "one per pair" check commented out. Its several sub-goals (DSM3's
-      // `sourceMultiplicity: -1`) arrive with core's n-ary links.
+      // DSM3's RefinementLink.isValid: not onto itself, not from an agent, any element target;
+      // it leaves the "one per pair" check commented out. Several sub-goals join at a hub
+      // (DSM3's `sourceMultiplicity: -1`): core generates kaos.RefinementLinkHub, …Start
+      // (legs, one per source) and …End, with DSM3's file types.
       kind: 'kaos.RefinementLink',
       label: 'Refinement',
+      arity: 'n',
       rules: {
         sources: ['kaos.BehavioralGoal', 'kaos.Softgoal', 'kaos.DomainProperty'],
         targets: ['node'],
@@ -95,5 +105,11 @@ export const KAOS_DECLARATION: RootMetamodelDeclaration<KaosElementKind, KaosLin
   file: { tool: 'dsm3-goals', extra: { metamodelVersion: '1.0' }, keys: DSM3_FILE_KEYS },
 };
 
-/** The KAOS root metamodel: parse, create and check KAOS models with it. */
-export const KAOS: Metamodel<KaosElementKind, KaosLinkKind> = defineMetamodel(KAOS_DECLARATION);
+/**
+ * The KAOS root metamodel: parse, create and check KAOS models with it. Its kind types include
+ * the generated hub, leg and end kinds, which core doesn't infer from the declaration.
+ */
+export const KAOS: Metamodel<KaosElementKind, KaosLinkKind> = defineMetamodel<
+  KaosElementKind,
+  KaosLinkKind
+>(KAOS_DECLARATION);

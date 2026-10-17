@@ -4,25 +4,8 @@
  * `points`, on its 130×36 drawing; elements are 135×36 and the shape scales to them.
  */
 import type { KindShape } from '@istar-ts/core';
-import type { KaosElementKind } from './kinds';
-
-/**
- * Path data for an SVG polygon's `points` ("x1,y1 x2,y2 …"): a closed path through them.
- */
-export function polygonPath(points: string): string {
-  const coords = points
-    .trim()
-    .split(/[\s,]+/)
-    .map(Number);
-  if (coords.length < 4 || coords.length % 2 !== 0 || coords.some((n) => !Number.isFinite(n))) {
-    throw new Error(`Invalid polygon points: "${points}"`);
-  }
-  const parts: string[] = [];
-  for (let i = 0; i < coords.length; i += 2) {
-    parts.push(`${i === 0 ? 'M' : 'L'} ${coords[i]} ${coords[i + 1]}`);
-  }
-  return `${parts.join(' ')} Z`;
-}
+import { polygonPath } from '@istar-ts/react';
+import type { KaosDeclaredElementKind } from './kinds';
 
 /** Agent and Environment Agent: a hexagon. */
 export const KAOS_AGENT_POINTS = '0,18 30,0 100,0 130,18 100,36 30,36';
@@ -41,7 +24,7 @@ export const KAOS_VIEWBOX = '-1 -1 132 38';
 const STICK_FIGURE =
   'M 25 12 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0 M 22 17 L 38 17 M 30 17 L 30 27 M 30 27 L 25 32 M 30 27 L 35 32';
 
-export const KAOS_SHAPES: Readonly<Record<KaosElementKind, KindShape>> = {
+export const KAOS_SHAPES: Readonly<Record<KaosDeclaredElementKind, KindShape>> = {
   'kaos.BehavioralGoal': { path: polygonPath(KAOS_GOAL_POINTS), viewBox: KAOS_VIEWBOX },
   'kaos.Softgoal': { path: polygonPath(KAOS_GOAL_POINTS), viewBox: KAOS_VIEWBOX, dash: '8,4' },
   'kaos.Agent': { path: polygonPath(KAOS_AGENT_POINTS), viewBox: KAOS_VIEWBOX },

@@ -1,22 +1,6 @@
 import { pathBounds } from '@istar-ts/react';
 import { describe, expect, it } from 'vitest';
-import { KAOS_ELEMENT_KINDS, KAOS_GOAL_POINTS, KAOS_SHAPES, polygonPath } from '../src';
-
-describe('polygonPath', () => {
-  it('turns polygon points into a closed path through them', () => {
-    expect(polygonPath(KAOS_GOAL_POINTS)).toBe('M 0 36 L 15 0 L 130 0 L 115 36 Z');
-  });
-
-  it('accepts any whitespace and comma separation', () => {
-    expect(polygonPath(' 0 0,10 0  10,10 ')).toBe('M 0 0 L 10 0 L 10 10 Z');
-  });
-
-  it('rejects malformed points', () => {
-    expect(() => polygonPath('0,0 10')).toThrow('Invalid polygon points');
-    expect(() => polygonPath('0,0 a,b')).toThrow('Invalid polygon points');
-    expect(() => polygonPath('')).toThrow('Invalid polygon points');
-  });
-});
+import { KAOS_ELEMENT_KINDS, KAOS_SHAPES } from '../src';
 
 describe('KAOS_SHAPES', () => {
   it('has a shape for every KAOS node kind, on DSM3’s 130×36 drawing', () => {

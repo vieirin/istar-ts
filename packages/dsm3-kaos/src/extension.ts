@@ -48,6 +48,9 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
       shape: KAOS_SHAPES['kaos.EnvironmentAgent'],
       palette: addNode('Environment Agent', 'an', 13),
     },
+    // The refinement's circle: drawn and inspected by react's hub defaults; its schema is the
+    // refinement's, as DSM3 saves the refinement's properties on it.
+    'kaos.RefinementLinkHub': { properties: refinementProperties },
     'kaos.DomainProperty': {
       shape: KAOS_SHAPES['kaos.DomainProperty'],
       palette: addNode('Domain Property', 'a', 14),
@@ -57,6 +60,7 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
     'kaos.RefinementLink': {
       // The hub's end draws like its base link: DSM3's filled triangle at the refined goal.
       line: { marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
+      // Defaults for a new refinement's hub (react puts them there when connecting).
       properties: refinementProperties,
       palette: [
         {

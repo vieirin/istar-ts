@@ -1,17 +1,43 @@
 import { createEmptyModel, extendMetamodel, toPistar } from '@istar-ts/core';
 import { describe, expect, it } from 'vitest';
-import { DSM3_FILE_KEYS, KAOS, KAOS_ELEMENT_KINDS, KAOS_LINK_KINDS } from '../src';
+import { DSM3_FILE_KEYS, KAOS, KAOS_ELEMENT_KINDS } from '../src';
 
 describe('KAOS', () => {
   it('is a root metamodel of its own, under the kaos prefix', () => {
     expect(KAOS.framework).toBe('kaos');
     expect(KAOS.prefix).toBe('kaos');
-    expect([...KAOS.elements.keys()]).toEqual([...KAOS_ELEMENT_KINDS]);
-    expect([...KAOS.links.keys()]).toEqual([...KAOS_LINK_KINDS]);
+    expect([...KAOS.elements.keys()]).toEqual([...KAOS_ELEMENT_KINDS, 'kaos.RefinementLinkHub']);
+    expect([...KAOS.links.keys()]).toEqual([
+      'kaos.RefinementLink',
+      'kaos.RefinementLinkStart',
+      'kaos.RefinementLinkEnd',
+      'kaos.ResponsibilityAssignment',
+      'kaos.Conflict',
+    ]);
+  });
+
+  it('generates the refinement’s hub, leg and end kinds with DSM3’s file types', () => {
+    const base = KAOS.links.get('kaos.RefinementLink')!;
+    expect(base.arity).toBe('n');
+    expect(base.parts).toEqual({
+      hub: 'kaos.RefinementLinkHub',
+      leg: 'kaos.RefinementLinkStart',
+      end: 'kaos.RefinementLinkEnd',
+    });
+    const hub = KAOS.elements.get('kaos.RefinementLinkHub')!;
+    expect(hub).toMatchObject({
+      role: 'hub',
+      of: 'kaos.RefinementLink',
+      size: { width: 20, height: 20 },
+    });
+    expect(hub.pistarType).toBe('kaos.RefinementLinkHub');
+    expect(KAOS.links.get('kaos.RefinementLinkStart')).toMatchObject({ role: 'leg' });
+    expect(KAOS.links.get('kaos.RefinementLinkEnd')).toMatchObject({ role: 'end' });
   });
 
   it('puts every node on the paper, at DSM3’s size', () => {
     for (const definition of KAOS.elements.values()) {
+      if (definition.role === 'hub') continue;
       expect(definition.category).toBe('node');
       expect(definition.info).toEqual({
         canBeInnerElement: false,
