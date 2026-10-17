@@ -10,7 +10,7 @@ import type {
 import { CONTRIBUTION_LABELS, isLinkRef, linkTargetOf } from '@istar-ts/core';
 import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { useId, useState } from 'react';
-import { useIstarEditor } from './context';
+import { useIstarEditor, useOptionalIstarEditor } from './context';
 import type { InspectorProps } from './registry';
 
 export interface IstarInspectorProps {
@@ -209,8 +209,9 @@ export interface PropertyFieldProps {
 
 /**
  * Edits one customProperties entry according to its schema type: a select for enums, a
- * checkbox for booleans, a number input for numbers, a text input otherwise. Values are always
- * written back as strings, as piStar stores them.
+ * checkbox for booleans, a number input for numbers (a text input for probabilities, which may
+ * be written `.2` or `20.00%`), a picker of the model's elements for references, a text input
+ * otherwise. Values are always written back as strings, as piStar stores them.
  */
 export function PropertyField({
   name,
@@ -254,11 +255,22 @@ export function PropertyField({
         )}
       </select>
     );
+  } else if (type.type === 'reference') {
+    input = (
+      <ReferencePicker
+        id={id}
+        type={type}
+        value={value}
+        optional={optional}
+        readOnly={readOnly}
+        onChange={onChange}
+      />
+    );
   } else {
     input = (
       <CommitText
         id={id}
-        type={type.type === 'number' ? 'number' : 'text'}
+        type={type.type === 'number' && !type.percent ? 'number' : 'text'}
         value={value ?? ''}
         step={type.integer ? 1 : 'any'}
         min={type.min}
@@ -276,6 +288,71 @@ export function PropertyField({
         <div className="istar-field-description">{type.options.description}</div>
       )}
     </InspectorField>
+  );
+}
+
+/**
+ * A `prop.reference` value: a select of the model's elements of the allowed kinds, by name. An
+ * id that isn't in the model stays selectable, marked missing. Outside an editor, a text input.
+ */
+function ReferencePicker({
+  id,
+  type,
+  value,
+  optional,
+  readOnly,
+  onChange,
+}: {
+  id: string;
+  type: PropertyType<unknown>;
+  value: string | undefined;
+  optional: boolean;
+  readOnly: boolean | undefined;
+  onChange(raw: string | undefined): void;
+}): ReactElement {
+  const editor = useOptionalIstarEditor();
+  if (!editor) {
+    return (
+      <CommitText
+        id={id}
+        value={value ?? ''}
+        readOnly={readOnly}
+        onCommit={(raw) => onChange(raw === '' && optional ? undefined : raw)}
+      />
+    );
+  }
+  const { model, registry } = editor;
+  const allowed = (kind: string): boolean => !type.kinds || type.kinds.includes(kind);
+  const kindLabel = (kind: string): string =>
+    (registry.elements as Record<string, { label?: string } | undefined>)[kind]?.label ?? kind;
+  const options = [...model.elements.values()]
+    .filter((element) => allowed(element.kind))
+    .map((element) => ({
+      id: element.id,
+      text: element.name ? element.name : `${kindLabel(element.kind)} ${element.id}`,
+    }))
+    .toSorted((a, b) => a.text.localeCompare(b.text));
+  const known = value === undefined || value === '' || options.some((o) => o.id === value);
+  const exists = value !== undefined && (model.elements.has(value) || model.links.has(value));
+  return (
+    <select
+      id={id}
+      value={value ?? ''}
+      disabled={readOnly}
+      onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+    >
+      <option value="">—</option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.text}
+        </option>
+      ))}
+      {!known && (
+        <option value={value}>
+          {value} ({exists ? 'wrong kind' : 'missing'})
+        </option>
+      )}
+    </select>
   );
 }
 
@@ -391,13 +468,29 @@ export function CustomPropertiesEditor({
  * The typed fields of an element's schema, its cross-field issues and its other properties: the
  * part of the element inspector that doesn't depend on the kind (shared with the hub inspector).
  */
-export function ElementPropertiesSection({
+export function ElementPropertiesSection(props: InspectorProps<IstarElement>): ReactElement {
+  return <PropertiesSection {...props} />;
+}
+
+/**
+ * The typed fields and other properties of an element or a link (e.g. the leg of an n-ary
+ * link, under its hub's inspector).
+ */
+export function PropertiesSection({
   target,
   actions,
   readOnly,
   schema,
   diagnostics,
-}: InspectorProps<IstarElement>): ReactElement {
+}: {
+  readonly target: IstarElement | IstarLink;
+  readonly actions: {
+    setProperties(patch: Readonly<Record<string, string | undefined>>): void;
+  };
+  readonly readOnly: boolean;
+  readonly schema?: PropertySchema | undefined;
+  readonly diagnostics?: readonly GoalDiagnostic[] | undefined;
+}): ReactElement {
   const typed = useTypedProperties(schema, target, actions);
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const crossIssues = typed.issues.filter((i) => !schemaKeys.includes(i.key));

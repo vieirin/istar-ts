@@ -152,3 +152,119 @@ describe('inspecting an n-ary link', () => {
     for (const l of [...parts.legs, parts.end!]) expect(model.links.has(l.id)).toBe(false);
   });
 });
+
+describe("a leg's own properties", () => {
+  // Cailliau's case-driven refinement puts a probability on each leg.
+  const legs = defineProperties('kaos.RefinementLinkStart', {
+    Probability: prop.number({ min: 0, max: 1, optional: true }),
+  });
+  const withLegs: IstarExtension<string, string> = {
+    name: 'leg-properties',
+    links: { 'kaos.RefinementLinkStart': { properties: legs } },
+  };
+
+  function selectLeg(extensions: IstarExtension<string, string>[]) {
+    const store = createModelStore(parsePistar(kaosWelcome, { metamodel: KAOS }));
+    const hub = [...store.getModel().elements.values()].find(
+      (e) =>
+        e.kind === 'kaos.RefinementLinkHub' && hubLinkOf(store.getModel(), e.id)!.legs.length === 2,
+    )!;
+    const leg = hubLinkOf(store.getModel(), hub.id)!.legs[0]!;
+    store.updateLink(leg.id, { customProperties: { Probability: '20.00%', Note: 'n' } });
+    let editor: IstarEditor | undefined;
+    function Grab(): null {
+      const e = useIstarEditor();
+      useEffect(() => {
+        editor = e;
+      });
+      return null;
+    }
+    render(
+      <IstarProvider store={store} extensions={extensions}>
+        <Grab />
+        <IstarInspector />
+      </IstarProvider>,
+    );
+    act(() => editor!.select({ type: 'link', id: leg.id }));
+    return { store, hub, leg };
+  }
+
+  test("shows under the hub's, as typed fields, and edits the leg", () => {
+    const { store, hub, leg } = selectLeg([properties, withLegs]);
+    // The hub's schema first, then the leg's.
+    expect((screen.getByLabelText('SysRef') as HTMLInputElement).value).toBe('');
+    const sourceName = store.getModel().elements.get(leg.source)!.name;
+    expect(document.querySelector('.istar-hub-part h4')?.textContent).toBe(
+      `Refinement leg: ${sourceName}`,
+    );
+    // A probability may be a percentage, so it is a text input.
+    const probability = screen.getByLabelText('Probability') as HTMLInputElement;
+    expect(probability.type).toBe('text');
+    expect(probability.value).toBe('20.00%');
+    fireEvent.change(probability, { target: { value: '.35' } });
+    fireEvent.blur(probability);
+    expect(store.getModel().links.get(leg.id)?.customProperties).toEqual({
+      Probability: '.35',
+      Note: 'n',
+    });
+    expect(store.getModel().elements.get(hub.id)?.customProperties).not.toHaveProperty(
+      'Probability',
+    );
+  });
+
+  test("without a schema, the leg's properties are still listed", () => {
+    selectLeg([properties]);
+    // The free-form editor, not a typed field.
+    expect(screen.getByLabelText('Probability').tagName).toBe('TEXTAREA');
+    expect(screen.getByLabelText('Remove property Probability')).toBeTruthy();
+    expect(screen.getByLabelText('Remove property Note')).toBeTruthy();
+  });
+});
+
+describe('reference properties', () => {
+  test("offer the model's elements of the allowed kinds, by name", () => {
+    const anchor = defineProperties('kaos.RefinementLinkHub', {
+      Context: prop.reference({ kinds: ['kaos.Softgoal'], optional: true }),
+    });
+    const store = createModelStore(parsePistar(kaosWelcome, { metamodel: KAOS }));
+    const hub = [...store.getModel().elements.values()].find(
+      (e) => e.kind === 'kaos.RefinementLinkHub',
+    )!;
+    store.updateElement(hub.id, { customProperties: { Context: 'nowhere' } });
+    let editor: IstarEditor | undefined;
+    function Grab(): null {
+      const e = useIstarEditor();
+      useEffect(() => {
+        editor = e;
+      });
+      return null;
+    }
+    render(
+      <IstarProvider
+        store={store}
+        extensions={[
+          { name: 'anchor', elements: { 'kaos.RefinementLinkHub': { properties: anchor } } },
+        ]}
+      >
+        <Grab />
+        <IstarInspector />
+      </IstarProvider>,
+    );
+    act(() => editor!.select({ type: 'element', id: hub.id }));
+    const select = screen.getByLabelText('Context') as HTMLSelectElement;
+    const softgoals = [...store.getModel().elements.values()]
+      .filter((e) => e.kind === 'kaos.Softgoal')
+      .map((e) => e.name)
+      .toSorted((a, b) => a.localeCompare(b));
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      '—',
+      ...softgoals,
+      'nowhere (missing)',
+    ]);
+    const target = [...store.getModel().elements.values()].find((e) => e.kind === 'kaos.Softgoal')!;
+    fireEvent.change(select, { target: { value: target.id } });
+    expect(store.getModel().elements.get(hub.id)?.customProperties).toEqual({
+      Context: target.id,
+    });
+  });
+});
