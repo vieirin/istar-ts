@@ -7,7 +7,7 @@ import type {
   PropertySchema,
   PropertyType,
 } from '@istar-ts/core';
-import { CONTRIBUTION_LABELS } from '@istar-ts/core';
+import { CONTRIBUTION_LABELS, isLinkRef, linkTargetOf } from '@istar-ts/core';
 import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { useId, useState } from 'react';
 import { useIstarEditor } from './context';
@@ -543,7 +543,14 @@ export function DefaultLinkInspector({
   const typed = useTypedProperties(schema, target, actions);
   const schemaKeys = schema ? Object.keys(schema.shape) : [];
   const source = model.elements.get(target.source)?.name ?? target.source;
-  const destination = model.elements.get(target.target)?.name ?? target.target;
+  // A link may point at another link (NFR's Argument); name that one by its kind.
+  const pointee = linkTargetOf(model, target);
+  const destination =
+    pointee === undefined
+      ? target.target
+      : isLinkRef(pointee)
+        ? `${registry.links[pointee.kind]?.label ?? pointee.kind} link`
+        : pointee.name;
   const rows = splitDiagnostics(diagnostics, schemaKeys, target.customProperties);
   return (
     <div className="istar-inspector-body">

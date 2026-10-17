@@ -60,7 +60,7 @@ import type { IstarFlowEdge, IstarFlowNode } from './layout';
 import { ACTOR_SYMBOL_CLASS, adoptFlowNode, modelToFlow } from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
-import type { IstarExtension, IstarRegistry } from './registry';
+import type { AnyIstarRegistry, IstarExtension, IstarRegistry } from './registry';
 import { defaultNameFor, defaultPropertiesFor } from './registry';
 import type { ElementIssue } from './issues';
 
@@ -574,6 +574,11 @@ function Diagram({
     ],
   );
 
+  const isNary = useCallback(
+    (kind: string): boolean => metamodel.links.get(kind)?.arity === 'n',
+    [metamodel],
+  );
+
   const isValidConnection = useCallback<IsValidConnection>(
     (connection) => editor.checkConnection(connection.source, connection.target).ok,
     [editor],
@@ -595,6 +600,12 @@ function Diagram({
               source: connection.source,
               target: connection.target,
               label: tool.value,
+              // A new n-ary link's properties live on its hub (DSM3's split link).
+              ...(isNary(tool.kind) && {
+                customProperties: (registry as unknown as AnyIstarRegistry).links[
+                  tool.kind
+                ]?.properties?.defaults(),
+              }),
             });
       if (!result.ok) {
         editor.notify(`Invalid link: ${result.reason}`);
@@ -603,11 +614,14 @@ function Diagram({
       if ('dependum' in result) {
         editor.select({ type: 'element', id: result.dependum.id });
         editor.setEditingId(result.dependum.id);
+      } else if (result.hub) {
+        // A new hub, or a leg added to one: select the hub, which stands for the whole link.
+        editor.select({ type: 'element', id: result.hub.hub.id });
       } else {
         editor.select({ type: 'link', id: result.link.id });
       }
     },
-    [editor, registry, store, tool],
+    [editor, isNary, registry, store, tool],
   );
 
   const onConnectEnd = useCallback(

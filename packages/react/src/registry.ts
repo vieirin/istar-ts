@@ -37,6 +37,7 @@ import {
 } from '@istar-ts/core';
 import type { ComponentType, ReactNode } from 'react';
 import { DefaultActorComponent, DefaultElementComponent } from './default-components';
+import { HubComponent, HubInspector } from './hubs';
 import type { ElementIssue } from './issues';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
 import type { LabelFit, TextBox } from './label-fit';
@@ -598,13 +599,33 @@ export function registryForMetamodel<EK extends string, LK extends string>(
 ): IstarRegistry<EK, LK> {
   const meta = metamodel as unknown as AnyMetamodel;
   const from = base as unknown as AnyIstarRegistry;
-  const elements: Record<string, ElementKindConfig<string>> = { ...from.elements };
-  const links: Record<string, LinkKindConfig<string, string>> = { ...from.links };
+  // Only the metamodel's kinds: a KAOS registry has no iStar palette.
+  const elements: Record<string, ElementKindConfig<string>> = Object.fromEntries(
+    Object.entries(from.elements).filter(([kind]) => meta.elements.has(kind)),
+  );
+  const links: Record<string, LinkKindConfig<string, string>> = Object.fromEntries(
+    Object.entries(from.links).filter(([kind]) => meta.links.has(kind)),
+  );
+  const paletteGroups: Record<string, PaletteGroup> = { ...from.paletteGroups };
   let extraNode = 0;
   let extraActor = 0;
   const newDependums: string[] = [];
   for (const definition of meta.elements.values()) {
     if (elements[definition.kind]) continue;
+    if (definition.role === 'hub') {
+      // The circle of an n-ary link: drawn and inspected as the link, never added by itself.
+      elements[definition.kind] = {
+        kind: definition.kind,
+        label: (definition.of && meta.links.get(definition.of)?.label) || definition.label,
+        size: definition.size,
+        component: HubComponent,
+        inspector: HubInspector,
+        resizable: false,
+        stereotype: false,
+        palette: false,
+      };
+      continue;
+    }
     const actor = definition.category === 'actor';
     const order = actor ? 2 + ++extraActor / 100 : 36 + ++extraNode / 100;
     elements[definition.kind] = {
@@ -631,7 +652,39 @@ export function registryForMetamodel<EK extends string, LK extends string>(
   let extraLink = 0;
   for (const definition of meta.links.values()) {
     if (links[definition.kind]) continue;
+    if (definition.role === 'leg' || definition.role === 'end') {
+      // Drawn with the base kind's tool: dragging onto a hub adds a leg.
+      links[definition.kind] = {
+        kind: definition.kind,
+        label: definition.label,
+        ...(definition.line ? { line: definition.line } : {}),
+        palette: false,
+      };
+      continue;
+    }
     const order = 44 + ++extraLink / 100;
+    const values = definition.info.changeableLabel ? definition.info.possibleLabels : undefined;
+    if (definition.category === 'node' && values && values.length > 0) {
+      // One entry per value, grouped in a dropdown, as iStar's Contribution has.
+      paletteGroups[definition.kind] = {
+        label: definition.label,
+        title: `Add ${article(definition.label)} ${definition.label} link (${values.join(', ')})`,
+      };
+      links[definition.kind] = {
+        kind: definition.kind,
+        label: definition.label,
+        ...(definition.line ? { line: definition.line } : {}),
+        palette: values.map((value, i) => ({
+          label: value,
+          value,
+          order: order + i / 1000,
+          group: definition.kind,
+          section: 'elements',
+          title: `Add ${article(value)} ${value} ${definition.label} link: drag from the source to the target`,
+        })),
+      };
+      continue;
+    }
     const entry: LinkToolEntry<string> = {
       label: definition.label,
       title: `Add ${article(definition.label)} ${definition.label} link: drag from the source to the target`,
@@ -684,7 +737,7 @@ export function registryForMetamodel<EK extends string, LK extends string>(
   return {
     elements,
     links,
-    paletteGroups: from.paletteGroups,
+    paletteGroups,
   } as unknown as IstarRegistry<EK, LK>;
 }
 

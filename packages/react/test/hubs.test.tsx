@@ -1,50 +1,36 @@
 import type { IstarElement } from '@istar-ts/core';
-import {
-  ISTAR_2_0,
-  createEmptyModel,
-  createModelStore,
-  defineProperties,
-  extendMetamodel,
-  prop,
-} from '@istar-ts/core';
+import { createModelStore, defineProperties, hubLinkOf, parsePistar, prop } from '@istar-ts/core';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { useEffect } from 'react';
 import { describe, expect, test } from 'vitest';
+import { KAOS } from '../../core/test/dsm3-roots';
 import type { IstarEditor, IstarExtension } from '../src';
-import { HubComponent, HubInspector, IstarInspector, IstarProvider, useIstarEditor } from '../src';
+import { HubComponent, IstarInspector, IstarProvider, useIstarEditor } from '../src';
 
-// A stand-in for the hub core generates for an n-ary link: an element kind drawn and inspected
-// with the hub defaults.
-const METAMODEL = extendMetamodel(ISTAR_2_0, {
-  name: 'hubs',
-  elements: [{ kind: 'hubs.RefinementHub', category: 'node', size: { width: 20, height: 20 } }],
-});
+const kaosWelcome = readFileSync(
+  join(import.meta.dirname, '../../../fixtures/dsm3/kaos-welcome.txt'),
+  'utf8',
+);
 
-const refinement = defineProperties('hubs.RefinementHub', {
+// DSM3 declares the refinement's properties on the link and saves them on its hub.
+const refinement = defineProperties('kaos.RefinementLinkHub', {
   SysRef: prop.string({ default: '' }),
   Tactic: prop.string({ default: '' }),
 });
 
-const hubs: IstarExtension<string, string> = {
-  name: 'hubs',
-  elements: {
-    'hubs.RefinementHub': {
-      label: 'Refinement',
-      component: HubComponent,
-      inspector: HubInspector,
-      properties: refinement,
-    },
-  },
+const properties: IstarExtension<string, string> = {
+  name: 'refinement-properties',
+  links: { 'kaos.RefinementLink': { properties: refinement } },
 };
 
 function setup() {
-  const store = createModelStore(createEmptyModel(undefined, { metamodel: METAMODEL }));
-  const hub = store.addElement({
-    kind: 'hubs.RefinementHub',
-    x: 100,
-    y: 100,
-    customProperties: { SysRef: 'R1', Description: 'note' },
-  } as never) as IstarElement<string>;
+  const store = createModelStore(parsePistar(kaosWelcome, { metamodel: KAOS }));
+  const hub = [...store.getModel().elements.values()].find(
+    (e) => e.kind === 'kaos.RefinementLinkHub',
+  )!;
+  store.updateElement(hub.id, { customProperties: { SysRef: 'R1', Description: 'note' } });
   let editor: IstarEditor | undefined;
   function Grab(): null {
     const e = useIstarEditor();
@@ -54,7 +40,7 @@ function setup() {
     return null;
   }
   render(
-    <IstarProvider store={store} extensions={[hubs]}>
+    <IstarProvider store={store} extensions={[properties]}>
       <Grab />
       <IstarInspector />
     </IstarProvider>,
@@ -67,7 +53,7 @@ describe('HubComponent', () => {
   test('draws a circle filling its box, with a non-scaling stroke', () => {
     const element = {
       id: 'h',
-      kind: 'hubs.RefinementHub',
+      kind: 'kaos.RefinementLinkHub',
       name: '',
       x: 0,
       y: 0,
@@ -97,7 +83,7 @@ describe('HubComponent', () => {
 });
 
 describe('HubInspector', () => {
-  test('titles the hub with its link, edits its properties and has no name field', () => {
+  test('titles the hub with its link, edits the link’s properties and has no name field', () => {
     const { store, hub } = setup();
     expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Refinement');
     expect(screen.queryByLabelText('Name')).toBeNull();
@@ -114,9 +100,13 @@ describe('HubInspector', () => {
     expect(screen.getByLabelText('Remove property Description')).toBeTruthy();
   });
 
-  test('deletes the hub', () => {
+  test('deleting the hub deletes the whole refinement: legs and end too', () => {
     const { store, hub } = setup();
+    const parts = hubLinkOf(store.getModel(), hub.id)!;
+    expect(parts.legs.length).toBeGreaterThan(0);
     fireEvent.click(screen.getByText('Delete refinement'));
-    expect(store.getModel().elements.has(hub.id)).toBe(false);
+    const model = store.getModel();
+    expect(model.elements.has(hub.id)).toBe(false);
+    for (const link of [...parts.legs, parts.end!]) expect(model.links.has(link.id)).toBe(false);
   });
 });

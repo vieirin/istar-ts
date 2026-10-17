@@ -70,11 +70,18 @@ export interface ResolvedLinkStyle {
  */
 export function resolveLinkStyle(
   metamodel: AnyMetamodel,
-  registry: IstarRegistry,
+  registry: IstarRegistry | AnyIstarRegistry,
   kind: string,
 ): ResolvedLinkStyle {
   const definition = metamodel.links.get(kind);
   const line = (registry as unknown as AnyIstarRegistry).links[kind]?.line;
+  // An n-ary link's end draws like the link itself; its legs are plain lines into the hub.
+  if (!line && definition?.role === 'end' && definition.of) {
+    return resolveLinkStyle(metamodel, registry, definition.of);
+  }
+  if (!line && definition?.role === 'leg') {
+    return { dependency: false, changeableLabel: false };
+  }
   const effective = effectiveLinkKind(metamodel, kind) as LinkKind;
   const builtIn = (LINK_KINDS as readonly string[]).includes(effective);
   let dash: string | undefined;
