@@ -355,6 +355,13 @@ function Diagram({
     (kind: string): boolean => metamodel.elements.get(kind)?.category === 'node',
     [metamodel],
   );
+  // Node kinds that may lie on the paper, outside any actor (DSM3-goals' KAOS and NFR nodes;
+  // piStar's own iStar nodes can't).
+  const canBeOnPaper = useCallback(
+    (kind: string): boolean =>
+      isNodeKind(kind) && metamodel.elements.get(kind)?.info?.canBeOnPaper === true,
+    [isNodeKind, metamodel],
+  );
   const flow = useReactFlow();
   const graph = useMemo(() => modelToFlow(model, registry), [model, registry]);
   useInitialFit(fitView);
@@ -476,7 +483,7 @@ function Diagram({
   const onPaneClick = useCallback(
     (event: ReactMouseEvent) => {
       if (!tool || tool.type !== 'element') return;
-      if (isActorKind(tool.kind)) {
+      if (isActorKind(tool.kind) || canBeOnPaper(tool.kind)) {
         addAt(tool.kind, event.clientX, event.clientY, undefined, tool.properties);
         return;
       }
@@ -504,7 +511,7 @@ function Diagram({
         );
       }
     },
-    [addAt, editor, flow, isActorKind, registry, store, tool],
+    [addAt, canBeOnPaper, editor, flow, isActorKind, registry, store, tool],
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
@@ -540,6 +547,12 @@ function Diagram({
         return;
       }
       const actorId = isActorKind(clicked.kind) ? clicked.id : clicked.parent;
+      if (!actorId && canBeOnPaper(tool.kind)) {
+        // A click on a node outside any actor adds the new one on the paper, where it was clicked.
+        event.stopPropagation();
+        addAt(tool.kind, event.clientX, event.clientY, undefined, tool.properties);
+        return;
+      }
       if (!actorId || !isNodeKind(tool.kind)) {
         editor.notify('Elements must be added inside an actor, role or agent', 'info');
         return;
@@ -547,7 +560,18 @@ function Diagram({
       event.stopPropagation();
       addAt(tool.kind, event.clientX, event.clientY, actorId, tool.properties);
     },
-    [addAt, editor, flowStore, isActorKind, isNodeKind, readOnly, registry, store, tool],
+    [
+      addAt,
+      canBeOnPaper,
+      editor,
+      flowStore,
+      isActorKind,
+      isNodeKind,
+      readOnly,
+      registry,
+      store,
+      tool,
+    ],
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
