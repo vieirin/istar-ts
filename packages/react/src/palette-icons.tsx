@@ -55,6 +55,8 @@ function NodeShape({
           d={shape.path}
           style={{
             ...shapeStyle,
+            // the kind's default fill, as its elements are drawn (KindShape.fill)
+            ...(shape.fill ? { fill: shape.fill } : {}),
             vectorEffect: 'non-scaling-stroke',
             // The icon is drawn at about 40% of the element: dashes and widths shrink with it.
             ...(shape.dash ? { strokeDasharray: scaleDash(shape.dash) } : {}),

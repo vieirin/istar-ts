@@ -42,6 +42,12 @@ export interface KindShape {
   readonly dash?: string;
   /** Outline width, when it differs from the renderer's default. */
   readonly strokeWidth?: number;
+  /**
+   * Default fill (any CSS colour) of the kind's elements and palette icon, when the element has
+   * no `display.backgroundColor`; absent: the renderer's node fill (DSM3's KAOS is grey, its
+   * NFR white).
+   */
+  readonly fill?: string;
 }
 export interface KindTextBox {
   readonly top: number;

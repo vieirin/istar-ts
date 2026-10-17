@@ -20,7 +20,7 @@ Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes i
 - **Property schemas** (`@istar-ts/core` `defineProperties`): DSM3's eight goal properties,
   the refinement's `SysRef`, `Status` and `Tactic` (saved on its circle), and Conflict's
   `BoundaryCondition`. Values stay strings on disk; other keys, such as `Description`, are kept.
-- **Shapes**: DSM3's polygons (`KAOS_SHAPES`), the refinement's filled triangle and the glyphs
+- **Shapes**: DSM3's polygons (`KAOS_SHAPES`, filled DSM3's grey, `KAOS_FILL`), the refinement's filled triangle and the glyphs
   Conflict and Responsibility assignment draw at their midpoint.
 - **`kaosExtension`**: an `IstarExtension` for `@istar-ts/react` with the shapes, schemas,
   lines and palette entries.

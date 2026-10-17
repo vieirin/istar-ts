@@ -98,6 +98,13 @@ describe('kaos-welcome.txt on the canvas', () => {
     expect(dashed).toHaveLength(
       [...model.elements.values()].filter((e) => e.kind === 'kaos.Softgoal').length,
     );
+    // Every node in DSM3's grey (KindShape.fill): no element of the file saves a colour.
+    const fills = new Set(
+      [...container.querySelectorAll<SVGPathElement>('.istar-shape path')].map((path) =>
+        path.getAttribute('fill'),
+      ),
+    );
+    expect(fills).toEqual(new Set(['rgb(205,205,205)']));
     expect(container.querySelectorAll('.istar-hub circle')).toHaveLength(4);
     const glyphLinks = [...model.links.values()].filter(
       (l) => l.kind === 'kaos.Conflict' || l.kind === 'kaos.ResponsibilityAssignment',

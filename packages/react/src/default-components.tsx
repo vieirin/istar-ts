@@ -82,7 +82,13 @@ export function DefaultElementComponent(props: ElementComponentProps): ReactElem
   return (
     <div className="istar-element-body" style={{ width, height }}>
       {config?.shape ? (
-        <PathShape {...config.shape} width={width} height={height} fill={fill} />
+        // the element's own colour, else the kind's default fill (KindShape.fill), else the theme's
+        <PathShape
+          {...config.shape}
+          width={width}
+          height={height}
+          fill={fill ?? config.shape.fill}
+        />
       ) : builtIn ? (
         builtIn({ width, height, fill })
       ) : (
