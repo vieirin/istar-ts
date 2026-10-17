@@ -2,7 +2,10 @@ import { describe, expect, test } from 'vitest';
 import type { LinkCheck } from '../src';
 import {
   ISTAR_2_0,
+  PistarParseError,
   createModelStore,
+  detectFramework,
+  detectPrefix,
   hubLinkOf,
   parsePistar,
   toPistar,
@@ -153,6 +156,44 @@ describe('NFR', () => {
         expect(code(store.canLink(claim, n1, kind))).toBe('invalid-target');
       });
     });
+  });
+});
+
+describe('detectFramework', () => {
+  const roots = [ISTAR_2_0, KAOS, NFR];
+
+  test.each([
+    ['kaos-welcome.txt', 'kaos'],
+    ['nfr-welcome.txt', 'nfr'],
+    ['istar2-welcome.txt', 'istar'],
+  ])('finds the prefix of %s', (name, prefix) => {
+    expect(detectPrefix(fixture(name))).toBe(prefix);
+  });
+
+  test('picks the root of each fixture by its prefix, whatever its tool', () => {
+    expect(detectFramework(fixture('kaos-welcome.txt'), roots)).toBe(KAOS);
+    expect(detectFramework(fixture('nfr-welcome.txt'), roots)).toBe(NFR);
+    // Written by DSM3-goals, but in iStar 2.0.
+    expect(detectFramework(fixture('istar2-welcome.txt'), roots)).toBe(ISTAR_2_0);
+  });
+
+  test('looks inside actors and hub entries', () => {
+    expect(detectPrefix({ actors: [{ id: 'a', nodes: [{ type: 'x.Goal' }] }] })).toBe('x');
+    expect(detectPrefix({ links: [{ hub: { type: 'kaos.RefinementLinkHub' } }] })).toBe('kaos');
+    expect(detectPrefix({ orphans: [{ type: 'Goal' }] })).toBeUndefined();
+  });
+
+  test('falls back on a tool only one root writes', () => {
+    expect(detectFramework({}, roots)).toBeUndefined();
+    expect(detectFramework({ tool: 'dsm3-goals' }, roots)).toBeUndefined();
+    expect(detectFramework({ tool: 'pistar.2.1.0' }, roots)).toBe(ISTAR_2_0);
+    expect(detectFramework('{"tool":"pistar.2.1.0","actors":[]}', roots)).toBe(ISTAR_2_0);
+    expect(detectFramework({ orphans: [{ type: 'other.Goal' }] }, roots)).toBeUndefined();
+  });
+
+  test('rejects text that is not a JSON object', () => {
+    expect(() => detectFramework('{', roots)).toThrow(PistarParseError);
+    expect(() => detectPrefix('[]')).toThrow('a piStar model must be a JSON object');
   });
 });
 

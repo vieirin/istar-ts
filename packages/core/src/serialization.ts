@@ -436,6 +436,80 @@ export function parsePistar(
   return withMetamodel(model, metamodel);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Which language a file is in
+
+function parseJson(json: string | Record<string, unknown>): Record<string, unknown> {
+  if (typeof json !== 'string') return json;
+  let value: unknown;
+  try {
+    value = JSON.parse(json);
+  } catch (error) {
+    throw new PistarParseError(`invalid JSON: ${(error as Error).message}`, { cause: error });
+  }
+  if (!isRecord(value)) throw new PistarParseError('a piStar model must be a JSON object');
+  return value;
+}
+
+/** `kaos` for an object whose `type` is `kaos.Softgoal`. */
+function prefixOf(value: unknown): string | undefined {
+  const type = isRecord(value) ? value.type : undefined;
+  const dot = typeof type === 'string' ? type.indexOf('.') : -1;
+  return dot > 0 ? (type as string).slice(0, dot) : undefined;
+}
+
+function arrayOf(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+/**
+ * The namespace of the first `type` in a file (`kaos` for `kaos.Softgoal`), looking at actors and
+ * their nodes, orphans, dependencies, then links (hub entries included). `undefined` when no
+ * element or link has a namespaced type. Throws `PistarParseError` for a string that isn't JSON.
+ */
+export function detectPrefix(json: string | Record<string, unknown>): string | undefined {
+  const file = parseJson(json);
+  const candidates = function* (): Generator<unknown> {
+    for (const actor of arrayOf(file.actors)) {
+      yield actor;
+      if (isRecord(actor)) yield* arrayOf(actor.nodes);
+    }
+    yield* arrayOf(file.orphans);
+    yield* arrayOf(file.dependencies);
+    for (const link of arrayOf(file.links)) {
+      if (isRecord(link) && isRecord(link.hub)) {
+        yield link.hub;
+        yield* arrayOf(link.starts);
+        yield link.end;
+      } else {
+        yield link;
+      }
+    }
+  };
+  for (const candidate of candidates()) {
+    const prefix = prefixOf(candidate);
+    if (prefix !== undefined) return prefix;
+  }
+  return undefined;
+}
+
+/**
+ * Which of `roots` a file is written in: the one whose `prefix` is the file's (`detectPrefix`);
+ * for a file without types, the only one whose `file.tool` is the file's `tool`; otherwise
+ * `undefined`. Pass the result to `parsePistar(json, { metamodel })`.
+ */
+export function detectFramework(
+  json: string | Record<string, unknown>,
+  roots: readonly AnyMetamodel[],
+): AnyMetamodel | undefined {
+  const file = parseJson(json);
+  const prefix = detectPrefix(file);
+  if (prefix !== undefined) return roots.find((root) => root.prefix === prefix);
+  if (typeof file.tool !== 'string') return undefined;
+  const byTool = roots.filter((root) => root.file.tool === file.tool);
+  return byTool.length === 1 ? byTool[0] : undefined;
+}
+
 function optional<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
   return (value === undefined ? {} : { [key]: value }) as { [P in K]?: V };
 }
