@@ -216,8 +216,9 @@ const model = parsePistar(text, { metamodel: RATIONAL_AGENTS });
   Either way, an optional `check(context)` predicate runs last. Dependency-category kinds must
   behave like `istar.DependencyLink`; `addDependency({ …, linkKind })` creates them.
 
-- **Names.** Kinds are namespaced (`rationalAgents.Plan`). `istar.` is reserved for iStar 2.0, and a
-  name or `pistarType` that collides with an existing one throws `MetamodelError`. Extensions
+- **Names.** Kinds are namespaced (`rationalAgents.Plan`). The root metamodel's prefix (`istar.` for
+  iStar 2.0) is reserved for it, and a name or `pistarType` that collides with an existing one
+  throws `MetamodelError`. Extensions
   stack, and a later one may build on an earlier one's kinds.
 - **The model remembers its metamodel.** `parsePistar`, `createEmptyModel(undefined, { metamodel })`
   and `createModelStore(undefined, { metamodel })` associate it, and every operation and store
@@ -250,6 +251,64 @@ unknown type. `toPistar` likewise throws `PistarWriteError` for a kind its metam
 rather than writing a type that can't be read back.
 
 See [docs/metamodel-extensions.md](../../docs/metamodel-extensions.md) for the design.
+
+## Root metamodels
+
+iStar 2.0 is one root metamodel: a whole modelling language rather than a dialect of another.
+`defineMetamodel` builds others, such as the KAOS and NFR languages of
+[DSM3-goals](https://github.com/vieirin/istar-ts/issues/7), from the same element and link
+declarations that extensions use. `ISTAR_2_0` is itself `defineMetamodel(ISTAR_2_0_DECLARATION)`.
+
+```ts
+import { createEmptyModel, defineMetamodel, extendMetamodel, parsePistar } from '@istar-ts/core';
+
+const KAOS = defineMetamodel({
+  name: 'kaos', // the metamodel's name and framework
+  prefix: 'kaos', // its namespace, reserved against extensions
+  elements: [
+    { kind: 'kaos.Goal', category: 'node', size: { width: 135, height: 36 } },
+    { kind: 'kaos.Softgoal', behavesLike: 'kaos.Goal' },
+    { kind: 'kaos.Agent', category: 'node' },
+  ],
+  links: [
+    {
+      kind: 'kaos.ResponsibilityAssignment',
+      rules: { sources: ['kaos.Agent'], targets: ['node'], sameActor: false },
+    },
+  ],
+  file: {
+    tool: 'dsm3-goals',
+    extra: { metamodelVersion: '1.0' },
+    keys: [
+      'actors',
+      'orphans',
+      'dependencies',
+      'links',
+      'display',
+      'tool',
+      'metamodelVersion',
+      'saveDate',
+      'diagram',
+    ],
+  },
+});
+
+const model = parsePistar(text, { metamodel: KAOS });
+const blank = createEmptyModel(undefined, { metamodel: KAOS }); // tool "dsm3-goals", no "istar"
+```
+
+- **Declarations.** Kinds are declared in order, with the same validation and errors as
+  `extendMetamodel`. `behavesLike` and link rules refer to kinds declared before them. A root may
+  use any namespace. Nodes default to DSM3-goals' containment rules: inner element, dependum and
+  on paper. A root's link kind may give neither `rules` nor `behavesLike`, as iStar 2.0's do:
+  their rules are built into the library, and any other such kind accepts no link.
+- **Identity.** `metamodel.framework` is the root's name (`istar-2.0`, `kaos`). `prefix` is its
+  reserved namespace, so `extendMetamodel(KAOS, …)` rejects `kaos.*` kinds. Extensions keep both,
+  and `file`; `name` gains the extensions' names (`kaos+ops`).
+- **Files.** `file` describes the files of models that weren't read from one. `createEmptyModel`
+  records `file.tool` (default `pistar.2.1.0`), `file.istar` only when set (iStar 2.0 sets
+  `"2.0"`), and `file.extra` as extra top-level keys. `toPistar` orders top-level keys like the
+  source file, else like `file.keys`, else like piStar.
 
 ## A model's own metamodel
 
