@@ -2,6 +2,7 @@
  * How KAOS looks and what its palette offers, as a react registry extension. Labels and titles
  * come from DSM3-goals' `language_kaos_ui.metamodel.js`, shapes from `language_kaos_shapes.js`.
  */
+import { linkIcon } from '@istar-ts/react';
 import type { IstarExtension } from '@istar-ts/react';
 import { AssignmentGlyph, ConflictGlyph } from './glyphs';
 import type { KaosElementKind, KaosLinkKind } from './kinds';
@@ -11,7 +12,12 @@ import {
   refinementProperties,
   softgoalProperties,
 } from './properties';
-import { KAOS_REFINEMENT_MARKER, KAOS_SHAPES } from './shapes';
+import {
+  KAOS_ASSIGNMENT_GLYPH,
+  KAOS_CONFLICT_GLYPH,
+  KAOS_REFINEMENT_MARKER,
+  KAOS_SHAPES,
+} from './shapes';
 
 function addNode(label: string, article: string, order: number) {
   return {
@@ -74,6 +80,11 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
     },
     'kaos.ResponsibilityAssignment': {
       line: { marker: false },
+      // The palette shows the glyph the canvas draws at the link's middle.
+      icon: linkIcon('kaos.ResponsibilityAssignment', undefined, {
+        marker: null,
+        glyph: KAOS_ASSIGNMENT_GLYPH,
+      }),
       labelComponent: AssignmentGlyph,
       palette: [
         {
@@ -87,6 +98,8 @@ export const kaosExtension: IstarExtension<KaosElementKind, KaosLinkKind> = {
     },
     'kaos.Conflict': {
       line: { marker: false },
+      // The palette shows the glyph the canvas draws at the link's middle.
+      icon: linkIcon('kaos.Conflict', undefined, { marker: null, glyph: KAOS_CONFLICT_GLYPH }),
       labelComponent: ConflictGlyph,
       properties: conflictProperties,
       palette: [

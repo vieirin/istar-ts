@@ -10,6 +10,7 @@ import type { AnyIstarRegistry, LinkToolEntry } from '../src';
 import {
   HubComponent,
   HubInspector,
+  HubPartInspector,
   IstarCanvas,
   OPEN_ARROW,
   defaultRegistry,
@@ -48,6 +49,9 @@ describe('registryForMetamodel with a root of its own', () => {
     const registry = kaos();
     expect(registry.links['kaos.RefinementLinkStart']!.palette).toBe(false);
     expect(registry.links['kaos.RefinementLinkEnd']!.palette).toBe(false);
+    // Selecting either inspects the whole link through its hub.
+    expect(registry.links['kaos.RefinementLinkStart']!.inspector).toBe(HubPartInspector);
+    expect(registry.links['kaos.RefinementLinkEnd']!.inspector).toBe(HubPartInspector);
     expect(registry.links['kaos.RefinementLink']!.palette).toHaveLength(1);
   });
 

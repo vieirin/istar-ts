@@ -360,7 +360,11 @@ const registry = applyExtensions(registryForMetamodel(KAOS), [kaosExtension]);
   link and edits the link kind's `properties`, which are kept on the hub. Legs have no marker;
   the end is drawn like the base kind's `line`. The base kind has one tool: dragging from a
   source to a target creates the hub, its first leg and the end; dragging onto an existing hub
-  adds a leg. Either way the hub is selected.
+  adds a leg. Either way the hub is selected. Selecting a leg or the end inspects the whole link
+  too (`HubPartInspector`), with its sources and target.
+- **Glyph links.** A link drawn with a glyph at its middle (a `labelComponent` and
+  `line.marker: false`) can show it in the palette: give the kind an `icon`, e.g.
+  `linkIcon(kind, undefined, { marker: null, glyph })`.
 - **Changeable labels.** A new link kind with `info.possibleLabels` gets one palette entry per
   label, grouped in a dropdown, as iStar's Contribution has.
 - **Links that target links.** A link kind whose rules target links (NFR's Argument, core's

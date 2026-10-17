@@ -27,9 +27,14 @@ const properties: IstarExtension<string, string> = {
 
 function setup() {
   const store = createModelStore(parsePistar(kaosWelcome, { metamodel: KAOS }));
-  const hub = [...store.getModel().elements.values()].find(
-    (e) => e.kind === 'kaos.RefinementLinkHub',
-  )!;
+  // The refinement with the most sub-goals (kaos-welcome has one with two).
+  const hub = [...store.getModel().elements.values()]
+    .filter((e) => e.kind === 'kaos.RefinementLinkHub')
+    .toSorted(
+      (a, b) =>
+        hubLinkOf(store.getModel(), b.id)!.legs.length -
+        hubLinkOf(store.getModel(), a.id)!.legs.length,
+    )[0]!;
   store.updateElement(hub.id, { customProperties: { SysRef: 'R1', Description: 'note' } });
   let editor: IstarEditor | undefined;
   function Grab(): null {
@@ -46,7 +51,16 @@ function setup() {
     </IstarProvider>,
   );
   act(() => editor!.select({ type: 'element', id: hub.id }));
-  return { store, hub };
+  return { store, hub, editor: () => editor! };
+}
+
+/** The inspector's sources and target, as shown. */
+function ends(): { sources: string[]; target: string } {
+  const list = document.querySelectorAll('.istar-hub-sources li');
+  return {
+    sources: [...list].map((li) => li.textContent ?? ''),
+    target: document.querySelector('.istar-hub-target')?.textContent ?? '',
+  };
 }
 
 describe('HubComponent', () => {
@@ -108,5 +122,33 @@ describe('HubInspector', () => {
     const model = store.getModel();
     expect(model.elements.has(hub.id)).toBe(false);
     for (const link of [...parts.legs, parts.end!]) expect(model.links.has(link.id)).toBe(false);
+  });
+});
+
+describe('inspecting an n-ary link', () => {
+  test('the hub lists the sources, in leg order, and the target', () => {
+    const { store, hub } = setup();
+    const model = store.getModel();
+    const parts = hubLinkOf(model, hub.id)!;
+    expect(parts.legs.length).toBe(2);
+    expect(ends()).toEqual({
+      sources: parts.legs.map((leg) => model.elements.get(leg.source)!.name),
+      target: model.elements.get(parts.end!.target)!.name,
+    });
+  });
+
+  test.each(['leg', 'end'] as const)('selecting a %s inspects the whole link', (part) => {
+    const { store, hub, editor } = setup();
+    const parts = hubLinkOf(store.getModel(), hub.id)!;
+    const link = part === 'leg' ? parts.legs[1]! : parts.end!;
+    act(() => editor().select({ type: 'link', id: link.id }));
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Refinement');
+    expect(ends().sources).toHaveLength(2);
+    expect((screen.getByLabelText('SysRef') as HTMLInputElement).value).toBe('R1');
+    // Deleting from there deletes the whole link.
+    fireEvent.click(screen.getByText('Delete refinement'));
+    const model = store.getModel();
+    expect(model.elements.has(hub.id)).toBe(false);
+    for (const l of [...parts.legs, parts.end!]) expect(model.links.has(l.id)).toBe(false);
   });
 });

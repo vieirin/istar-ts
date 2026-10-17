@@ -1,6 +1,11 @@
 import type { IstarLink } from '@istar-ts/core';
 import { parsePistar } from '@istar-ts/core';
-import { IstarCanvas, applyExtensions, registryForMetamodel } from '@istar-ts/react';
+import {
+  IstarCanvas,
+  applyExtensions,
+  paletteSections,
+  registryForMetamodel,
+} from '@istar-ts/react';
 import type { AnyIstarRegistry, LinkLabelProps } from '@istar-ts/react';
 import { render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
@@ -8,6 +13,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ConflictGlyph,
+  KAOS_ASSIGNMENT_GLYPH,
   KAOS_CONFLICT_GLYPH,
   KAOS_ELEMENT_KINDS,
   KAOS_REFINEMENT_MARKER,
@@ -100,5 +106,21 @@ describe('kaos-welcome.txt on the canvas', () => {
     // No iStar palette: KAOS's own tools only.
     expect(screen.queryByRole('button', { name: 'Actor' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Behavioral Goal' })).toBeTruthy();
+  });
+});
+
+describe('KAOS palette icons', () => {
+  it('show the Conflict and Assignment glyphs, as the canvas draws them', () => {
+    const items = paletteSections(kaosRegistry() as never, KAOS as never)
+      .flat()
+      .flatMap((slot) => (slot.type === 'item' ? [slot.item] : slot.items));
+    for (const [label, glyph] of [
+      ['Conflict', KAOS_CONFLICT_GLYPH],
+      ['Responsibility Assignment', KAOS_ASSIGNMENT_GLYPH],
+    ] as const) {
+      const entry = items.find((item) => item.entry.label === label)!.entry;
+      const { container } = render(<>{entry.icon}</>);
+      expect(container.querySelector('.istar-palette-glyph')?.getAttribute('d')).toBe(glyph);
+    }
   });
 });
