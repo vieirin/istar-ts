@@ -7,7 +7,9 @@
  * - removing an actor removes its inner elements; removing an element removes its links;
  * - a dependency is two `DependencyLink`s around a dependum, and removing any of the three
  *   removes the whole dependency (upstream keeps an `otherHalf` reference for this);
- * - moving an actor moves its inner elements with it (they are JointJS-embedded upstream).
+ * - moving an actor moves its inner elements with it (they are JointJS-embedded upstream);
+ * - an n-ary link (DSM3-goals' split link) is a hub element with legs and an end; removing its
+ *   end or its last leg removes the hub, and removing the hub removes its legs and end.
  *
  * Kinds are looked up in the model's metamodel (`metamodelOf`, iStar 2.0 by default), so
  * extended actor, node, link and dependency kinds behave like their built-in counterparts.
@@ -15,7 +17,7 @@
 import type { LinkCheck } from './constraints';
 import { canLink } from './constraints';
 import type { ActorKind, DependencyLinkKind, ElementKind, LinkKind } from './metamodel';
-import type { AnyMetamodel } from './metamodels';
+import type { AnyMetamodel, LinkKindDefinition } from './metamodels';
 import type {
   AnyIstarModel,
   CustomProperties,
@@ -23,10 +25,17 @@ import type {
   ElementDisplay,
   IstarElement,
   IstarLink,
+  HubLink,
   IstarModel,
   LinkDisplay,
 } from './model';
-import { dependencyLinksOf, inheritMetamodel, metamodelOf } from './model';
+import {
+  defaultHubPosition,
+  dependencyLinksOf,
+  hubLinkOf,
+  inheritMetamodel,
+  metamodelOf,
+} from './model';
 import { inheritSourceLayout } from './serialization';
 
 export class ModelOperationError extends Error {
@@ -236,7 +245,8 @@ export function nestElement<EK extends string = ElementKind, LK extends string =
 
 /**
  * Removes elements and everything that depends on them: inner elements of removed actors,
- * links touching removed elements, and the rest of any dependency that loses a part.
+ * links touching removed elements (and links targeting removed links), and the rest of any
+ * dependency that loses a part.
  */
 export function removeElements<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -274,8 +284,31 @@ function removeCascade(
     }
     for (const link of model.links.values()) {
       if (linkIds.has(link.id)) continue;
-      if (elementIds.has(link.source) || elementIds.has(link.target)) {
+      // A link goes with its endpoints, including a link it targets (see `LinkRules`).
+      if (elementIds.has(link.source) || elementIds.has(link.target) || linkIds.has(link.target)) {
         linkIds.add(link.id);
+        changed = true;
+      }
+    }
+    // An n-ary link that lost its end or its last leg goes entirely (its hub takes the rest).
+    for (const element of model.elements.values()) {
+      if (elementIds.has(element.id) || metamodel.elements.get(element.kind)?.role !== 'hub') {
+        continue;
+      }
+      let legs = 0;
+      let removedLegs = 0;
+      let endRemoved = false;
+      for (const link of model.links.values()) {
+        const role = metamodel.links.get(link.kind)?.role;
+        if (role === 'leg' && link.target === element.id) {
+          legs++;
+          if (linkIds.has(link.id)) removedLegs++;
+        } else if (role === 'end' && link.source === element.id && linkIds.has(link.id)) {
+          endRemoved = true;
+        }
+      }
+      if (endRemoved || (legs > 0 && removedLegs === legs)) {
+        elementIds.add(element.id);
         changed = true;
       }
     }
@@ -306,6 +339,7 @@ export interface NewLink<K extends string = LinkKind> {
   /** Any link kind except dependency kinds (use `addDependency` for those). */
   readonly kind: Exclude<K, DependencyLinkKind>;
   readonly source: string;
+  /** An element id, or a link id for kinds whose rules target links. */
   readonly target: string;
   readonly id?: string;
   /** Contribution value: make, help, hurt or break. */
@@ -325,10 +359,25 @@ export interface ConnectOptions extends OperationContext {
 }
 
 export type ConnectResult<EK extends string = ElementKind, LK extends string = LinkKind> =
-  | { ok: true; model: IstarModel<EK, LK>; link: IstarLink<LK>; reversed: boolean }
+  | {
+      ok: true;
+      model: IstarModel<EK, LK>;
+      /** The new link; for an n-ary kind, the new leg or (for a new hub) the end. */
+      link: IstarLink<LK>;
+      reversed: boolean;
+      /** For an n-ary kind: the hub link the new link belongs to, as it now is. */
+      hub?: HubLink<EK, LK>;
+    }
   | Extract<LinkCheck, { ok: false }>;
 
-/** Adds a link between two elements if the iStar constraints allow it. */
+/**
+ * Adds a link between two elements if the iStar constraints allow it.
+ *
+ * With an n-ary kind (`arity: 'n'`), a `target` that is one of the kind's hubs gets a new leg
+ * from `source` (see `addLeg`). Any other target gets a new hub, centred between source and
+ * target, with a leg from `source` and an end to `target`. `input.id` and `customProperties`
+ * then go to the hub, and `label` and `name` to the end.
+ */
 export function connect<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
   input: NewLink<LK>,
@@ -341,6 +390,7 @@ export function connect<EK extends string = ElementKind, LK extends string = Lin
   if (definition?.category === 'dependency') {
     throw new ModelOperationError('use addDependency to create dependencies');
   }
+  if (definition?.parts) return connectHub(m, definition, input, options);
   let { source, target } = input;
   let reversed = false;
   if (!options.force) {
@@ -360,7 +410,7 @@ export function connect<EK extends string = ElementKind, LK extends string = Lin
       throw new ModelOperationError(`unknown link kind "${kind}" in ${metamodel.name}`);
     }
     requireElement(m, source);
-    requireElement(m, target);
+    if (!m.links.has(target)) requireElement(m, target);
   }
   const id = input.id ?? (options.createId ?? defaultIdGenerator)();
   if (m.elements.has(id) || m.links.has(id)) {
@@ -381,6 +431,120 @@ export function connect<EK extends string = ElementKind, LK extends string = Lin
     link: link as IstarLink<LK>,
     reversed,
   };
+}
+
+function connectHub<EK extends string, LK extends string>(
+  m: AnyIstarModel,
+  definition: LinkKindDefinition,
+  input: NewLink<string>,
+  options: ConnectOptions,
+): ConnectResult<EK, LK> {
+  const metamodel = metaOf(m);
+  const parts = definition.parts!;
+  const { source, target } = input;
+  if (m.elements.get(target)?.kind === parts.hub) {
+    return addLeg(typed<EK, LK>(m), target, source, options);
+  }
+  if (!options.force) {
+    const check = canLink(m, source, target, definition.kind);
+    if (!check.ok) return check;
+  }
+  const from = requireElement(m, source);
+  const to = requireElement(m, target);
+  const createId = options.createId ?? defaultIdGenerator;
+  const hubId = input.id ?? createId();
+  const legId = createId();
+  const endId = createId();
+  for (const [i, id] of [hubId, legId, endId].entries()) {
+    if (m.elements.has(id) || m.links.has(id) || [hubId, legId, endId].indexOf(id) !== i) {
+      throw new ModelOperationError(`id "${id}" is already in use`);
+    }
+  }
+  const size = metamodel.elements.get(parts.hub)?.size ?? { width: 20, height: 20 };
+  const position = defaultHubPosition(m, from, to, size);
+  const hub: AnyElement = withoutUndefined({
+    id: hubId,
+    kind: parts.hub,
+    name: '',
+    x: position.x,
+    y: position.y,
+    customProperties: input.customProperties,
+  });
+  const leg: AnyLink = { id: legId, kind: parts.leg, source, target: hubId };
+  const end: AnyLink = withoutUndefined({
+    id: endId,
+    kind: parts.end,
+    source: hubId,
+    target,
+    label: input.label,
+    name: input.name,
+  });
+  const next = derive(m, {
+    elements: new Map(m.elements).set(hubId, hub),
+    links: new Map(m.links).set(legId, leg).set(endId, end),
+  });
+  return {
+    ok: true,
+    model: typed(next),
+    link: end as IstarLink<LK>,
+    reversed: false,
+    hub: { hub, legs: [leg], end } as unknown as HubLink<EK, LK>,
+  };
+}
+
+/**
+ * Adds a leg from `source` to the hub `hubId` of an n-ary link (one more source for it), if the
+ * kind's rules allow it. `options.id` is the leg's id.
+ */
+export function addLeg<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  hubId: string,
+  source: string,
+  options: ConnectOptions & { readonly id?: string } = {},
+): ConnectResult<EK, LK> {
+  const m = any(model);
+  const metamodel = metaOf(m);
+  const hub = requireElement(m, hubId);
+  const base = metamodel.links.get(metamodel.elements.get(hub.kind)?.of ?? '');
+  if (metamodel.elements.get(hub.kind)?.role !== 'hub' || !base?.parts) {
+    throw new ModelOperationError(`"${hubId}" is not the hub of an n-ary link`);
+  }
+  const kind = base.parts.leg;
+  if (!options.force) {
+    const check = canLink(m, source, hubId, kind);
+    if (!check.ok) return check;
+  } else {
+    requireElement(m, source);
+  }
+  const id = options.id ?? (options.createId ?? defaultIdGenerator)();
+  if (m.elements.has(id) || m.links.has(id)) {
+    throw new ModelOperationError(`id "${id}" is already in use`);
+  }
+  const leg: AnyLink = { id, kind, source, target: hubId };
+  const next = derive(m, { links: new Map(m.links).set(id, leg) });
+  return {
+    ok: true,
+    model: typed(next),
+    link: leg as IstarLink<LK>,
+    reversed: false,
+    hub: hubLinkOf(typed<EK, LK>(next), hubId),
+  };
+}
+
+/**
+ * Removes one leg of an n-ary link. Removing its last leg removes the whole link (hub and end),
+ * as `disconnect` does.
+ */
+export function removeLeg<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  legId: string,
+): IstarModel<EK, LK> {
+  const m = any(model);
+  const leg = requireLink(m, legId);
+  if (metaOf(m).links.get(leg.kind)?.role !== 'leg') {
+    throw new ModelOperationError(`"${legId}" is not a leg of an n-ary link`);
+  }
+  return disconnect(model, legId);
 }
 
 export interface NewDependency<EK extends string = ElementKind, LK extends string = LinkKind> {
@@ -470,7 +634,10 @@ export function addDependency<EK extends string = ElementKind, LK extends string
   };
 }
 
-/** Removes a link. Removing either half of a dependency removes the whole dependency. */
+/**
+ * Removes a link, and the links that target it. Removing either half of a dependency removes
+ * the whole dependency.
+ */
 export function disconnect<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
   id: string,

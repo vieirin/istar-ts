@@ -75,6 +75,17 @@ export interface ElementKindDefinition<K extends string = string> {
   /** Presentation hints (drawn by `@istar-ts/react`). */
   readonly shape?: KindShape;
   readonly textBox?: KindTextBox;
+  /** `hub` for the kind generated for an n-ary link kind's hubs (see `LinkKindDeclaration.arity`). */
+  readonly role?: 'hub';
+  /** For a hub kind: the n-ary link kind it was generated for. */
+  readonly of?: string;
+}
+
+/** The kinds generated for an n-ary link kind: its hub element kind, leg and end link kinds. */
+export interface HubLinkParts {
+  readonly hub: string;
+  readonly leg: string;
+  readonly end: string;
 }
 
 /**
@@ -82,9 +93,13 @@ export interface ElementKindDefinition<K extends string = string> {
  * which kinds may be the source and target. Entries are kind names (`istar.Goal`,
  * `rationalAgents.Plan`) or categories (`node`, `actor`, `*`). A kind name also matches kinds
  * that behave like it, so `istar.Task` accepts a Planning that behaves like a Task.
+ *
+ * A link may also target another link (NFR's Argument link points at a Contribution): `targets`
+ * then holds `link` (any link) or link kind names. Sources are always elements.
  */
 export interface LinkRules {
   readonly sources: readonly string[];
+  /** Element selectors as for `sources`, plus `link` and link kind names. */
   readonly targets: readonly string[];
   /**
    * Source and target must belong to the same actor (iStar 2.0 Guide, page 14). Default true
@@ -118,6 +133,14 @@ export interface LinkKindDefinition<K extends string = string> {
   readonly extension?: string;
   /** Presentation hint (drawn by `@istar-ts/react`). */
   readonly line?: KindLine;
+  /** `'n'` for an n-ary link kind (several sources joined at a hub); absent means 1. */
+  readonly arity?: 1 | 'n';
+  /** For an n-ary kind: the kinds generated for it. */
+  readonly parts?: HubLinkParts;
+  /** For a generated kind: `leg` (a source → the hub) or `end` (the hub → the target). */
+  readonly role?: 'leg' | 'end';
+  /** For a generated kind: the n-ary link kind it was generated for. */
+  readonly of?: string;
 }
 
 /**
@@ -212,6 +235,18 @@ export interface LinkKindDeclaration<K extends string = string> {
   readonly pistarType?: string;
   /** Presentation hint, kept as data for renderers (`@istar-ts/react` draws it). */
   readonly line?: KindLine;
+  /**
+   * `'n'` for a link with several sources, like KAOS's AND-refinement: in a model it is a hub
+   * element joined to each source by a leg link and to the target by an end link, as DSM3-goals
+   * draws and saves it. Declaring it generates three kinds, named after this one (`parts`):
+   * `<kind>Hub`, `<kind>Start` and `<kind>End`, written as `<pistarType>Hub` etc. Needs `rules`
+   * and the `node` category.
+   */
+  readonly arity?: 'n';
+  /** Names of the generated kinds, when the defaults don't suit. */
+  readonly parts?: Partial<HubLinkParts>;
+  /** The hub's size. Default 20×20, as in DSM3-goals. */
+  readonly hubSize?: Size;
 }
 
 /** A whole modelling language, turned into a `Metamodel` by `defineMetamodel`. */
@@ -256,6 +291,8 @@ export function defineMetamodelExtension<
 const KIND_NAME = /^[A-Za-z_][\w-]*\.[A-Za-z_][\w-]*$/;
 const PREFIX_NAME = /^[A-Za-z_][\w-]*$/;
 const CATEGORY_SELECTORS: ReadonlySet<string> = new Set(['node', 'actor', '*']);
+/** The `targets` selector for any link (see `LinkRules`). */
+export const LINK_SELECTOR = 'link';
 
 /** piStar-ext's defaults for an extension's new nodes (tool/language/metamodel.js). */
 const EXTENSION_NODE_INFO: NodeKindInfo = {
@@ -265,6 +302,19 @@ const EXTENSION_NODE_INFO: NodeKindInfo = {
 };
 
 /** DSM3-goals' defaults for a root's nodes (istarcore metamodelManager). */
+/** A hub sits on the paper, outside any actor, and is never a dependum. */
+const HUB_INFO: NodeKindInfo = {
+  canBeInnerElement: false,
+  canBeDependum: false,
+  canBeOnPaper: true,
+};
+
+/** A circle filling the hub's box (DSM3-goals draws a circle of radius 10 in 20×20). */
+const HUB_SHAPE: KindShape = {
+  path: 'M 0 10 A 10 10 0 1 0 20 10 A 10 10 0 1 0 0 10 Z',
+  viewBox: '0 0 20 20',
+};
+
 const ROOT_NODE_INFO: NodeKindInfo = {
   canBeInnerElement: true,
   canBeDependum: true,
@@ -418,6 +468,18 @@ function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>)
   if (category !== 'node' && category !== 'actor' && category !== 'dependency') {
     throw new MetamodelError(`${where}: link kind "${kind}" has an unknown category "${category}"`);
   }
+  if (declaration.arity !== undefined) {
+    if (declaration.arity !== 'n') {
+      throw new MetamodelError(
+        `${where}: link kind "${kind}" has an unknown arity ${JSON.stringify(declaration.arity)}`,
+      );
+    }
+    if (!declaration.rules || category !== 'node') {
+      throw new MetamodelError(
+        `${where}: n-ary link kind "${kind}" needs rules and the "node" category`,
+      );
+    }
+  }
   if (parent && parent.category !== category) {
     throw new MetamodelError(
       `${where}: "${kind}" is a ${category} link but behaves like "${parent.kind}", a ${parent.category} link`,
@@ -437,7 +499,13 @@ function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>)
         throw new MetamodelError(`${where}: link kind "${kind}" needs at least one of ${side}`);
       }
       for (const selector of selectors) {
-        if (!CATEGORY_SELECTORS.has(selector) && !table.elements.has(selector)) {
+        const known =
+          CATEGORY_SELECTORS.has(selector) ||
+          table.elements.has(selector) ||
+          // Targets may also name links: any, an earlier kind, or this kind itself.
+          (side === 'targets' &&
+            (selector === LINK_SELECTOR || table.links.has(selector) || selector === kind));
+        if (!known) {
           throw new MetamodelError(
             `${where}: ${side} of "${kind}" names unknown element kind "${selector}"`,
           );
@@ -459,8 +527,100 @@ function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>)
     ...(table.extension !== undefined ? { extension: table.extension } : {}),
     ...(declaration.line ? { line: declaration.line } : {}),
   };
-  table.links.set(kind, definition);
+  if (declaration.arity !== 'n') {
+    table.links.set(kind, definition);
+    table.linksByType.set(type, kind);
+    return;
+  }
+  const parts: HubLinkParts = {
+    hub: declaration.parts?.hub ?? `${kind}Hub`,
+    leg: declaration.parts?.leg ?? `${kind}Start`,
+    end: declaration.parts?.end ?? `${kind}End`,
+  };
+  table.links.set(kind, { ...definition, arity: 'n', parts });
   table.linksByType.set(type, kind);
+  addHubKinds(table, table.links.get(kind)!, parts, declaration.hubSize);
+}
+
+/**
+ * Adds the kinds an n-ary link kind is made of, as DSM3-goals' `setupSplitLinks` generates them:
+ * the hub (an element), the legs (each source → the hub, at most one per source) and the end
+ * (the hub → the target).
+ */
+function addHubKinds(
+  table: KindTable,
+  base: LinkKindDefinition<string>,
+  parts: HubLinkParts,
+  hubSize: Size | undefined,
+): void {
+  const rules = base.rules!;
+  // Generated kinds go through the usual checks; their errors name the kind they come from.
+  const claim = (kind: string, type: string, what: string): void => {
+    try {
+      claimName(table, kind, what);
+      claimType(table, type, kind);
+    } catch (error) {
+      if (!(error instanceof MetamodelError)) throw error;
+      throw new MetamodelError(`${error.message} (generated for n-ary link kind "${base.kind}")`);
+    }
+  };
+  const owner = table.extension !== undefined ? { extension: table.extension } : {};
+  claim(parts.hub, `${base.pistarType}Hub`, 'element');
+  table.elements.set(parts.hub, {
+    kind: parts.hub,
+    category: 'node',
+    label: `${base.label} hub`,
+    size: hubSize ?? { width: 20, height: 20 },
+    info: HUB_INFO,
+    pistarType: `${base.pistarType}Hub`,
+    ...owner,
+    shape: HUB_SHAPE,
+    role: 'hub',
+    of: base.kind,
+  });
+  table.elementsByType.set(`${base.pistarType}Hub`, parts.hub);
+  // The base kind's same-actor rule is checked between a leg's source and the end's target
+  // (`canLink`): the hub itself belongs to no actor.
+  const common = {
+    category: 'node' as const,
+    ...owner,
+    of: base.kind,
+  };
+  claim(parts.leg, `${base.pistarType}Start`, 'link');
+  table.links.set(parts.leg, {
+    ...common,
+    kind: parts.leg,
+    label: `${base.label} leg`,
+    info: {},
+    rules: {
+      sources: rules.sources,
+      targets: [parts.hub],
+      sameActor: false,
+      ...(rules.allowDependum !== undefined ? { allowDependum: rules.allowDependum } : {}),
+      unique: 'kind',
+    },
+    pistarType: `${base.pistarType}Start`,
+    role: 'leg',
+  });
+  table.linksByType.set(`${base.pistarType}Start`, parts.leg);
+  claim(parts.end, `${base.pistarType}End`, 'link');
+  table.links.set(parts.end, {
+    ...common,
+    kind: parts.end,
+    label: `${base.label} end`,
+    info: base.info,
+    rules: {
+      sources: [parts.hub],
+      targets: rules.targets,
+      sameActor: false,
+      ...(rules.allowDependum !== undefined ? { allowDependum: rules.allowDependum } : {}),
+      unique: 'kind',
+    },
+    pistarType: `${base.pistarType}End`,
+    ...(base.line ? { line: base.line } : {}),
+    role: 'end',
+  });
+  table.linksByType.set(`${base.pistarType}End`, parts.end);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -665,6 +825,28 @@ export function effectiveLinkKind(metamodel: AnyMetamodel, kind: string): string
     current = next;
   }
   return current?.kind ?? kind;
+}
+
+/** True when link `kind` is `ancestor` or (transitively) behaves like it. */
+export function linkBehavesLike(metamodel: AnyMetamodel, kind: string, ancestor: string): boolean {
+  let current: string | undefined = kind;
+  const seen = new Set<string>();
+  while (current !== undefined && !seen.has(current)) {
+    if (current === ancestor) return true;
+    seen.add(current);
+    current = metamodel.links.get(current)?.behavesLike;
+  }
+  return false;
+}
+
+/** True when a link kind's rules let it target links (`link` or a link kind in `targets`). */
+export function targetsLinks(metamodel: AnyMetamodel, kind: string): boolean {
+  const root = metamodel.links.get(effectiveLinkKind(metamodel, kind));
+  return (
+    root?.rules?.targets.some(
+      (selector) => selector === LINK_SELECTOR || metamodel.links.has(selector),
+    ) ?? false
+  );
 }
 
 /** True when `kind` is `ancestor` or (transitively) behaves like it. */

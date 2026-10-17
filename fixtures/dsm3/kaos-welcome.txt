@@ -1,0 +1,309 @@
+{
+  "actors": [],
+  "orphans": [
+    {
+      "id": "7857cb00-05ce-4bd0-aa89-3c7a63b54b31",
+      "text": "Reliability",
+      "type": "kaos.Softgoal",
+      "x": 141,
+      "y": 164,
+      "customProperties": {
+        "Type": "softgoal",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    },
+    {
+      "id": "8c2734b4-eb1c-4b9b-bda2-c7543841c0c8",
+      "text": "Maintain [Minimal Interval Between Automatic Backups]",
+      "type": "kaos.BehavioralGoal",
+      "x": 175,
+      "y": 381,
+      "customProperties": {
+        "Type": "",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    },
+    {
+      "id": "b7293d46-6a83-4a68-a3e1-d4c2a3552ddd",
+      "text": "Internet connection available",
+      "type": "kaos.DomainProperty",
+      "x": 235,
+      "y": 507,
+      "customProperties": {
+        "Description": ""
+      }
+    },
+    {
+      "id": "f0a633b9-cead-4961-9764-eeb6c3a6c41c",
+      "text": "Achieve [Problem Notified if Problem]",
+      "type": "kaos.BehavioralGoal",
+      "x": 78,
+      "y": 287,
+      "customProperties": {
+        "Type": "",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    },
+    {
+      "id": "5d2a606c-59aa-4dfc-afbe-8425a49f06e8",
+      "text": "Save Bandwidth",
+      "type": "kaos.Softgoal",
+      "x": 82,
+      "y": 437,
+      "customProperties": {
+        "Type": "softgoal",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    },
+    {
+      "id": "1938d85d-0e68-44ee-8cc1-6fc555a202e7",
+      "text": "Achieve [Manual Backup]",
+      "type": "kaos.BehavioralGoal",
+      "x": 392,
+      "y": 398,
+      "customProperties": {
+        "Type": "",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    },
+    {
+      "id": "07ce5838-94b3-45b6-9e7c-f5b806f5b5b1",
+      "text": "User",
+      "type": "kaos.EnvironmentAgent",
+      "x": 444,
+      "y": 500,
+      "customProperties": {
+        "Description": ""
+      }
+    },
+    {
+      "id": "ae2aae6a-0d36-4c83-b0f6-9d227792e1e6",
+      "text": "Backup",
+      "type": "kaos.Softgoal",
+      "x": 258,
+      "y": 267,
+      "customProperties": {
+        "Type": "softgoal",
+        "Category": "",
+        "Source": "",
+        "Priority": "",
+        "Issue": "",
+        "FormalSpec": "",
+        "FitCriterion": "",
+        "Stability": "",
+        "Description": ""
+      }
+    }
+  ],
+  "dependencies": [],
+  "links": [
+    {
+      "hub": {
+        "id": "bdc418b6-66a8-4811-9ee9-9babe81d285d",
+        "type": "kaos.RefinementLinkHub",
+        "x": 295.921875,
+        "y": 444,
+        "customProperties": {
+          "SysRef": "",
+          "Status": "",
+          "Tactic": ""
+        }
+      },
+      "starts": [
+        {
+          "id": "f8b1586c-e17e-4435-84be-3e08d02f2195",
+          "type": "kaos.RefinementLinkStart",
+          "source": "b7293d46-6a83-4a68-a3e1-d4c2a3552ddd",
+          "target": "bdc418b6-66a8-4811-9ee9-9babe81d285d"
+        }
+      ],
+      "end": {
+        "id": "b02cf0b2-f589-43ab-afea-e3b5042664b9",
+        "type": "kaos.RefinementLinkEnd",
+        "source": "bdc418b6-66a8-4811-9ee9-9babe81d285d",
+        "target": "8c2734b4-eb1c-4b9b-bda2-c7543841c0c8"
+      }
+    },
+    {
+      "hub": {
+        "id": "b0c7656f-7b7e-4f56-a71a-5f679f474b4e",
+        "type": "kaos.RefinementLinkHub",
+        "x": 289,
+        "y": 323,
+        "customProperties": {
+          "SysRef": "",
+          "Status": "",
+          "Tactic": ""
+        }
+      },
+      "starts": [
+        {
+          "id": "bb782778-6253-4938-97c3-71cb1373879e",
+          "type": "kaos.RefinementLinkStart",
+          "source": "8c2734b4-eb1c-4b9b-bda2-c7543841c0c8",
+          "target": "b0c7656f-7b7e-4f56-a71a-5f679f474b4e"
+        }
+      ],
+      "end": {
+        "id": "5ea9ea8b-a62b-415c-8730-43dea65a1d17",
+        "type": "kaos.RefinementLinkEnd",
+        "source": "b0c7656f-7b7e-4f56-a71a-5f679f474b4e",
+        "target": "ae2aae6a-0d36-4c83-b0f6-9d227792e1e6"
+      }
+    },
+    {
+      "hub": {
+        "id": "05d2f808-1ecb-43ae-9661-e2f8fe5879bf",
+        "type": "kaos.RefinementLinkHub",
+        "x": 382,
+        "y": 321,
+        "customProperties": {
+          "SysRef": "",
+          "Status": "",
+          "Tactic": ""
+        }
+      },
+      "starts": [
+        {
+          "id": "24a5e48a-a7ec-406c-a0d3-c649f299243b",
+          "type": "kaos.RefinementLinkStart",
+          "source": "1938d85d-0e68-44ee-8cc1-6fc555a202e7",
+          "target": "05d2f808-1ecb-43ae-9661-e2f8fe5879bf"
+        }
+      ],
+      "end": {
+        "id": "c879ae96-6335-4daa-a6f9-cca54d4da185",
+        "type": "kaos.RefinementLinkEnd",
+        "source": "05d2f808-1ecb-43ae-9661-e2f8fe5879bf",
+        "target": "ae2aae6a-0d36-4c83-b0f6-9d227792e1e6"
+      }
+    },
+    {
+      "hub": {
+        "id": "23e5218f-ff13-4cdd-9ee6-6aed9ed698eb",
+        "type": "kaos.RefinementLinkHub",
+        "x": 196,
+        "y": 227,
+        "customProperties": {
+          "SysRef": "",
+          "Status": "",
+          "Tactic": ""
+        }
+      },
+      "starts": [
+        {
+          "id": "c2763578-7f48-43e8-92d5-88f4308b4d95",
+          "type": "kaos.RefinementLinkStart",
+          "source": "f0a633b9-cead-4961-9764-eeb6c3a6c41c",
+          "target": "23e5218f-ff13-4cdd-9ee6-6aed9ed698eb"
+        },
+        {
+          "id": "b3cad63c-0435-4f9e-91f2-7fc79174fb69",
+          "type": "kaos.RefinementLinkStart",
+          "source": "ae2aae6a-0d36-4c83-b0f6-9d227792e1e6",
+          "target": "23e5218f-ff13-4cdd-9ee6-6aed9ed698eb"
+        }
+      ],
+      "end": {
+        "id": "f754a70d-fae4-40d8-aa13-da5254b02d33",
+        "type": "kaos.RefinementLinkEnd",
+        "source": "23e5218f-ff13-4cdd-9ee6-6aed9ed698eb",
+        "target": "7857cb00-05ce-4bd0-aa89-3c7a63b54b31"
+      }
+    },
+    {
+      "id": "4c7146d5-b85c-4061-a307-5b11647c8cfc",
+      "type": "kaos.Conflict",
+      "source": "b7293d46-6a83-4a68-a3e1-d4c2a3552ddd",
+      "target": "5d2a606c-59aa-4dfc-afbe-8425a49f06e8",
+      "customProperties": {
+        "BoundaryCondition": ""
+      }
+    },
+    {
+      "id": "ee457c48-a5d6-4846-915e-aeffeba6d3ca",
+      "type": "kaos.ResponsibilityAssignment",
+      "source": "07ce5838-94b3-45b6-9e7c-f5b806f5b5b1",
+      "target": "1938d85d-0e68-44ee-8cc1-6fc555a202e7"
+    }
+  ],
+  "display": {
+    "8c2734b4-eb1c-4b9b-bda2-c7543841c0c8": {
+      "width": 215.34375
+    },
+    "b7293d46-6a83-4a68-a3e1-d4c2a3552ddd": {
+      "width": 148.34375,
+      "height": 39
+    },
+    "f0a633b9-cead-4961-9764-eeb6c3a6c41c": {
+      "width": 143.34375,
+      "height": 35
+    },
+    "1938d85d-0e68-44ee-8cc1-6fc555a202e7": {
+      "width": 152.34375,
+      "height": 32
+    },
+    "bdc418b6-66a8-4811-9ee9-9babe81d285d": {
+      "width": 20,
+      "height": 20
+    },
+    "b0c7656f-7b7e-4f56-a71a-5f679f474b4e": {
+      "width": 20,
+      "height": 20
+    },
+    "05d2f808-1ecb-43ae-9661-e2f8fe5879bf": {
+      "width": 20,
+      "height": 20
+    },
+    "23e5218f-ff13-4cdd-9ee6-6aed9ed698eb": {
+      "width": 20,
+      "height": 20
+    }
+  },
+  "tool": "dsm3-goals",
+  "metamodelVersion": "1.0",
+  "saveDate": "Mon, 29 Apr 2019 05:14:41 GMT",
+  "diagram": {
+    "width": 2000,
+    "height": 1300,
+    "name": "Example KAOS goal model",
+    "customProperties": {
+      "Description": "The tool for KAOS goal models has two noteworthy features: \n - Creation of links with multiple sources (e.g., the AND-refinement of Reliability;\n - Pre-defined properties in goals, refinement links (in the circle) and conflict links"
+    }
+  }
+}

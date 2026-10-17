@@ -1,4 +1,4 @@
-import type { ActorKind, ElementKind, LinkKind, NodeKind } from './metamodel';
+import type { ActorKind, ElementKind, LinkKind, NodeKind, Size } from './metamodel';
 import type { AnyMetamodel, Metamodel } from './metamodels';
 import { ISTAR_2_0, isActorKindIn } from './metamodels';
 
@@ -239,7 +239,10 @@ export function childrenOf<EK extends string, LK extends string>(
   return result;
 }
 
-/** Links that have the element as source or target. */
+/**
+ * Links that have the element as source or target. Given a link id, the links that target that
+ * link (see `LinkRules`).
+ */
 export function linksOf<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
   elementId: string,
@@ -265,4 +268,88 @@ export function dependencyLinksOf<EK extends string, LK extends string>(
     if (link.source === dependumId && !outbound) outbound = link;
   }
   return { inbound, outbound };
+}
+
+/** What a link points at: an element, or a link for kinds whose rules target links. */
+export function linkTargetOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  link: IstarLink<LK>,
+): IstarElement<EK> | IstarLink<LK> | undefined {
+  return model.elements.get(link.target) ?? model.links.get(link.target);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Hub links (n-ary link kinds, see `LinkKindDeclaration.arity`)
+
+/** An n-ary link as it lives in a model: its hub element, its legs (in link order), its end. */
+export interface HubLink<EK extends string = ElementKind, LK extends string = LinkKind> {
+  readonly hub: IstarElement<EK>;
+  readonly legs: readonly IstarLink<LK>[];
+  /** Absent only in an incomplete model (`validateModel` reports it). */
+  readonly end?: IstarLink<LK>;
+}
+
+/** True when `element` is the hub of an n-ary link. */
+export function isHubElement(
+  metamodel: AnyMetamodel,
+  element: IstarElement<string> | undefined,
+): boolean {
+  return element !== undefined && metamodel.elements.get(element.kind)?.role === 'hub';
+}
+
+/** The n-ary link whose hub is `hubId`; `undefined` when it isn't a hub. */
+export function hubLinkOf<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  hubId: string,
+): HubLink<EK, LK> | undefined {
+  const metamodel = metamodelOf(model) as AnyMetamodel;
+  const hub = model.elements.get(hubId);
+  if (!hub || !isHubElement(metamodel, hub)) return undefined;
+  const legs: IstarLink<LK>[] = [];
+  let end: IstarLink<LK> | undefined;
+  for (const link of model.links.values()) {
+    const role = metamodel.links.get(link.kind)?.role;
+    if (role === 'leg' && link.target === hubId) legs.push(link);
+    else if (role === 'end' && link.source === hubId) end ??= link;
+  }
+  return { hub, legs, ...(end ? { end } : {}) };
+}
+
+/** The hub a leg or end link belongs to. */
+export function hubOfLink<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  linkId: string,
+): IstarElement<EK> | undefined {
+  const metamodel = metamodelOf(model) as AnyMetamodel;
+  const link = model.links.get(linkId);
+  const role = link && metamodel.links.get(link.kind)?.role;
+  if (!link || !role) return undefined;
+  const hub = model.elements.get(role === 'leg' ? link.target : link.source);
+  return isHubElement(metamodel, hub) ? hub : undefined;
+}
+
+/** The centre of an element's box: its display size, else its kind's default size. */
+export function elementCenter<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  element: IstarElement<EK>,
+): Point {
+  const size = (metamodelOf(model) as AnyMetamodel).elements.get(element.kind)?.size;
+  const width = element.display?.width ?? size?.width ?? 0;
+  const height = element.display?.height ?? size?.height ?? 0;
+  return { x: element.x + width / 2, y: element.y + height / 2 };
+}
+
+/**
+ * Where a new hub goes: centred between the source and the target, as DSM3-goals places it.
+ * Returns its top-left corner for a hub of `size`.
+ */
+export function defaultHubPosition<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  source: IstarElement<EK>,
+  target: IstarElement<EK>,
+  size: Size,
+): Point {
+  const a = elementCenter(model, source);
+  const b = elementCenter(model, target);
+  return { x: (a.x + b.x) / 2 - size.width / 2, y: (a.y + b.y) / 2 - size.height / 2 };
 }

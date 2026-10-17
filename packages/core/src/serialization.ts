@@ -66,6 +66,33 @@ export interface PistarLinkJson {
   [key: string]: unknown;
 }
 
+/** The hub of an n-ary link, in a hub entry: an element without `text`. */
+export interface PistarHubJson {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  customProperties?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+/**
+ * An n-ary link (see `LinkKindDeclaration.arity`) in `links`, as DSM3-goals writes it: no id of
+ * its own, its hub, its legs (`starts`) and its end.
+ */
+export interface PistarHubLinkJson {
+  hub: PistarHubJson;
+  starts: PistarLinkJson[];
+  end?: PistarLinkJson;
+  [key: string]: unknown;
+}
+
+/**
+ * Key of a hub element's `extra` that holds its entry's unknown keys (those beside `hub`,
+ * `starts` and `end`), so they are written back on the entry.
+ */
+export const HUB_ENTRY_KEY = '__hubEntry';
+
 export interface PistarDiagramJson {
   width?: number;
   height?: number;
@@ -79,7 +106,7 @@ export interface PistarFile {
   actors: PistarActorJson[];
   orphans?: PistarElementJson[];
   dependencies?: PistarDependencyJson[];
-  links?: PistarLinkJson[];
+  links?: (PistarLinkJson | PistarHubLinkJson)[];
   display?: Record<string, Record<string, unknown>>;
   tool?: string;
   istar?: string;
@@ -137,6 +164,8 @@ const ELEMENT_KEYS = new Set(['id', 'text', 'type', 'x', 'y', 'customProperties'
 const ACTOR_KEYS = new Set([...ELEMENT_KEYS, 'nodes']);
 const DEPENDENCY_KEYS = new Set([...ELEMENT_KEYS, 'source', 'target']);
 const LINK_KEYS = new Set(['id', 'type', 'source', 'target', 'name', 'customProperties', 'label']);
+const HUB_KEYS = new Set(['id', 'type', 'x', 'y', 'customProperties']);
+const HUB_ENTRY_KEYS = new Set(['hub', 'starts', 'end']);
 const DIAGRAM_KEYS = new Set(['width', 'height', 'name', 'customProperties']);
 const TOP_LEVEL_KEYS = [
   'actors',
@@ -305,22 +334,21 @@ export function parsePistar(
     readElement(raw, `dependencies[${i}]`, DEPENDENCY_KEYS, { isDependum: true, ...dependency });
   });
 
-  asArray(json.links, 'links').forEach((raw, i) => {
-    if (!isRecord(raw)) throw new PistarParseError(`links[${i}]: expected an object`);
+  const readLink = (raw: unknown, where: string): IstarLink<string> => {
+    if (!isRecord(raw)) throw new PistarParseError(`${where}: expected an object`);
     const { id, type, source, target } = raw;
-    if (typeof id !== 'string' || id === '')
-      throw new PistarParseError(`links[${i}]: missing "id"`);
+    if (typeof id !== 'string' || id === '') throw new PistarParseError(`${where}: missing "id"`);
     const kind = typeof type === 'string' ? metamodel.linksByPistarType.get(type) : undefined;
     if (kind === undefined) {
-      throw new PistarParseError(`links[${i}] (${id}): unknown link type ${JSON.stringify(type)}`);
+      throw new PistarParseError(`${where} (${id}): unknown link type ${JSON.stringify(type)}`);
     }
     if (typeof source !== 'string' || typeof target !== 'string') {
-      throw new PistarParseError(`links[${i}] (${id}): missing "source" or "target"`);
+      throw new PistarParseError(`${where} (${id}): missing "source" or "target"`);
     }
     if (elements.has(id) || links.has(id)) {
-      throw new PistarParseError(`links[${i}]: duplicated id "${id}"`);
+      throw new PistarParseError(`${where}: duplicated id "${id}"`);
     }
-    links.set(id, {
+    const link: IstarLink<string> = {
       id,
       kind,
       source,
@@ -332,7 +360,45 @@ export function parsePistar(
       ...optional('label', typeof raw.label === 'string' ? raw.label : undefined),
       ...optional('display', displayFor(id) as LinkDisplay | undefined),
       ...optional('extra', extraOf(raw, LINK_KEYS)),
+    };
+    links.set(id, link);
+    return link;
+  };
+
+  // An n-ary link: its hub becomes an element, its legs then its end ordinary links.
+  const readHubEntry = (raw: Record<string, unknown>, where: string): void => {
+    const hub = readElement(raw.hub, `${where}.hub`, HUB_KEYS, {});
+    const hubKind = metamodel.elements.get(hub.kind);
+    if (hubKind?.role !== 'hub') {
+      throw new PistarParseError(`${where}.hub (${hub.id}): ${hub.kind} is not a hub kind`);
+    }
+    const entryExtra = extraOf(raw, HUB_ENTRY_KEYS);
+    if (entryExtra) {
+      elements.set(hub.id, { ...hub, extra: { ...hub.extra, [HUB_ENTRY_KEY]: entryExtra } });
+    }
+    const roleOf = (link: IstarLink<string>): string | undefined => {
+      const definition = metamodel.links.get(link.kind);
+      return definition?.of === hubKind.of ? definition?.role : undefined;
+    };
+    asArray(raw.starts, `${where}.starts`).forEach((rawLeg, j) => {
+      const leg = readLink(rawLeg, `${where}.starts[${j}]`);
+      if (roleOf(leg) !== 'leg' || leg.target !== hub.id) {
+        throw new PistarParseError(
+          `${where}.starts[${j}] (${leg.id}): not a leg of the hub "${hub.id}"`,
+        );
+      }
     });
+    if (raw.end !== undefined) {
+      const end = readLink(raw.end, `${where}.end`);
+      if (roleOf(end) !== 'end' || end.source !== hub.id) {
+        throw new PistarParseError(`${where}.end (${end.id}): not the end of the hub "${hub.id}"`);
+      }
+    }
+  };
+
+  asArray(json.links, 'links').forEach((raw, i) => {
+    if (isRecord(raw) && isRecord(raw.hub)) readHubEntry(raw, `links[${i}]`);
+    else readLink(raw, `links[${i}]`);
   });
 
   let extraDisplay: Record<string, unknown> | undefined;
@@ -368,6 +434,80 @@ export function parsePistar(
   // The block stays in `extra`, so it is written back exactly as read.
   setHostMetamodel(model, host);
   return withMetamodel(model, metamodel);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Which language a file is in
+
+function parseJson(json: string | Record<string, unknown>): Record<string, unknown> {
+  if (typeof json !== 'string') return json;
+  let value: unknown;
+  try {
+    value = JSON.parse(json);
+  } catch (error) {
+    throw new PistarParseError(`invalid JSON: ${(error as Error).message}`, { cause: error });
+  }
+  if (!isRecord(value)) throw new PistarParseError('a piStar model must be a JSON object');
+  return value;
+}
+
+/** `kaos` for an object whose `type` is `kaos.Softgoal`. */
+function prefixOf(value: unknown): string | undefined {
+  const type = isRecord(value) ? value.type : undefined;
+  const dot = typeof type === 'string' ? type.indexOf('.') : -1;
+  return dot > 0 ? (type as string).slice(0, dot) : undefined;
+}
+
+function arrayOf(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+/**
+ * The namespace of the first `type` in a file (`kaos` for `kaos.Softgoal`), looking at actors and
+ * their nodes, orphans, dependencies, then links (hub entries included). `undefined` when no
+ * element or link has a namespaced type. Throws `PistarParseError` for a string that isn't JSON.
+ */
+export function detectPrefix(json: string | Record<string, unknown>): string | undefined {
+  const file = parseJson(json);
+  const candidates = function* (): Generator<unknown> {
+    for (const actor of arrayOf(file.actors)) {
+      yield actor;
+      if (isRecord(actor)) yield* arrayOf(actor.nodes);
+    }
+    yield* arrayOf(file.orphans);
+    yield* arrayOf(file.dependencies);
+    for (const link of arrayOf(file.links)) {
+      if (isRecord(link) && isRecord(link.hub)) {
+        yield link.hub;
+        yield* arrayOf(link.starts);
+        yield link.end;
+      } else {
+        yield link;
+      }
+    }
+  };
+  for (const candidate of candidates()) {
+    const prefix = prefixOf(candidate);
+    if (prefix !== undefined) return prefix;
+  }
+  return undefined;
+}
+
+/**
+ * Which of `roots` a file is written in: the one whose `prefix` is the file's (`detectPrefix`);
+ * for a file without types, the only one whose `file.tool` is the file's `tool`; otherwise
+ * `undefined`. Pass the result to `parsePistar(json, { metamodel })`.
+ */
+export function detectFramework(
+  json: string | Record<string, unknown>,
+  roots: readonly AnyMetamodel[],
+): AnyMetamodel | undefined {
+  const file = parseJson(json);
+  const prefix = detectPrefix(file);
+  if (prefix !== undefined) return roots.find((root) => root.prefix === prefix);
+  if (typeof file.tool !== 'string') return undefined;
+  const byTool = roots.filter((root) => root.file.tool === file.tool);
+  return byTool.length === 1 ? byTool[0] : undefined;
 }
 
 function optional<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
@@ -422,12 +562,16 @@ export function toPistarObject<EK extends string, LK extends string>(
   const metamodel: AnyMetamodel =
     options.metamodel ?? (metamodelOf(input) as unknown as AnyMetamodel);
   const isActorKind = (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor';
+  // Hubs of n-ary links are written in their entry in `links`, not as elements.
+  const isHub = (element: IstarElement<string>): boolean =>
+    metamodel.elements.get(element.kind)?.role === 'hub';
   const actors: PistarActorJson[] = [];
   const orphans: PistarElementJson[] = [];
   const dependencies: PistarDependencyJson[] = [];
   const children = new Map<string, PistarElementJson[]>();
 
   for (const element of model.elements.values()) {
+    if (isHub(element)) continue;
     if (element.parent !== undefined && !isActorKind(element.kind)) {
       let list = children.get(element.parent);
       if (!list) children.set(element.parent, (list = []));
@@ -436,6 +580,7 @@ export function toPistarObject<EK extends string, LK extends string>(
   }
 
   for (const element of model.elements.values()) {
+    if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
       actors.push({
         ...elementJson(element, metamodel),
@@ -456,18 +601,71 @@ export function toPistarObject<EK extends string, LK extends string>(
     }
   }
 
-  const links: PistarLinkJson[] = [];
+  const linkJson = (link: IstarLink<string>): PistarLinkJson => ({
+    id: link.id,
+    type: pistarTypeOf(metamodel.links.get(link.kind)?.pistarType, link.kind, metamodel),
+    source: link.source,
+    target: link.target,
+    ...(link.name !== undefined ? { name: link.name } : {}),
+    ...(link.customProperties ? { customProperties: { ...link.customProperties } } : {}),
+    ...(link.label !== undefined ? { label: link.label } : {}),
+    ...link.extra,
+  });
+
+  // Each hub's legs (in link order) and end; its entry goes where its first leg or end is.
+  const hubs = new Map<string, { legs: IstarLink<string>[]; end?: IstarLink<string> }>();
+  const partsOf = (hubId: string) => {
+    let parts = hubs.get(hubId);
+    if (!parts) hubs.set(hubId, (parts = { legs: [] }));
+    return parts;
+  };
+  const hubOf = (link: IstarLink<string>): string | undefined => {
+    const role = metamodel.links.get(link.kind)?.role;
+    const id = role === 'leg' ? link.target : role === 'end' ? link.source : undefined;
+    const hub = id === undefined ? undefined : model.elements.get(id);
+    return hub && isHub(hub) ? hub.id : undefined;
+  };
   for (const link of model.links.values()) {
-    links.push({
-      id: link.id,
-      type: pistarTypeOf(metamodel.links.get(link.kind)?.pistarType, link.kind, metamodel),
-      source: link.source,
-      target: link.target,
-      ...(link.name !== undefined ? { name: link.name } : {}),
-      ...(link.customProperties ? { customProperties: { ...link.customProperties } } : {}),
-      ...(link.label !== undefined ? { label: link.label } : {}),
-      ...link.extra,
-    });
+    const hubId = hubOf(link);
+    if (hubId === undefined) continue;
+    const parts = partsOf(hubId);
+    if (metamodel.links.get(link.kind)?.role === 'leg') parts.legs.push(link);
+    else parts.end ??= link;
+  }
+  const hubEntry = (hub: IstarElement<string>): PistarHubLinkJson => {
+    const parts = hubs.get(hub.id) ?? { legs: [] };
+    const { [HUB_ENTRY_KEY]: entryExtra, ...hubExtra } = hub.extra ?? {};
+    return {
+      hub: {
+        id: hub.id,
+        type: pistarTypeOf(metamodel.elements.get(hub.kind)?.pistarType, hub.kind, metamodel),
+        x: hub.x,
+        y: hub.y,
+        ...(hub.customProperties ? { customProperties: { ...hub.customProperties } } : {}),
+        ...hubExtra,
+      },
+      starts: parts.legs.map(linkJson),
+      ...(parts.end ? { end: linkJson(parts.end) } : {}),
+      ...(isRecord(entryExtra) ? entryExtra : {}),
+    };
+  };
+
+  const links: (PistarLinkJson | PistarHubLinkJson)[] = [];
+  const written = new Set<string>();
+  for (const link of model.links.values()) {
+    const hubId = hubOf(link);
+    const parts = hubId === undefined ? undefined : hubs.get(hubId);
+    // A second end of the same hub (an invalid model) is kept as a plain link.
+    if (hubId === undefined || !parts || (!parts.legs.includes(link) && parts.end !== link)) {
+      links.push(linkJson(link));
+    } else if (!written.has(hubId)) {
+      written.add(hubId);
+      links.push(hubEntry(model.elements.get(hubId)!));
+    }
+  }
+  // Hubs that lost every leg and their end still have an entry, so they aren't lost.
+  for (const element of model.elements.values()) {
+    if (isHub(element) && !written.has(element.id)) links.push(hubEntry(element));
   }
 
   const layout = layouts.get(model);

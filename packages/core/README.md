@@ -309,6 +309,79 @@ const blank = createEmptyModel(undefined, { metamodel: KAOS }); // tool "dsm3-go
   records `file.tool` (default `pistar.2.1.0`), `file.istar` only when set (iStar 2.0 sets
   `"2.0"`), and `file.extra` as extra top-level keys. `toPistar` orders top-level keys like the
   source file, else like `file.keys`, else like piStar.
+- **Which root a file uses.** `detectFramework(text, [ISTAR_2_0, KAOS, NFR])` picks the root whose
+  `prefix` is the namespace of the file's first `type` (`detectPrefix`). For a file without
+  types, it picks the only root whose `file.tool` is the file's `tool`; otherwise it returns
+  `undefined`.
+
+### Hub links
+
+A link kind with `arity: 'n'` has several sources and one target, like KAOS's AND-refinement. In a
+model it is a hub element, a leg from each source to the hub, and an end from the hub to the
+target, as DSM3-goals draws and saves it. The declaration generates the three kinds from the
+base kind's name: `<kind>Hub`, `<kind>Start` (legs) and `<kind>End`.
+
+```ts
+const KAOS = defineMetamodel<KaosElementKind, KaosLinkKind>({
+  // …
+  links: [
+    {
+      kind: 'kaos.RefinementLink',
+      arity: 'n',
+      rules: {
+        sources: ['kaos.BehavioralGoal', 'kaos.Softgoal'],
+        targets: ['node'],
+        sameActor: false,
+      },
+    },
+  ],
+});
+
+const made = store.connect({ kind: 'kaos.RefinementLink', source: goalA, target: parent });
+if (made.ok && made.hub) {
+  // made.hub: { hub, legs: [leg], end }. The hub sits centred between goalA and parent.
+  store.connect({ kind: 'kaos.RefinementLink', source: goalB, target: made.hub.hub.id }); // 2nd leg
+}
+```
+
+- **Kinds.** The hub kind has `role: 'hub'` and `of` (the base kind), a 20×20 circle shape and
+  `canBeOnPaper`. Legs and ends have `role: 'leg' | 'end'`. `parts` renames them and `hubSize`
+  resizes the hub. Generated kinds aren't inferred into the metamodel's kind types, so name
+  them in `defineMetamodel`'s type arguments if you need them typed.
+- **Rules.** The `node`, `actor` and `*` selectors never match a hub. A link of another kind
+  towards a hub fails with code `hub-target`. A source gets one leg per hub, and a hub has one
+  end. The base kind's `sameActor` holds between each leg's source and the end's target.
+- **Operations.** `connect` with the base kind creates the hub, a leg and the end, or adds a leg
+  when the target is one of its hubs. `input.id` and `customProperties` go to the hub; `label` and
+  `name` go to the end. `addLeg(model, hubId, source)` and `removeLeg(model, legId)` exist in
+  operations and on the store. Removing a hub's end or its last leg removes the hub. Removing the
+  hub removes its legs and end.
+- **Queries.** Use `hubLinkOf(model, hubId)`, `hubOfLink(model, linkId)`,
+  `isHubElement(metamodel, element)`, `elementCenter` and `defaultHubPosition`.
+  `validateModel` reports a hub without an end or legs as `incomplete-hub`, with the hub's id as
+  `linkId`.
+- **On disk.** An entry in `links` holds `{ hub, starts, end }`, with no id of its own and no
+  `text` on the hub, as DSM3-goals writes it. The entry's unknown keys are kept on the hub's
+  `extra[HUB_ENTRY_KEY]` and written back. Hubs never appear in `orphans`.
+
+### Links that target links
+
+A link kind may point at another link, like NFR's Argument, which is a Claim about a Contribution.
+Its `rules.targets` holds `link` (any link) or link kind names:
+
+```ts
+{ kind: 'nfr.ArgumentLink', rules: { sources: ['nfr.Claim'], targets: ['link'], sameActor: false } }
+```
+
+- **Checks.** `canLink(model, claim, contributionLinkId, 'nfr.ArgumentLink')` looks the target up
+  among elements, then links. Element selectors never match a link, and link selectors never
+  match an element. The self-link, dependum and same-actor rules don't apply to a link target.
+  iStar 2.0's built-in rules refuse one.
+- **Predicates.** `LinkRuleContext.target` is an `IstarElement` or an `IstarLink`, so narrow it
+  with `isLinkRef`. `linkTargetOf(model, link)` returns what a link points at.
+- **Models.** `validateModel` checks links that target links after the others, whatever their
+  order in the file. Removing a link removes the links that target it. `linksOf(model, linkId)`
+  lists them.
 
 ## A model's own metamodel
 

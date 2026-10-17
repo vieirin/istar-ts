@@ -6,7 +6,13 @@
  */
 import type { ElementKind, LinkKind } from './metamodel';
 import type { AnyMetamodel, LinkKindDefinition, LinkRules, Metamodel } from './metamodels';
-import { effectiveElementKind, effectiveLinkKind, elementBehavesLike } from './metamodels';
+import {
+  LINK_SELECTOR,
+  effectiveElementKind,
+  effectiveLinkKind,
+  elementBehavesLike,
+  linkBehavesLike,
+} from './metamodels';
 import type { AnyIstarModel, IstarElement, IstarLink, IstarModel } from './model';
 import { metamodelOf } from './model';
 
@@ -25,7 +31,11 @@ export type ConstraintCode =
   | 'contributed-depender'
   | 'depender-target'
   | 'mixed-refinement'
-  | 'contribution-and-qualification';
+  | 'contribution-and-qualification'
+  /** A link other than a leg towards the hub of an n-ary link. */
+  | 'hub-target'
+  /** `validateModel`: the hub of an n-ary link lacks its end or every leg. */
+  | 'incomplete-hub';
 
 export type LinkCheck = { ok: true } | { ok: false; reason: string; code: ConstraintCode };
 
@@ -35,7 +45,18 @@ function fail(code: ConstraintCode, reason: string): LinkCheck {
   return { ok: false, code, reason };
 }
 
-type ElementRef = string | IstarElement<string>;
+type ElementRef = string | { readonly id: string };
+
+/**
+ * True for a link, as opposed to an element: the target of a link kind whose rules target links
+ * (see `LinkRules`) may be either.
+ */
+export function isLinkRef<EK extends string, LK extends string>(
+  value: IstarElement<EK> | IstarLink<LK>,
+): value is IstarLink<LK> {
+  const candidate = value as { source?: unknown; target?: unknown };
+  return typeof candidate.source === 'string' && typeof candidate.target === 'string';
+}
 
 export interface CanLinkOptions<EK extends string = ElementKind, LK extends string = LinkKind> {
   /** Default: the model's metamodel, or iStar 2.0. */
@@ -50,22 +71,31 @@ export interface CanLinkOptions<EK extends string = ElementKind, LK extends stri
  *
  * Extended kinds (see `extendMetamodel`) are checked with the rules of the kind they behave
  * like, or with their declarative rules, then with their extra predicate.
+ *
+ * `target` may be a link (or a link id) for kinds whose rules target links (`LinkRules`).
+ *
+ * For an n-ary kind (`arity: 'n'`), a `target` that is one of its hubs is checked as a new leg
+ * of that hub; any other target, as a new link from `source` to `target`.
  */
 export function canLink<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
   source: string | IstarElement<EK>,
-  target: string | IstarElement<EK>,
+  target: string | IstarElement<EK> | IstarLink<LK>,
   kind: LK,
   options: CanLinkOptions<EK, LK> = {},
 ): LinkCheck {
   const any = model as unknown as AnyIstarModel;
   const metamodel = (options.metamodel ?? metamodelOf(model)) as unknown as AnyMetamodel;
   const s = resolve(any, source);
-  const t = resolve(any, target);
+  const t = resolve(any, target) ?? any.links.get(refId(target));
   if (!s) return fail('unknown-element', `unknown source element "${refId(source)}"`);
   if (!t) return fail('unknown-element', `unknown target element "${refId(target)}"`);
-  const definition = metamodel.links.get(kind);
+  let definition = metamodel.links.get(kind);
   if (!definition) return fail('unknown-link-kind', `unknown link kind "${String(kind)}"`);
+  // Linking to one of the kind's own hubs adds a leg to it.
+  if (definition.parts && !isLinkRef(t) && metamodel.elements.get(t.kind)?.of === definition.kind) {
+    definition = metamodel.links.get(definition.parts.leg) ?? definition;
+  }
   return checkWith(new Graph(any, metamodel), definition, s, t);
 }
 
@@ -74,7 +104,7 @@ function checkWith(
   graph: Graph,
   definition: LinkKindDefinition,
   source: IstarElement<string>,
-  target: IstarElement<string>,
+  target: IstarElement<string> | IstarLink<string>,
 ): LinkCheck {
   const chain: LinkKindDefinition[] = [];
   for (
@@ -89,9 +119,14 @@ function checkWith(
   let result: LinkCheck;
   if (root.rules)
     result = declarativeCheck(graph, definition, root.rules, root.kind, source, target);
+  else if (isLinkRef(target)) result = elementTargetOnly(definition);
   else if (builtIn) result = builtIn(graph, source, target);
   else result = fail('unknown-link-kind', `link kind "${definition.kind}" has no rules`);
   if (!result.ok) return result;
+  if (definition.role !== undefined && !isLinkRef(target)) {
+    const hubResult = hubCheck(graph, definition, source, target);
+    if (!hubResult.ok) return hubResult;
+  }
   const context = graph.context(definition.kind, source, target);
   for (const step of chain.toReversed()) {
     if (!step.check) continue;
@@ -99,6 +134,50 @@ function checkWith(
     if (!extra.ok) return extra;
   }
   return OK;
+}
+
+/**
+ * What a leg or end must also respect: an n-ary link has one end, and the base kind's same-actor
+ * rule holds between each leg's source and the end's target (the hub belongs to no actor).
+ */
+function hubCheck(
+  graph: Graph,
+  definition: LinkKindDefinition,
+  source: IstarElement<string>,
+  target: IstarElement<string>,
+): LinkCheck {
+  const base = definition.of === undefined ? undefined : graph.metamodel.links.get(definition.of);
+  if (!base) return OK;
+  const roleOf = (link: IstarLink<string>): string | undefined =>
+    graph.metamodel.links.get(link.kind)?.role;
+  if (definition.role === 'end') {
+    for (const link of graph.model.links.values()) {
+      if (link.source === source.id && roleOf(link) === 'end') {
+        return fail('duplicate-link', `the hub of a ${base.label} link has only one end`);
+      }
+    }
+    return OK;
+  }
+  if (base.rules?.sameActor === false) return OK;
+  for (const link of graph.model.links.values()) {
+    if (link.source !== target.id || roleOf(link) !== 'end') continue;
+    if (graph.model.elements.get(link.target)?.parent !== source.parent) {
+      return fail(
+        'different-actors',
+        `the sources and target of a ${base.label} link must pertain to the same actor`,
+      );
+    }
+  }
+  return OK;
+}
+
+/** The built-in (iStar 2.0) rules only know element targets. */
+function elementTargetOnly(definition: LinkKindDefinition): LinkCheck {
+  const article = /^[aeiou]/i.test(definition.label) ? 'an' : 'a';
+  return fail(
+    'invalid-target',
+    `the target of ${article} ${definition.label} link must be an element, not a link`,
+  );
 }
 
 function refId(ref: ElementRef): string {
@@ -120,9 +199,17 @@ export interface LinkRuleContext {
   /** The link kind being added. */
   readonly kind: string;
   readonly source: IstarElement<string>;
-  readonly target: IstarElement<string>;
-  /** A link (optionally of `kind`, or a kind behaving like it) joins `a` and `b`, either way. */
-  isThereLinkBetween(a: IstarElement<string>, b: IstarElement<string>, kind?: string): boolean;
+  /** An element, or a link for kinds whose rules target links (narrow with `isLinkRef`). */
+  readonly target: IstarElement<string> | IstarLink<string>;
+  /**
+   * A link (optionally of `kind`, or a kind behaving like it) joins `a` and `b`, either way. Both
+   * may be elements or links.
+   */
+  isThereLinkBetween(
+    a: { readonly id: string },
+    b: { readonly id: string },
+    kind?: string,
+  ): boolean;
   /** `element` is the source of a link of `kind` (or a kind behaving like it). */
   isSourceOfType(element: IstarElement<string>, kind: string): boolean;
   /** `element` is the target of a link of `kind` (or a kind behaving like it). */
@@ -148,7 +235,11 @@ class Graph {
    * True when a link (optionally of `kind`) already connects the two elements, in either
    * direction. Mirrors `istar.isThereLinkBetween`.
    */
-  isThereLinkBetween(a: IstarElement<string>, b: IstarElement<string>, kind?: string): boolean {
+  isThereLinkBetween(
+    a: { readonly id: string },
+    b: { readonly id: string },
+    kind?: string,
+  ): boolean {
     for (const link of this.model.links.values()) {
       if (kind && !this.matches(link, kind)) continue;
       if (
@@ -163,8 +254,8 @@ class Graph {
 
   /** Like `isThereLinkBetween`, counting only links of exactly `kind`. */
   isThereLinkOfKindBetween(
-    a: IstarElement<string>,
-    b: IstarElement<string>,
+    a: { readonly id: string },
+    b: { readonly id: string },
     kind: string,
   ): boolean {
     for (const link of this.model.links.values()) {
@@ -205,7 +296,7 @@ class Graph {
   context(
     kind: string,
     source: IstarElement<string>,
-    target: IstarElement<string>,
+    target: IstarElement<string> | IstarLink<string>,
   ): LinkRuleContext {
     return {
       model: this.model,
@@ -528,6 +619,11 @@ function describe(graph: Graph, selectors: readonly string[]): string {
     if (selector === '*') return 'any element';
     if (selector === 'node') return 'an intentional element';
     if (selector === 'actor') return 'an actor';
+    if (selector === LINK_SELECTOR) return 'a link';
+    const linkLabel = graph.metamodel.links.get(selector)?.label;
+    if (linkLabel !== undefined) {
+      return /^[aeiou]/i.test(linkLabel) ? `an ${linkLabel} link` : `a ${linkLabel} link`;
+    }
     const label = graph.metamodel.elements.get(selector)?.label ?? selector;
     return /^[aeiou]/i.test(label) ? `an ${label}` : `a ${label}`;
   });
@@ -536,7 +632,20 @@ function describe(graph: Graph, selectors: readonly string[]): string {
     : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
 }
 
-function matchesSelector(graph: Graph, element: IstarElement<string>, selector: string): boolean {
+function matchesSelector(
+  graph: Graph,
+  element: IstarElement<string> | IstarLink<string>,
+  selector: string,
+): boolean {
+  // Links match `link` and link kinds (and what behaves like them); elements never do.
+  if (isLinkRef(element)) {
+    return selector === LINK_SELECTOR || linkBehavesLike(graph.metamodel, element.kind, selector);
+  }
+  if (selector === LINK_SELECTOR) return false;
+  // A hub is only matched by its own kind's name: categories never include it.
+  if (graph.metamodel.elements.get(element.kind)?.role === 'hub') {
+    return element.kind === selector;
+  }
   if (selector === '*') return true;
   const category = graph.metamodel.elements.get(element.kind)?.category;
   if (selector === 'node' || selector === 'actor') return category === selector;
@@ -546,7 +655,8 @@ function matchesSelector(graph: Graph, element: IstarElement<string>, selector: 
 /**
  * Declarative rules of an extension link kind, checked in the order of the iStar 2.0 node-link
  * rules (and of piStar-ext's generated `isValid`): source kind, target kind, self link,
- * dependum, same actor, duplicates.
+ * dependum, same actor, duplicates. A link target skips the self, dependum and same-actor rules,
+ * which are about elements.
  */
 function declarativeCheck(
   graph: Graph,
@@ -554,7 +664,7 @@ function declarativeCheck(
   rules: LinkRules,
   rulesKind: string,
   source: IstarElement<string>,
-  target: IstarElement<string>,
+  target: IstarElement<string> | IstarLink<string>,
 ): LinkCheck {
   const name = definition.label;
   const article = /^[aeiou]/i.test(name) ? 'an' : 'a';
@@ -565,6 +675,17 @@ function declarativeCheck(
     );
   }
   if (!rules.targets.some((selector) => matchesSelector(graph, target, selector))) {
+    const targetKind = isLinkRef(target) ? undefined : graph.metamodel.elements.get(target.kind);
+    const hubOf =
+      targetKind?.role === 'hub' && targetKind.of !== undefined
+        ? graph.metamodel.links.get(targetKind.of)
+        : undefined;
+    if (hubOf) {
+      return fail(
+        'hub-target',
+        `you cannot make ${article} ${name} link towards the hub of ${/^[aeiou]/i.test(hubOf.label) ? 'an' : 'a'} ${hubOf.label} link`,
+      );
+    }
     return fail(
       'invalid-target',
       `the target of ${article} ${name} link must be ${describe(graph, rules.targets)}`,
@@ -573,7 +694,7 @@ function declarativeCheck(
   if (!rules.allowSelf && source.id === target.id) {
     return fail('self-link', `you cannot make ${article} ${name} link from an element onto itself`);
   }
-  if (definition.category === 'node') {
+  if (definition.category === 'node' && !isLinkRef(target)) {
     if (!rules.allowDependum && (isDependum(source) || isDependum(target))) {
       return fail('dependum-endpoint', `you cannot make ${article} ${name} link with a dependum`);
     }
@@ -624,7 +745,9 @@ export interface ModelIssue<LK extends string = LinkKind> {
 /**
  * Re-validates every link of a model, the way piStar does when loading a file: dependencies
  * first (each checked before its own links are added), then the remaining links in file
- * order, each against the graph built so far. Invalid links are reported, not removed.
+ * order, each against the graph built so far, and last the links that target links. Invalid
+ * links are reported, not removed. A hub without an end or legs is reported with code
+ * `incomplete-hub`, the hub's id as `linkId` and the n-ary kind as `kind`.
  */
 export function validateModel<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
@@ -685,9 +808,16 @@ export function validateModel<EK extends string = ElementKind, LK extends string
     if (outbound) accepted.set(outbound.id, outbound);
   }
 
-  for (const link of any.links.values()) {
-    if (isDependency(link)) continue;
-    if (any.elements.has(link.source) && any.elements.has(link.target)) {
+  // Links that target links come second, so the links they point at are known whatever the
+  // order (an Argument may be written before the Contribution it argues about).
+  const rest = [...any.links.values()].filter((link) => !isDependency(link));
+  const targetsLink = (link: IstarLink<string>): boolean =>
+    !any.elements.has(link.target) && any.links.has(link.target);
+  for (const link of [
+    ...rest.filter((l) => !targetsLink(l)),
+    ...rest.filter((l) => targetsLink(l)),
+  ]) {
+    if (any.elements.has(link.source) && (any.elements.has(link.target) || targetsLink(link))) {
       report(
         link.id,
         link.kind,
@@ -703,6 +833,29 @@ export function validateModel<EK extends string = ElementKind, LK extends string
       });
     }
     accepted.set(link.id, link);
+  }
+
+  // Each hub needs an end and at least one leg.
+  for (const hub of any.elements.values()) {
+    const hubKind = metamodel.elements.get(hub.kind);
+    if (hubKind?.role !== 'hub' || hubKind.of === undefined) continue;
+    const base = metamodel.links.get(hubKind.of);
+    const roleOf = (link: IstarLink<string>): string | undefined =>
+      metamodel.links.get(link.kind)?.role;
+    const legs = rest.filter((l) => l.target === hub.id && roleOf(l) === 'leg');
+    const end = rest.find((l) => l.source === hub.id && roleOf(l) === 'end');
+    if (legs.length > 0 && end) continue;
+    const label = base?.label ?? hubKind.of;
+    issues.push({
+      linkId: hub.id,
+      kind: hubKind.of as LK,
+      source: legs[0]?.source ?? hub.id,
+      target: end?.target ?? hub.id,
+      code: 'incomplete-hub',
+      message: end
+        ? `the hub of a ${label} link needs at least one leg`
+        : `the hub of a ${label} link needs an end`,
+    });
   }
   return issues;
 }
