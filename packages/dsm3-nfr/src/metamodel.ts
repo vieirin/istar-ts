@@ -25,7 +25,10 @@ const ON_PAPER: NodeKindInfo = {
 /** DSM3's element size (`size: {width: 90, height: 55}` in `language_nfr_shapes.js`). */
 const SIZE = { width: 90, height: 55 } as const;
 
-/** The top-level keys of a DSM3-goals file, in the order DSM3 writes them. */
+/**
+ * The top-level keys of a DSM3-goals file, in the order DSM3 writes them. Mirrors DSM3's
+ * `app_istarcore_fileManager.js` key order; kept in both framework packages on purpose.
+ */
 export const DSM3_FILE_KEYS: readonly string[] = [
   'actors',
   'orphans',

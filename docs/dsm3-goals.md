@@ -176,3 +176,6 @@ Dated entries, appended as the work goes. Each says what was decided and why.
 - **2026-10-16**: Both packages export `DSM3_FILE_KEYS`, DSM3's top-level key order. The two
   copies are identical. A shared home would be core, or a third package, and that choice is
   left to review.
+- **2026-10-16**: `DSM3_FILE_KEYS` stays duplicated in the two packages, with a comment saying
+  it mirrors DSM3's `fileManager` key order. Core stays framework-neutral, and a shared package
+  would be overkill for one constant.
