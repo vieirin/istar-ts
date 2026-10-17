@@ -12,6 +12,7 @@ describe('@istar-ts/dsm3-kaos/metamodel', () => {
         'KAOS',
         'KAOS_DECLARATION',
         'KAOS_ELEMENT_KINDS',
+        'KAOS_FILL',
         'KAOS_LINK_KINDS',
         'KAOS_PROPERTY_SCHEMAS',
         'KAOS_REFINEMENT_HUB',

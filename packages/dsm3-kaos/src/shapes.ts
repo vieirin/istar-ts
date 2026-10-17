@@ -5,7 +5,7 @@
  */
 import type { KindShape } from '@istar-ts/core';
 import { polygonPath } from '@istar-ts/react';
-import type { KaosDeclaredElementKind } from './kinds';
+import { KAOS_FILL, type KaosDeclaredElementKind } from './kinds';
 
 /** Agent and Environment Agent: a hexagon. */
 export const KAOS_AGENT_POINTS = '0,18 30,0 100,0 130,18 100,36 30,36';
@@ -23,9 +23,6 @@ export const KAOS_VIEWBOX = '-1 -1 132 38';
  */
 const STICK_FIGURE =
   'M 25 12 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0 M 22 17 L 38 17 M 30 17 L 30 27 M 30 27 L 25 32 M 30 27 L 35 32';
-
-/** DSM3 fills every KAOS node grey (`rgb(205,205,205)`, language_kaos_shapes.js). */
-export const KAOS_FILL = 'rgb(205,205,205)';
 
 export const KAOS_SHAPES: Readonly<Record<KaosDeclaredElementKind, KindShape>> = {
   'kaos.BehavioralGoal': {

@@ -13,6 +13,7 @@ describe('@istar-ts/dsm3-nfr/metamodel', () => {
         'NFR_CONTRIBUTION_LABELS',
         'NFR_DECLARATION',
         'NFR_ELEMENT_KINDS',
+        'NFR_FILL',
         'NFR_LINK_KINDS',
         'notNfrToOperationalization',
       ].toSorted(),

@@ -1,5 +1,5 @@
 export { KAOS, KAOS_DECLARATION } from './metamodel';
-export { KAOS_ELEMENT_KINDS, KAOS_LINK_KINDS, KAOS_REFINEMENT_HUB } from './kinds';
+export { KAOS_ELEMENT_KINDS, KAOS_FILL, KAOS_LINK_KINDS, KAOS_REFINEMENT_HUB } from './kinds';
 export type {
   KaosDeclaredElementKind,
   KaosDeclaredLinkKind,
@@ -11,7 +11,6 @@ export {
   KAOS_ASSIGNMENT_GLYPH,
   KAOS_CONFLICT_GLYPH,
   KAOS_DOMAIN_PROPERTY_POINTS,
-  KAOS_FILL,
   KAOS_GOAL_POINTS,
   KAOS_REFINEMENT_MARKER,
   KAOS_SHAPES,

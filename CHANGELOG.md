@@ -2,6 +2,11 @@
 
 Versions are published from GitHub release tags; see the release notes for full details.
 
+## 0.13.7
+
+- **dsm3-kaos / dsm3-nfr:** `KAOS_FILL` and `NFR_FILL` are also exported from the React-free
+  `./metamodel` subpaths, so a consumer without React can share DSM3's colours.
+
 ## 0.13.6
 
 - **core / react:** `KindShape.fill`, a kind's default fill (any CSS colour) for its elements
