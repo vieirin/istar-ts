@@ -33,7 +33,7 @@ const ARGUMENT_SOURCE = '77371218-ae0f-4043-b500-9c75894788ee';
 function nfrGraph() {
   const model = parsePistar(nfrWelcome, { metamodel: NFR });
   const registry = registryForMetamodel(NFR) as unknown as AnyIstarRegistry;
-  return { model, graph: modelToFlow(model as never, registry as never) };
+  return { model, graph: modelToFlow(model, registry) };
 }
 
 describe('link anchor ids', () => {
@@ -119,11 +119,11 @@ describe('modelToFlow with links that target links', () => {
     if (!about.ok) throw new Error(about.reason);
     const registry = registryForMetamodel(metamodel) as unknown as AnyIstarRegistry;
 
-    const open = modelToFlow(store.getModel() as never, registry as never);
+    const open = modelToFlow(store.getModel(), registry);
     expect(open.nodes.some((n) => n.type === 'istarLinkAnchor')).toBe(true);
 
     store.setCollapsed(inner.id, true);
-    const collapsed = modelToFlow(store.getModel() as never, registry as never);
+    const collapsed = modelToFlow(store.getModel(), registry);
     expect(collapsed.nodes.some((n) => n.type === 'istarLinkAnchor')).toBe(false);
     expect(collapsed.edges.some((e) => e.id === about.link.id)).toBe(false);
   });

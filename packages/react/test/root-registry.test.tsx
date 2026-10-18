@@ -120,7 +120,8 @@ function createLined(): AnyIstarRegistry {
 describe('modelToFlow with hubs', () => {
   test('draws each refinement as a hub node, legs into it and one end out of it', () => {
     const model = parsePistar(dsm3('kaos-welcome.txt'), { metamodel: KAOS });
-    const { nodes, edges } = modelToFlow(model as never, kaos() as never);
+    // the registry istar-ts builds for the model's metamodel, by default
+    const { nodes, edges } = modelToFlow(model);
     const hubs = nodes.filter((n) => model.elements.get(n.id)?.kind === 'kaos.RefinementLinkHub');
     expect(hubs).toHaveLength(4);
     for (const hub of hubs) expect([hub.width, hub.height]).toEqual([20, 20]);
