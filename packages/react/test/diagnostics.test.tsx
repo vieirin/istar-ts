@@ -1,6 +1,6 @@
 import type { GoalDiagnostic, IstarElement } from '@istar-ts/core';
 import { createDiagnosticsStore, createModelStore, defineProperties, prop } from '@istar-ts/core';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
 import { describe, expect, expectTypeOf, test } from 'vitest';
@@ -109,6 +109,29 @@ describe('canvas badges', () => {
     fireEvent.mouseEnter(badge);
     expect(screen.getByText('[llm] consider')).toBeTruthy();
     expect(screen.getByText('Info')).toBeTruthy();
+  });
+
+  test('the tooltip renders in a portal beside the badge, not inside the node', async () => {
+    render(
+      <ElementIssuesBadge
+        diagnostics={[
+          { elementId: 'a', severity: 'error', message: 'boom', source: 'lsp' },
+          { elementId: 'a', severity: 'warning', message: 'careful' },
+        ]}
+      />,
+    );
+    const badge = screen.getByRole('status');
+    fireEvent.mouseEnter(badge);
+    const tooltip = document.querySelector<HTMLElement>('.istar-issues-badge-tooltip')!;
+    expect(tooltip).toBeTruthy();
+    expect(tooltip.parentElement).toBe(document.body);
+    expect(badge.contains(tooltip)).toBe(false);
+    expect(tooltip.className).toContain('is-error');
+    expect(tooltip.textContent).toContain('[lsp] boom');
+    expect(tooltip.textContent).toContain('careful');
+
+    fireEvent.mouseLeave(badge);
+    await waitFor(() => expect(document.querySelector('.istar-issues-badge-tooltip')).toBeNull());
   });
 
   test('link diagnostics show beside the link label', () => {
