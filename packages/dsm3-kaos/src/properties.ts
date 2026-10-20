@@ -85,12 +85,21 @@ export interface KaosDomainPropertyProperties extends PropertyShape {
    * types its values (`invariant | hypothesis`).
    */
   readonly Kind: PropertyType<string>;
+  /**
+   * The domain property's formal specification (the book, ch. 17; KAOSTools' `formalspec`).
+   * Not DSM3's: optional and without a default, so DSM3 files and new domain properties don't
+   * gain the key. A dialect types it as a formula.
+   */
+  readonly FormalSpec: PropertyType<string>;
 }
 
 export const domainPropertyProperties: PropertySchema<
   KaosDomainPropertyProperties,
   'kaos.DomainProperty'
-> = defineProperties('kaos.DomainProperty', { Kind: prop.string({ optional: true }) });
+> = defineProperties('kaos.DomainProperty', {
+  Kind: prop.string({ optional: true }),
+  FormalSpec: prop.string({ optional: true }),
+});
 
 /** Every KAOS schema, e.g. for core's `validateModelProperties`. */
 export const KAOS_PROPERTY_SCHEMAS: readonly PropertySchema<PropertyShape, string>[] = [

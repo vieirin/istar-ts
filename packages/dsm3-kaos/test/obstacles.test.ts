@@ -75,11 +75,14 @@ describe('the obstacle analysis extension', () => {
     }
   });
 
-  it('gives Domain property an optional Kind with no default, so DSM3 files are unchanged', () => {
+  it('gives Domain property an optional Kind and FormalSpec with no default, so DSM3 files are unchanged', () => {
     expect(domainPropertyProperties.defaults()).toEqual({});
     expect(domainPropertyProperties.validate({ Description: '' })).toEqual([]);
     expect(domainPropertyProperties.read({ Kind: 'hypothesis' }).values).toEqual({
       Kind: 'hypothesis',
+    });
+    expect(domainPropertyProperties.read({ FormalSpec: 'always (p => q)' }).values).toEqual({
+      FormalSpec: 'always (p => q)',
     });
   });
 });
