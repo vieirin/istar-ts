@@ -4,6 +4,17 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** new package `@istar-ts/glsp`, a GLSP server diagram module on `@eclipse-glsp/server`
+  2.8 (read side, #80): `modelToGModel` (actors as containers with actor-relative children,
+  dependums, n-ary hubs, link anchors; types `node:<kind>`/`edge:<kind>`), `IstarDiagramConfiguration`
+  (type hints from `typeHintsFor` in GModel types, `needsClientLayout: false`), `IstarModelState`
+  (one `ModelStore` and its dispatcher per session), `IstarSourceModelStorage` (`parsePistar`/
+  `toPistar` through a host-bound `PistarFiles`), and dialect contributions bound by Inversify
+  manifests (`IstarDiagramModule`, `IstarContributionModule`, `configureIstarDiagram`):
+  `ISTAR_GLSP`, `KAOS_GLSP`/`KAOS_OBSTACLES_GLSP` (`@istar-ts/glsp/kaos`) and `NFR_GLSP`
+  (`@istar-ts/glsp/nfr`). Inversify's legacy decorators build with tsdown, with an explicit
+  `@inject()` per constructor parameter. No React dependency.
+
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
   GLSP client and the side-by-side view are disabled pending #83 and #85).

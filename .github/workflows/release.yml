@@ -1,5 +1,5 @@
-# Publishes @istar-ts/core, @istar-ts/actions, @istar-ts/react, @istar-ts/dsm3-kaos and
-# @istar-ts/dsm3-nfr to npm when
+# Publishes @istar-ts/core, @istar-ts/actions, @istar-ts/glsp, @istar-ts/react, @istar-ts/dsm3-kaos
+# and @istar-ts/dsm3-nfr to npm when
 # a GitHub release is published, or on demand for an existing release tag (workflow_dispatch,
 # e.g. to finish a release where one package failed to publish).
 #
@@ -83,7 +83,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/tarballs"
           failed=0
-          for pkg in core actions react dsm3-kaos dsm3-nfr; do
+          for pkg in core actions glsp react dsm3-kaos dsm3-nfr; do
             (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
             tarball="$RUNNER_TEMP/tarballs/istar-ts-$pkg-$VERSION.tgz"
             # Every workspace dependency must have been rewritten to the released version.
@@ -116,6 +116,7 @@ jobs:
             echo "### Published $VERSION (dist-tag: $DIST_TAG)"
             echo "- https://www.npmjs.com/package/@istar-ts/core/v/$VERSION"
             echo "- https://www.npmjs.com/package/@istar-ts/actions/v/$VERSION"
+            echo "- https://www.npmjs.com/package/@istar-ts/glsp/v/$VERSION"
             echo "- https://www.npmjs.com/package/@istar-ts/react/v/$VERSION"
             echo "- https://www.npmjs.com/package/@istar-ts/dsm3-kaos/v/$VERSION"
             echo "- https://www.npmjs.com/package/@istar-ts/dsm3-nfr/v/$VERSION"
