@@ -15,6 +15,7 @@ describe('@istar-ts/dsm3-nfr/metamodel', () => {
         'NFR_ELEMENT_KINDS',
         'NFR_FILL',
         'NFR_LINK_KINDS',
+        'NFR_PALETTE',
         'notNfrToOperationalization',
       ].toSorted(),
     );
@@ -26,7 +27,7 @@ describe('@istar-ts/dsm3-nfr/metamodel', () => {
   });
 
   it('does not depend on @istar-ts/react, so it can be built for require()', () => {
-    const own = ['headless', 'metamodel', 'kinds'];
+    const own = ['headless', 'metamodel', 'kinds', 'palette'];
     for (const file of own) {
       const source = readFileSync(resolve(__dirname, `../src/${file}.ts`), 'utf8');
       expect(source, `${file}.ts`).not.toMatch(/from '@istar-ts\/react'/);
