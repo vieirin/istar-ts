@@ -4,7 +4,7 @@ import { createModelStore } from '@istar-ts/core';
 import type * as XyflowReact from '@xyflow/react';
 import type { Connection, ReactFlowProps } from '@xyflow/react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import type { IstarEditor } from '../src';
 import { IstarCanvas, IstarInspector, IstarProvider, useIstarEditor } from '../src';
@@ -24,12 +24,32 @@ vi.mock('@xyflow/react', async (importOriginal) => {
   };
 });
 
+// A layout effect, not a passive one (#94): it runs inside the commit, so the editor read
+// back always matches what's on screen. A passive effect runs in a later task once the canvas
+// render overruns Scheduler's frame, so a test resuming as soon as the alert is committed (see
+// `committedAlert`; `findByRole` too, when its `setTimeout(0)` beats Scheduler's
+// `setImmediate`) would read the editor from the commit before.
 function Grab({ onEditor }: { onEditor: (editor: IstarEditor) => void }): null {
   const editor = useIstarEditor();
-  useEffect(() => {
+  useLayoutEffect(() => {
     onEditor(editor);
   });
   return null;
+}
+
+/** Resolves in the microtask right after React commits a notice: the earliest point a test can
+ * look, before that commit's passive effects have run. Unlike `findByRole`, it doesn't depend
+ * on whether a timer or Scheduler's next task runs first. */
+function committedAlert(container: HTMLElement): Promise<Element> {
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const alert = container.querySelector('[role="alert"]');
+      if (!alert) return;
+      observer.disconnect();
+      resolve(alert);
+    });
+    observer.observe(container, { childList: true, subtree: true });
+  });
 }
 
 /** Wraps a real dispatcher, recording the `kind` of every action sent to it. */
@@ -43,15 +63,24 @@ function recordingDispatcher(dispatcher: ActionDispatcher, kinds: string[]): Act
   };
 }
 
-/** Rejects every action of `kind`, delegating everything else to a real dispatcher. */
-function rejectingDispatcher(dispatcher: ActionDispatcher, kind: string): ActionDispatcher {
+/** Rejects every action of `kind`, delegating everything else to a real dispatcher. The
+ * rejection settles at once (reaching `.then()` a microtask later, as a local dispatcher's
+ * does) or, with `after: 'task'`, a macrotask later (as a remote one's would). */
+function rejectingDispatcher(
+  dispatcher: ActionDispatcher,
+  kind: string,
+  after: 'microtask' | 'task' = 'microtask',
+): ActionDispatcher {
   return {
     dispatch<A extends IstarAction>(action: A) {
       if (action.kind === kind) {
-        return Promise.resolve({
+        const rejection = Promise.resolve({
           ok: false,
           diagnostics: [{ elementId: '', severity: 'error', message: `${kind} refused` }],
         }) as Promise<ActionResult<ResponseFor<A>>>;
+        return after === 'task'
+          ? new Promise<void>((resolve) => setTimeout(resolve, 0)).then(() => rejection)
+          : rejection;
       }
       return dispatcher.dispatch(action);
     },
@@ -104,9 +133,38 @@ describe('a custom dispatcher prop', () => {
     expect(store.getModel().elements.size).toBe(0);
   });
 
-  test('a rejected createNode leaves no selection or editing id', async () => {
+  // #94: checked in the commit that shows the notice, the first one a user would see.
+  test.each(['microtask', 'task'] as const)(
+    'a rejected createNode (settling after a %s) leaves no selection or editing id',
+    async (after) => {
+      const store = createModelStore();
+      const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createNode', after);
+      const editorRef: { current?: IstarEditor } = {};
+      const { container } = render(
+        <div style={{ width: 800, height: 600 }}>
+          <IstarProvider store={store} dispatcher={dispatcher}>
+            <Grab onEditor={(e) => (editorRef.current = e)} />
+            <IstarCanvas />
+          </IstarProvider>
+        </div>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Actor' }));
+      const pane = container.querySelector('.react-flow__pane')!;
+      const alert = committedAlert(container);
+      fireEvent.click(pane, { clientX: 100, clientY: 100 });
+
+      await alert;
+      expect(editorRef.current!.selection).toBeNull();
+      expect(editorRef.current!.editingId).toBeNull();
+      expect(store.getModel().elements.size).toBe(0);
+    },
+  );
+
+  test('a selection made while a createNode is pending survives its rejection', async () => {
     const store = createModelStore();
-    const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createNode');
+    const other = store.addElement({ kind: 'istar.Actor', x: 400, y: 300 });
+    const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createNode', 'task');
     const editorRef: { current?: IstarEditor } = {};
     const { container } = render(
       <div style={{ width: 800, height: 600 }}>
@@ -119,12 +177,15 @@ describe('a custom dispatcher prop', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Actor' }));
     const pane = container.querySelector('.react-flow__pane')!;
+    const alert = committedAlert(container);
     fireEvent.click(pane, { clientX: 100, clientY: 100 });
+    act(() => editorRef.current!.select({ type: 'element', id: other.id }));
 
-    await screen.findByRole('alert');
-    expect(editorRef.current!.selection).toBeNull();
+    await alert;
+    expect(editorRef.current!.selection).toEqual({ type: 'element', id: other.id });
+    // The optimistic editing id named the rejected element; nothing else took it over.
     expect(editorRef.current!.editingId).toBeNull();
-    expect(store.getModel().elements.size).toBe(0);
+    expect(store.getModel().elements.size).toBe(1);
   });
 
   test('a rejected dependency connect leaves no selection or editing id', async () => {
@@ -146,7 +207,7 @@ describe('a custom dispatcher prop', () => {
     });
     const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createEdge');
     const editorRef: { current?: IstarEditor } = {};
-    render(
+    const { container } = render(
       <div style={{ width: 800, height: 600 }}>
         <IstarProvider store={store} dispatcher={dispatcher}>
           <Grab onEditor={(e) => (editorRef.current = e)} />
@@ -155,10 +216,11 @@ describe('a custom dispatcher prop', () => {
       </div>,
     );
     act(() => editorRef.current!.setTool({ type: 'dependency', dependum: 'istar.Goal' }));
+    const alert = committedAlert(container);
 
     act(() => capturedOnConnect!({ source: depender.id, target: dependee.id } as Connection));
 
-    await screen.findByRole('alert');
+    await alert;
     expect(editorRef.current!.selection).toBeNull();
     expect(editorRef.current!.editingId).toBeNull();
     // The rejected action never created the dependum.
@@ -189,7 +251,7 @@ describe('a custom dispatcher prop', () => {
     });
     const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createEdge');
     const editorRef: { current?: IstarEditor } = {};
-    render(
+    const { container } = render(
       <div style={{ width: 800, height: 600 }}>
         <IstarProvider store={store} dispatcher={dispatcher}>
           <Grab onEditor={(e) => (editorRef.current = e)} />
@@ -198,6 +260,7 @@ describe('a custom dispatcher prop', () => {
       </div>,
     );
     act(() => editorRef.current!.setTool({ type: 'dependency', dependum: 'istar.Goal' }));
+    const alert = committedAlert(container);
 
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     capturedOnConnect!({ source: depender.id, target: dependee.id } as Connection);
@@ -206,7 +269,7 @@ describe('a custom dispatcher prop', () => {
     await Promise.resolve();
     errors.mockRestore();
 
-    await screen.findByRole('alert');
+    await alert;
     expect(editorRef.current!.selection).toBeNull();
     expect(editorRef.current!.editingId).toBeNull();
     // The rejected action never created the dependum.

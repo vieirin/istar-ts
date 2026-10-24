@@ -4,6 +4,10 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **react (tests):** the rejected-create rollback tests no longer flake (#94). The rollback was
+  already correct; the tests read the editor through a passive effect, which can run a task after
+  the commit that shows the notice. They now read it in a layout effect and check the commit itself,
+  for rejections settling after a microtask or a task.
 - **glsp:** new package `@istar-ts/glsp`, a GLSP server diagram module on `@eclipse-glsp/server`
   2.8 (read side, #80): `modelToGModel` (actors as containers with actor-relative children,
   dependums, n-ary hubs, link anchors; types `node:<kind>`/`edge:<kind>`), `IstarDiagramConfiguration`
