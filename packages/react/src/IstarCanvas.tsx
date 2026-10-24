@@ -451,6 +451,26 @@ function Diagram({
     [dispatcher, notify],
   );
 
+  // Read in the `.then()` of a create dispatched optimistically (see `addAt`/`onConnect`):
+  // by then `editor` (and its `selection`/`editingId`/`tool`) may be a later render's than the
+  // one the dispatching closure captured, so those need the latest value, not the stale one.
+  const editorRef = useRef(editor);
+  useLayoutEffect(() => {
+    editorRef.current = editor;
+  });
+
+  /**
+   * Undoes `addAt`/`onConnect`'s optimistic selection of a client-generated id, once its create
+   * comes back rejected: the selection and editing id, if they still name that id (an unrelated
+   * selection made meanwhile is left alone), and the tool, to what it was before the attempt.
+   */
+  const rollbackOptimisticCreate = useCallback((id: string, previousTool: Tool | null) => {
+    const current = editorRef.current;
+    if (current.selection?.type === 'element' && current.selection.id === id) current.select(null);
+    if (current.editingId === id) current.setEditingId(null);
+    current.setTool(previousTool);
+  }, []);
+
   const onNodeDragStop = useCallback(
     (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
       const newBounds: { elementId: string; newPosition: { x: number; y: number } }[] = [];
@@ -494,6 +514,7 @@ function Diagram({
       // away: the model already updated by the time `dispatch` returns (see `run`), but its
       // result (and so the id it generated) is only available a tick later, once awaited.
       const id = defaultIdGenerator();
+      const previousTool = tool;
       void dispatcher
         .dispatch({
           kind: 'createNode',
@@ -510,13 +531,16 @@ function Diagram({
           },
         })
         .then((result) => {
-          if (!result.ok) editor.notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+          if (!result.ok) {
+            editor.notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+            rollbackOptimisticCreate(id, previousTool);
+          }
         });
       editor.select({ type: 'element', id });
       editor.setEditingId(id);
       editor.setTool(null);
     },
-    [dispatcher, editor, flow, isActorKind, registry, store],
+    [dispatcher, editor, flow, isActorKind, registry, rollbackOptimisticCreate, store, tool],
   );
 
   const onPaneClick = useCallback(
@@ -656,7 +680,10 @@ function Diagram({
               },
             },
           })
-          .then(notifyIfRejected);
+          .then((result) => {
+            notifyIfRejected(result);
+            if (!result.ok) rollbackOptimisticCreate(dependumId, tool);
+          });
         editor.select({ type: 'element', id: dependumId });
         editor.setEditingId(dependumId);
         return;
@@ -688,10 +715,15 @@ function Diagram({
             }),
           },
         })
-        .then(notifyIfRejected);
+        .then((result) => {
+          notifyIfRejected(result);
+          // An existing hub's id (`target`) is a real element regardless of the outcome; only a
+          // fresh id (a new hub, or a plain link) needs rolling back.
+          if (!result.ok && !existingHub) rollbackOptimisticCreate(id, tool);
+        });
       editor.select({ type: nary ? 'element' : 'link', id });
     },
-    [dispatcher, editor, isNary, metamodel, registry, store, tool],
+    [dispatcher, editor, isNary, metamodel, registry, rollbackOptimisticCreate, store, tool],
   );
 
   const onConnectEnd = useCallback(
