@@ -1,5 +1,5 @@
 import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
-import type { AnyIstarModel, PropertySchema } from '@istar-ts/core';
+import type { AnyIstarModel, ModelStore, PropertySchema } from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector, useIstarEditor } from '@istar-ts/react';
 import type { ReactElement } from 'react';
@@ -18,6 +18,7 @@ export function Sidebar({
   guardDescription,
   guards,
   agentDispatcher,
+  store,
 }: {
   readonly model: AnyIstarModel;
   /** Property schemas contributed by the active extension, if any. */
@@ -30,6 +31,7 @@ export function Sidebar({
   readonly guardDescription: string;
   readonly guards: readonly ActionGuard[];
   readonly agentDispatcher: ActionDispatcher;
+  readonly store: ModelStore<string, string>;
 }): ReactElement {
   const issues = validateModel(model);
   const propertyIssues = validateModelProperties(model, schemas);
@@ -49,6 +51,7 @@ export function Sidebar({
           dispatchers={dispatchers}
           scriptDispatcher={scriptDispatcher}
           model={model}
+          store={store}
           select={select}
           guardsEnabled={guardsEnabled}
           onToggleGuards={onToggleGuards}

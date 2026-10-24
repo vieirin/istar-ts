@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { IstarAction } from '@istar-ts/actions';
-import { createLogStore, logReducer } from '../src/lab/log';
+import { createEmptyModel, createModelStore, toPistar } from '@istar-ts/core';
+import { createLogStore, exportLog, logReducer, parseLogExport } from '../src/lab/log';
 import type { LogEntry } from '../src/lab/log';
 
 const action: IstarAction = { kind: 'applyLabelEdit', labelId: 'a', text: 'New name' };
@@ -61,5 +62,58 @@ describe('createLogStore', () => {
     log.clear();
     expect(notified).toBe(1);
     expect(log.getEntries()).toEqual([]);
+  });
+
+  test('getInitialModel is undefined until set', () => {
+    const log = createLogStore();
+    expect(log.getInitialModel()).toBeUndefined();
+    const model = createEmptyModel();
+    log.setInitialModel(model);
+    expect(log.getInitialModel()).toBe(model);
+  });
+
+  test('attachStore captures the current model and clears the log on a load', () => {
+    const store = createModelStore(createEmptyModel());
+    const log = createLogStore();
+    log.append(entry());
+
+    log.attachStore(store);
+    expect(log.getInitialModel()).toBe(store.getModel());
+
+    const loaded = createEmptyModel();
+    store.load(loaded);
+    expect(log.getInitialModel()).toBe(loaded);
+    expect(log.getEntries()).toEqual([]);
+  });
+
+  test('attachStore does not clear the log on an edit, only on a load', () => {
+    const store = createModelStore(createEmptyModel());
+    const log = createLogStore();
+    log.attachStore(store);
+    store.addElement({ kind: 'istar.Goal', x: 0, y: 0 });
+    expect(log.getEntries()).toEqual([]);
+
+    log.append(entry());
+    store.addElement({ kind: 'istar.Goal', x: 10, y: 10 });
+    expect(log.getEntries()).toHaveLength(1);
+  });
+});
+
+describe('exportLog / parseLogExport', () => {
+  test('round-trips the initial model and entries', () => {
+    const model = createEmptyModel();
+    const log = createLogStore();
+    log.setInitialModel(model);
+    log.append(entry());
+
+    const exported = exportLog(log);
+    const parsed = parseLogExport(exported);
+
+    expect(toPistar(parsed.initialModel)).toBe(toPistar(model));
+    expect(parsed.entries).toEqual(log.getEntries());
+  });
+
+  test('throws when the log has no initial model', () => {
+    expect(() => exportLog(createLogStore())).toThrow('the log has no initial model to export');
   });
 });
