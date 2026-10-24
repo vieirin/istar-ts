@@ -272,6 +272,9 @@ export default function App(): ReactElement {
   useEffect(() => {
     if (!initialFixturePath) return;
     let cancelled = false;
+    // The import is async: if the user replaces the model first (New, a fixture, a file), the
+    // initial fixture must not overwrite it, so it is applied only over the model it started from.
+    const startModel = store.getModel();
     void (async () => {
       const load = fixtureModules[initialFixturePath];
       if (!load) return;
@@ -280,7 +283,9 @@ export default function App(): ReactElement {
         // The initial extension state already matches this path (see useState above).
         const id = extensionForPath(initialFixturePath) ?? 'none';
         const metamodel = (EXTENSIONS[id] ?? EXTENSIONS.none!).metamodel;
-        if (!cancelled) store.load(parsePistar(text, { metamodel, fileMetamodel: true }));
+        if (!cancelled && store.getModel() === startModel) {
+          store.load(parsePistar(text, { metamodel, fileMetamodel: true }));
+        }
       } catch (error) {
         if (cancelled) return;
         if (error instanceof PistarParseError || error instanceof MetamodelError) {

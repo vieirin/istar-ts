@@ -31,6 +31,8 @@ pnpm format       # oxfmt (.oxfmtrc.json); format:check in CI
 pnpm build        # tsdown per package (ESM + .d.ts)
 pnpm check        # all of the above
 pnpm dev          # playground
+pnpm e2e          # Playwright e2e on the playground, headless (once: pnpm --filter playground exec playwright install chromium)
+pnpm e2e:headed   # same, in a visible browser; pnpm e2e:ui for Playwright's UI mode
 ```
 
 ## Conventions
