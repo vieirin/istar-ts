@@ -1,5 +1,6 @@
-# Runs on every pull request and push to main. `check` is the required status check in the
-# main branch ruleset, so auto-merge waits for it.
+# Runs on every pull request and push to main. `check` (lint, format, typecheck, build) and
+# `test` (test.yml) are the required status checks in the main branch ruleset, so auto-merge
+# waits for both.
 name: CI
 
 on:
@@ -30,5 +31,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Lint, format, typecheck, tests and build.
-      - run: pnpm check
+      # pnpm check minus the tests, which run in test.yml.
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm build
