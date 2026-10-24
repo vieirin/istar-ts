@@ -18,6 +18,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, '../../packages/core/src/index.ts'),
       },
       {
+        find: '@istar-ts/actions',
+        replacement: path.resolve(rootDir, '../../packages/actions/src/index.ts'),
+      },
+      {
         find: '@istar-ts/dsm3-kaos',
         replacement: path.resolve(rootDir, '../../packages/dsm3-kaos/src/index.ts'),
       },

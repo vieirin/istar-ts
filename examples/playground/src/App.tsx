@@ -1,3 +1,5 @@
+import type { ActionDispatcher } from '@istar-ts/actions';
+import { connectDispatcher, createActionDispatcher } from '@istar-ts/actions';
 import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
 import {
   KAOS,
@@ -133,6 +135,10 @@ function unknownKinds(model: AnyIstarModel, metamodel: AnyMetamodel): string[] {
 export default function App(): ReactElement {
   const topChromeRef = useRef<HTMLDivElement>(null);
   const { store, model } = useIstarStore<string, string>(() => createEmptyModel());
+  const [dispatcher] = useState<ActionDispatcher<string, string>>(() =>
+    createActionDispatcher(store),
+  );
+  const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
   const [parseError, setParseError] = useState<string | null>(null);
   const [extensionId, setExtensionIdState] = useState(
@@ -293,6 +299,25 @@ export default function App(): ReactElement {
     setParseError(null);
   };
 
+  /**
+   * A Web Worker as a remote action client (proves A3's transport and C6's canvas-as-client
+   * together): the worker gets one end of a `MessageChannel` and dispatches `createNode`
+   * actions over it; the main thread serves the canvas's own dispatcher on the other end
+   * (`connectDispatcher`), so the nodes land in the real model, each as its own undo step.
+   */
+  const onRunRemoteDemo = (): void => {
+    setRemoteDemoRunning(true);
+    const worker = new Worker(new URL('./remote-worker.ts', import.meta.url), { type: 'module' });
+    const channel = new MessageChannel();
+    const dispose = connectDispatcher(channel.port1, dispatcher);
+    worker.onmessage = () => {
+      dispose();
+      worker.terminate();
+      setRemoteDemoRunning(false);
+    };
+    worker.postMessage({ port: channel.port2 }, [channel.port2]);
+  };
+
   return (
     <div className="pg-app">
       <div ref={topChromeRef} className="pg-top-chrome">
@@ -355,6 +380,9 @@ export default function App(): ReactElement {
             <button type="button" onClick={onNew}>
               New
             </button>
+            <button type="button" onClick={onRunRemoteDemo} disabled={remoteDemoRunning}>
+              {remoteDemoRunning ? 'Running remote worker…' : 'Run remote worker demo'}
+            </button>
           </div>
         </header>
         {parseError !== null && (
@@ -369,6 +397,7 @@ export default function App(): ReactElement {
       <div className="pg-canvas-wrap">
         <IstarCanvas
           store={store}
+          dispatcher={dispatcher}
           extensions={active.extensions}
           palette={bar}
           colorMode={theme}

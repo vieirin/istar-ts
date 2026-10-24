@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@istar-ts/actions": "workspace:^",
     "@istar-ts/core": "workspace:^",
     "@istar-ts/dsm3-kaos": "workspace:^",
     "@istar-ts/dsm3-nfr": "workspace:^",

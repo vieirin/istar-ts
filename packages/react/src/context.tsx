@@ -1,3 +1,5 @@
+import type { ActionDispatcher, IstarAction } from '@istar-ts/actions';
+import { createActionDispatcher } from '@istar-ts/actions';
 import type {
   ActorKind,
   AnyMetamodel,
@@ -88,6 +90,12 @@ export interface IstarEditor {
   elementActions(id: string): ElementActions;
   linkActions(id: string): LinkActions;
   /**
+   * The GLSP-style action protocol over `store` (see `@istar-ts/actions`): the `dispatcher`
+   * prop, or one this provider created. `elementActions`/`linkActions` and the canvas's
+   * handlers dispatch through it; a rejection surfaces via `notify`.
+   */
+  readonly dispatcher: ActionDispatcher;
+  /**
    * Host-owned issues keyed by element/link id (e.g. LSP diagnostics). Empty map when the
    * host did not pass `issues`.
    */
@@ -167,6 +175,12 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
   /** Use an existing store (for undo/redo and change events). Takes precedence over `model`. */
   readonly store?: ModelStore<EK, LK>;
   /**
+   * The action dispatcher the canvas and inspector send edits through. Default: one created
+   * over `store` with `createActionDispatcher`. Pass your own to add guards, observe every
+   * edit (`subscribe`), or front it with a transport (see `@istar-ts/actions`).
+   */
+  readonly dispatcher?: ActionDispatcher<EK, LK>;
+  /**
    * Base registry; the piStar-like `defaultRegistry` when omitted. It is completed with default
    * configurations for kinds the model's metamodel adds (see `registryForMetamodel`).
    */
@@ -200,6 +214,15 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
   readonly children?: ReactNode;
 }
 
+/** A `setProperties` patch (`undefined` removes) as `istar.updateProperties`' (`null` removes). */
+function patchToProperties(
+  patch: Readonly<Record<string, string | undefined>>,
+): Record<string, string | null> {
+  const properties: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(patch)) properties[key] = value ?? null;
+  return properties;
+}
+
 /**
  * Supplies the editor state to `<IstarCanvas>`, `<IstarPalette>`, `<IstarInspector>` and custom
  * UI. `<IstarCanvas>` creates one automatically when it isn't wrapped in a provider.
@@ -224,6 +247,9 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
         : baseRegistry;
     return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
   }, [metamodel, baseRegistry, props.extensions]);
+  const [ownDispatcher] = useState(() => createActionDispatcher(store));
+  useEffect(() => () => ownDispatcher.dispose(), [ownDispatcher]);
+  const dispatcher = props.dispatcher ?? ownDispatcher;
   const readOnly = props.readOnly ?? false;
   const [tool, setTool] = useState<Tool | null>(null);
   const [rawSelection, setRawSelection] = useState<Selection>(null);
@@ -306,40 +332,51 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
     [store, tool],
   );
 
+  /** Dispatches an operation, notifying a rejection; fire-and-forget (the model already
+   * updated synchronously by the time this returns, see `createActionDispatcher`). */
+  const run = useCallback(
+    (action: IstarAction) => {
+      void dispatcher.dispatch(action).then((result) => {
+        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+      });
+    },
+    [dispatcher, notify],
+  );
+
   const elementActions = useCallback(
     (id: string): ElementActions => ({
-      rename: (name) => store.updateElement(id, { name }),
-      setProperties(patch) {
-        const current = store.getModel().elements.get(id)?.customProperties ?? {};
-        const next: Record<string, string> = { ...current };
-        for (const [key, value] of Object.entries(patch)) {
-          if (value === undefined) delete next[key];
-          else next[key] = value;
-        }
-        store.updateElement(id, { customProperties: next });
-      },
+      rename: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name }),
+      setProperties: (patch) =>
+        run({
+          kind: 'istar.updateProperties',
+          elementId: id,
+          properties: patchToProperties(patch),
+        }),
+      // No operation carries an arbitrary display patch (colour, the auto-grown height from
+      // ElementIssuesBadge/label-fit): `changeBounds` only moves or resizes. Stays on the store.
       setDisplay: (patch) => store.updateElement(id, { display: patch }),
-      remove: () => store.removeElement(id),
+      remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
     }),
-    [store],
+    [run, store],
   );
 
   const linkActions = useCallback(
     (id: string): LinkActions => ({
+      // No operation sets an existing link's value (the contribution make/help/hurt/break):
+      // `createEdge.args.value` only applies at creation. Stays on the store.
       setLabel: (label) => store.updateLink(id, { label: label ?? null }),
+      // `applyLabelEdit.text` is always a string; clearing a link's name needs `null` (removing
+      // the key, not writing `""`), which the operation can't express. Stays on the store.
       setName: (name) => store.updateLink(id, { name: name ?? null }),
-      setProperties(patch) {
-        const current = store.getModel().links.get(id)?.customProperties ?? {};
-        const next: Record<string, string> = { ...current };
-        for (const [key, value] of Object.entries(patch)) {
-          if (value === undefined) delete next[key];
-          else next[key] = value;
-        }
-        store.updateLink(id, { customProperties: next });
-      },
-      remove: () => store.disconnect(id),
+      setProperties: (patch) =>
+        run({
+          kind: 'istar.updateProperties',
+          elementId: id,
+          properties: patchToProperties(patch),
+        }),
+      remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
     }),
-    [store],
+    [run, store],
   );
 
   const editor = useMemo<IstarEditor>(
@@ -361,6 +398,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       checkConnection,
       elementActions,
       linkActions,
+      dispatcher,
       issuesById,
       diagnostics,
       diagnosticsById,
@@ -382,6 +420,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       checkConnection,
       elementActions,
       linkActions,
+      dispatcher,
       issuesById,
       diagnostics,
       diagnosticsById,

@@ -33,7 +33,26 @@ Versions are published from GitHub release tags; see the release notes for full 
   (`method` = the action's `kind`), `subscribe` events go server to client as notifications, and
   only a transport/protocol fault is a JSON-RPC error — a rejection stays a normal result.
 
-For goal-controller#185 and istar-ts#25 (A1, A2, B), istar-ts#26, istar-ts#31.
+  `createRemoteDispatcher` carry an `ActionDispatcher` over a `MessagePort`-like object
+  (`{ postMessage, onmessage }`), framed as JSON-RPC 2.0: a dispatch is a request
+  (`method` = the action's `kind`), `subscribe` events go server to client as notifications, and
+  only a transport/protocol fault is a JSON-RPC error — a rejection stays a normal result.
+- **react:** `IstarProvider` and `IstarCanvas` accept a `dispatcher?: ActionDispatcher` prop
+  (default: one `createActionDispatcher` makes over the store). The canvas's drag, create,
+  connect, delete and undo/redo handlers, and the inspector's rename/delete/custom-property
+  setters (`elementActions`/`linkActions`, unchanged as the typed facade), now dispatch through
+  it instead of calling the store directly; a rejection surfaces through `notify`. A link's value
+  (contribution make/help/hurt/break) and name, and an element's display patch (colour, the
+  auto-grown height), have no operation and stay on the store. Creating a kind that can't be an
+  inner element inside an actor is now refused with a notification, instead of the silent nested
+  create `addElement` allowed before (`createNode` checks `canBeInnerElement`/`canBeOnPaper`,
+  as `core`'s path did not); a rejected create or dependency connect no longer leaves the
+  selection or inline rename on the id it optimistically picked. The playground's toolbar gets a
+  "Run remote worker demo" button: a Web Worker dispatches `createNode` actions over a
+  `MessageChannel` (`createRemoteDispatcher`) served by the main thread's own dispatcher
+  (`connectDispatcher`), each node landing in the real model as its own undo step.
+
+For goal-controller#185 and istar-ts#25 (A1, A2, B, C), istar-ts#26, istar-ts#28, istar-ts#31.
 
 ## 0.14.0
 

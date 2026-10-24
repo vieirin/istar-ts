@@ -194,6 +194,43 @@ validator such as an LSP.
 
 Press **Escape** to clear the active palette tool.
 
+## The action protocol
+
+The canvas's drag, create, connect, delete and undo/redo handlers, and the inspector's
+rename/delete/custom-property setters, edit the model by dispatching
+[`@istar-ts/actions`](https://github.com/vieirin/istar-ts/tree/main/packages/actions) actions
+rather than calling the store directly. `IstarProvider` (and `IstarCanvas`, which creates one
+implicitly) accepts a `dispatcher?: ActionDispatcher` prop; without one, it makes its own with
+`createActionDispatcher` over the store. Pass your own to add guards, observe every edit
+(`dispatcher.subscribe`), or front the editor with a transport:
+
+```tsx
+import { createActionDispatcher } from '@istar-ts/actions';
+import { IstarCanvas, useIstarStore } from '@istar-ts/react';
+
+export function Guarded() {
+  const { store } = useIstarStore();
+  const [dispatcher] = useState(() =>
+    createActionDispatcher(store, { guards: [(operation, model) => /* host rules */ []] }),
+  );
+  return <IstarCanvas store={store} dispatcher={dispatcher} />;
+}
+```
+
+A rejection (a `canLink` failure, a guard, a property schema) surfaces as the editor's notice,
+the same as a direct store rejection did; the model is untouched. Two edits have no operation and
+still write to the store directly: a link's value (the contribution make/help/hurt/break) and
+name, because clearing a link's name needs to remove the key, which `applyLabelEdit`'s `text:
+string` can't express; and an element's display patch (colour, the auto-grown height), because
+`changeBounds` only carries position and size.
+
+The playground's "Run remote worker demo" button
+(`examples/playground/src/remote-worker.ts`) shows a client outside the page: a Web Worker gets
+one end of a `MessageChannel` and dispatches `createNode` actions over it with
+`createRemoteDispatcher`; the main thread serves its own dispatcher on the other end with
+`connectDispatcher`, so the nodes the worker asks for land in the real model, each its own undo
+step.
+
 ## Extensions and the element registry
 
 Out of the box the editor is a plain piStar: `defaultRegistry` knows the iStar 2.0 elements and

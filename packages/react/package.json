@@ -46,6 +46,7 @@
     "prepack": "cp ../../LICENSE . && pnpm build"
   },
   "dependencies": {
+    "@istar-ts/actions": "workspace:^",
     "@istar-ts/core": "workspace:^",
     "@xyflow/react": "^12.12.0"
   },
