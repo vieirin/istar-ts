@@ -1,0 +1,75 @@
+# Cuts a release by hand: Actions → Tag release → Run workflow.
+#
+# Before running it, merge a "release: X.Y.Z" PR that renames CHANGELOG.md's "## Unreleased"
+# heading to "## X.Y.Z" (main is protected, so this workflow can't commit it). The workflow then
+# tags main as vX.Y.Z, creates the GitHub release with that CHANGELOG section as notes, and
+# dispatches release.yml to publish to npm. The dispatch is explicit because a release created
+# with GITHUB_TOKEN does not trigger release.yml's `release: published` event; publishing stays
+# in release.yml, which is the workflow npm trusted publishing is bound to.
+name: Tag release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to tag, e.g. 0.15.0 (default the top "## X.Y.Z" heading of CHANGELOG.md)
+        required: false
+        type: string
+
+permissions:
+  contents: write # tag, GitHub release
+  actions: write # dispatch release.yml
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Pick the version
+        env:
+          EXPLICIT: ${{ inputs.version }}
+        run: |
+          TOP=$(grep -m1 -E '^## ' CHANGELOG.md | sed 's/^## //')
+          VERSION="${EXPLICIT#v}"
+          VERSION="${VERSION:-$TOP}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a semver version. Merge a 'release: X.Y.Z' PR that renames '## Unreleased' in CHANGELOG.md first."
+            exit 1
+          fi
+          if ! grep -qx "## $VERSION" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md on main has no '## $VERSION' section"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # The section's body, up to the next "## " heading, is the release notes.
+          awk -v h="## $VERSION" '$0 == h {on = 1; next} on && /^## / {exit} on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+
+      - name: Tag and push
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FLAGS=()
+          [[ "$VERSION" == *-* ]] && FLAGS+=(--prerelease)
+          gh release create "v$VERSION" --verify-tag --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${FLAGS[@]}"
+
+      - name: Publish to npm (release.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref main -f tag="v$VERSION"
