@@ -4,11 +4,11 @@
  * diagnostic instead of delegating, so the model never sees it, while the other clients keep
  * working.
  *
- * The canvas and the inspector (`@istar-ts/react`'s `IstarInspector`) share whatever dispatcher
- * the provider is given — there's nothing in the actions or in `@istar-ts/react` to tell their
- * calls apart without changing that package (out of scope here), so both are tagged "UI". The
- * worker demo and the script console get their own wrapper over the same underlying dispatcher,
- * tagged at the one call site each already goes through in `App.tsx`.
+ * The canvas and the inspector (`@istar-ts/react`'s `IstarInspector`) each get their own tagged
+ * wrapper — "Canvas" and "Inspector" — wired through `@istar-ts/react`'s `dispatcherFor` prop
+ * (`IstarCanvas`/`IstarProvider`) instead of sharing one dispatcher. The worker demo and the
+ * script console get their own wrapper over the same underlying dispatcher, tagged at the one
+ * call site each already goes through in `App.tsx`.
  */
 import type {
   ActionDispatcher,

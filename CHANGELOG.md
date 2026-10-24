@@ -4,6 +4,15 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **react:** `IstarProvider`/`IstarCanvas` accept an optional `dispatcherFor?: (surface: IstarSurface) => ActionDispatcher`
+  prop (`IstarSurface = 'canvas' | 'inspector'`) so a host can tell which surface sent an action
+  without a protocol change. The canvas's own handlers dispatch through `dispatcherFor('canvas')`.
+  `'inspector'` covers calls made by components rendered in the inspector panel (`Inspector.tsx`
+  and the per-kind inspector components the registry provides); `elementActions`/`linkActions`
+  called without a `surface` (host code outside the inspector panel, e.g. a toolbar button, or a
+  canvas node's inline rename) keep using the base `dispatcher`. Omitted, both surfaces use
+  `dispatcher`, unchanged. The playground's action log now tags the canvas and the inspector
+  "Canvas"/"Inspector" instead of lumping both into "UI".
 - **core:** a failing `LinkCheck`/`ConnectResult` carries `end?: 'source' | 'target'` naming the
   offending endpoint; `connectResultToDiagnostic` reads it instead of matching `'source'` in the
   reason text, so a source or target id containing the word "source" is no longer misattributed.

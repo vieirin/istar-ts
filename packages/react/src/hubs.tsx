@@ -117,7 +117,7 @@ export function HubPartInspector(props: InspectorProps<IstarLink>): ReactElement
         key={hub.id}
         target={hub}
         model={editor.model}
-        actions={editor.elementActions(hub.id)}
+        actions={editor.elementActions(hub.id, 'inspector')}
         readOnly={props.readOnly}
         {...(config?.properties ? { schema: config.properties as InspectorProps['schema'] } : {})}
         issues={editor.issuesById.get(hub.id) ?? []}

@@ -42,8 +42,8 @@ test.describe('protocol lab', () => {
   });
 
   test('one model, four hands: shared undo', async ({ page }) => {
-    // UI: an actor, then two goals inside it (palette create; the second click lands elsewhere
-    // in the actor's frame so the two goals don't overlap).
+    // Canvas: an actor, then two goals inside it (palette create; the second click lands
+    // elsewhere in the actor's frame so the two goals don't overlap).
     await selectActorTool(page);
     await canvasPane(page).click({ position: { x: 160, y: 140 } });
     const actorId = await lastCreatedId(page);
@@ -57,7 +57,8 @@ test.describe('protocol lab', () => {
     const goal2Id = await lastCreatedId(page);
 
     // Script: a third goal, also inside the actor (its template fills `containerId` from the
-    // live model), tagged "Script" instead of "UI" in the log — the same model, a different hand.
+    // live model), tagged "Script" instead of "Canvas" in the log — the same model, a
+    // different hand.
     await openLabTab(page, 'Script console');
     await page.getByRole('button', { name: 'Dispatch' }).click();
     await expect(page.locator('.pg-lab-console-outcome')).toContainText('"ok": true');
@@ -70,7 +71,7 @@ test.describe('protocol lab', () => {
     await canvasPane(page).click({ position: { x: 20, y: 20 } });
     await dragNodeBy(page, nodeById(page, actorId), 300, 150, { fx: 0.85, fy: 0.1 });
 
-    // Connect the two UI-created goals with an And-Refinement link.
+    // Connect the two canvas-created goals with an And-Refinement link.
     await selectTool(page, 'And');
     await dragConnect(page, nodeById(page, goal1Id), nodeById(page, goal2Id));
     await expect(linksCount(page)).toHaveText('1');
@@ -84,14 +85,15 @@ test.describe('protocol lab', () => {
 
     const rows = await logRowTexts(page);
     expect(rows).toHaveLength(7);
-    expect(rows.filter((r) => r.startsWith('UI')).length).toBe(6);
+    expect(rows.filter((r) => r.startsWith('Canvas')).length).toBe(6);
     expect(rows.filter((r) => r.startsWith('Script')).length).toBe(1);
     expect(rows[3]).toContain('Script');
     await expect(elementsCount(page)).toHaveText('4');
 
-    // One shared undo stack: undoing walks back through UI and Script dispatches alike, in the
-    // order they were made, regardless of who made them. The log itself is untouched by undo —
-    // `IstarPalette`'s undo button calls `store.undo()` directly, not through a tagged client.
+    // One shared undo stack: undoing walks back through Canvas and Script dispatches alike, in
+    // the order they were made, regardless of who made them. The log itself is untouched by
+    // undo — `IstarPalette`'s undo button calls `store.undo()` directly, not through a tagged
+    // client.
     await undoButton(page).click(); // undoes the delete: the link comes back
     await expect(linksCount(page)).toHaveText('1');
     await undoButton(page).click(); // undoes the connect
@@ -99,9 +101,9 @@ test.describe('protocol lab', () => {
     await undoButton(page).click(); // undoes the drag
     await undoButton(page).click(); // undoes goal 3 (Script)
     await expect(elementsCount(page)).toHaveText('3');
-    await undoButton(page).click(); // undoes goal 2 (UI)
-    await undoButton(page).click(); // undoes goal 1 (UI)
-    await undoButton(page).click(); // undoes the actor (UI)
+    await undoButton(page).click(); // undoes goal 2 (Canvas)
+    await undoButton(page).click(); // undoes goal 1 (Canvas)
+    await undoButton(page).click(); // undoes the actor (Canvas)
     await expect(elementsCount(page)).toHaveText('0');
     await expect(undoButton(page)).toBeDisabled();
 

@@ -22,7 +22,7 @@ import type { ActionResult, IstarAction, IstarResponseAction } from '@istar-ts/a
 
 export interface LogEntry {
   readonly id: number;
-  /** Who dispatched the action: "UI" (canvas + inspector, see tagClient.ts), "Worker", "Script". */
+  /** Who dispatched the action: "Canvas", "Inspector" (see tagClient.ts), "Worker", "Script". */
   readonly client: string;
   readonly action: IstarAction<string, string>;
   readonly result: ActionResult<IstarResponseAction>;

@@ -24,6 +24,7 @@ import {
   withMetamodel,
 } from '@istar-ts/core';
 import type { IstarExtension } from '@istar-ts/react';
+import type { IstarSurface } from '@istar-ts/react';
 import { IstarCanvas, metamodelWithExtensions, useIstarStore } from '@istar-ts/react';
 import type { ChangeEvent, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -157,12 +158,21 @@ export default function App(): ReactElement {
     setGuardsEnabled(enabled);
   };
   // The protocol lab (#45): one log, tagged wrappers over `dispatcher` for each client it can
-  // tell apart. The canvas and the inspector (`@istar-ts/react`) share whatever dispatcher the
-  // provider gets, so both are tagged "UI" — see lab/tagClient.ts.
+  // tell apart. `@istar-ts/react`'s `dispatcherFor` (#56) lets the canvas and the inspector be
+  // told apart too, so they get their own tags instead of sharing one "UI" tag — see
+  // lab/tagClient.ts and `dispatcherFor` below.
   const [log] = useState(() => createLogStore());
   useEffect(() => log.attachStore(store), [log, store]);
-  const [uiDispatcher] = useState(() =>
-    tagClient(dispatcher as unknown as ActionDispatcher, 'UI', log),
+  const [canvasDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Canvas', log),
+  );
+  const [inspectorDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Inspector', log),
+  );
+  const dispatcherFor = useMemo(
+    () => (surface: IstarSurface) =>
+      surface === 'inspector' ? inspectorDispatcher : canvasDispatcher,
+    [canvasDispatcher, inspectorDispatcher],
   );
   const [workerDispatcher] = useState(() =>
     tagClient(dispatcher as unknown as ActionDispatcher, 'Worker', log),
@@ -176,8 +186,14 @@ export default function App(): ReactElement {
     tagClient(dispatcher as unknown as ActionDispatcher, 'Agent', log),
   );
   const labDispatchers = useMemo(
-    () => [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
-    [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
+    () => [
+      canvasDispatcher,
+      inspectorDispatcher,
+      workerDispatcher,
+      scriptDispatcher,
+      agentDispatcher,
+    ],
+    [canvasDispatcher, inspectorDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
   );
   const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
@@ -438,7 +454,8 @@ export default function App(): ReactElement {
       <div className="pg-canvas-wrap">
         <IstarCanvas
           store={store}
-          dispatcher={uiDispatcher}
+          dispatcher={canvasDispatcher}
+          dispatcherFor={dispatcherFor}
           extensions={active.extensions}
           palette={bar}
           colorMode={theme}
