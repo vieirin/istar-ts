@@ -1,0 +1,99 @@
+{
+  "name": "@istar-ts/glsp",
+  "version": "0.0.0-development",
+  "description": "A GLSP server diagram module for istar-ts models, on @eclipse-glsp/server: GModel, diagram configuration and dialect contributions. Never depends on React.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "./src/index.ts",
+    "./dist/index.js",
+    "./dist/index.cjs"
+  ],
+  "keywords": [
+    "istar",
+    "istar2",
+    "goal-model",
+    "glsp",
+    "pistar"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieirin/istar-ts.git",
+    "directory": "packages/glsp"
+  },
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./kaos": {
+      "@istar-ts/source": "./src/kaos.ts",
+      "import": {
+        "types": "./dist/kaos.d.ts",
+        "default": "./dist/kaos.js"
+      },
+      "require": {
+        "types": "./dist/kaos.d.cts",
+        "default": "./dist/kaos.cjs"
+      }
+    },
+    "./nfr": {
+      "@istar-ts/source": "./src/nfr.ts",
+      "import": {
+        "types": "./dist/nfr.d.ts",
+        "default": "./dist/nfr.js"
+      },
+      "require": {
+        "types": "./dist/nfr.d.cts",
+        "default": "./dist/nfr.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "prepack": "cp ../../LICENSE . && pnpm build"
+  },
+  "dependencies": {
+    "@eclipse-glsp/server": "^2.8.0",
+    "@istar-ts/actions": "workspace:^",
+    "@istar-ts/core": "workspace:^",
+    "inversify": "^6.2.2",
+    "reflect-metadata": "^0.2.2"
+  },
+  "peerDependencies": {
+    "@istar-ts/dsm3-kaos": "workspace:^",
+    "@istar-ts/dsm3-nfr": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@istar-ts/dsm3-kaos": {
+      "optional": true
+    },
+    "@istar-ts/dsm3-nfr": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@istar-ts/dsm3-kaos": "workspace:^",
+    "@istar-ts/dsm3-nfr": "workspace:^"
+  }
+}

@@ -1,0 +1,114 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`modelToGModel > a small iStar model 1`] = `
+{
+  "children": [
+    {
+      "children": [
+        {
+          "alignment": {
+            "x": 0,
+            "y": 0,
+          },
+          "children": [],
+          "cssClasses": [],
+          "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b_label",
+          "position": {
+            "x": 20,
+            "y": 20,
+          },
+          "text": "SampleRobot",
+          "type": "label",
+        },
+        {
+          "children": [
+            {
+              "alignment": {
+                "x": 0,
+                "y": 0,
+              },
+              "children": [],
+              "cssClasses": [],
+              "id": "d201ecf8-634a-425e-8e6e-f59885442511_label",
+              "position": {
+                "x": 45,
+                "y": 17.5,
+              },
+              "text": "G0: Collect sample",
+              "type": "label",
+            },
+          ],
+          "cssClasses": [],
+          "id": "d201ecf8-634a-425e-8e6e-f59885442511",
+          "position": {
+            "x": 67,
+            "y": 47,
+          },
+          "size": {
+            "height": 35,
+            "width": 90,
+          },
+          "type": "node:istar.Goal",
+        },
+        {
+          "children": [
+            {
+              "alignment": {
+                "x": 0,
+                "y": 0,
+              },
+              "children": [],
+              "cssClasses": [],
+              "id": "712433e1-ffd5-4d90-ae9e-30779f6ebb33_label",
+              "position": {
+                "x": 47.5,
+                "y": 18,
+              },
+              "text": "T0: Move to lab",
+              "type": "label",
+            },
+          ],
+          "cssClasses": [],
+          "id": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+          "position": {
+            "x": 65,
+            "y": 128,
+          },
+          "size": {
+            "height": 36,
+            "width": 95,
+          },
+          "type": "node:istar.Task",
+        },
+      ],
+      "cssClasses": [],
+      "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b",
+      "position": {
+        "x": 308,
+        "y": 105,
+      },
+      "size": {
+        "height": 174,
+        "width": 200,
+      },
+      "type": "node:istar.Actor",
+    },
+    {
+      "children": [],
+      "cssClasses": [],
+      "id": "fc14e533-6237-4d6a-9128-3c56d70852ef",
+      "routingPoints": [],
+      "sourceId": "712433e1-ffd5-4d90-ae9e-30779f6ebb33",
+      "targetId": "d201ecf8-634a-425e-8e6e-f59885442511",
+      "type": "edge:istar.AndRefinementLink",
+    },
+  ],
+  "cssClasses": [],
+  "id": "istar-graph",
+  "position": {
+    "x": 0,
+    "y": 0,
+  },
+  "type": "graph",
+}
+`;
