@@ -72,6 +72,7 @@ describe('links that target links', () => {
       ok: false,
       code: 'invalid-target',
       reason: 'the target of an Argument link must be a link',
+      end: 'target',
     });
     expect(store.canLink(op, contribution, 'nfr.AndRefinementLink')).toMatchObject({
       ok: false,
@@ -123,6 +124,7 @@ describe('links that target links', () => {
       ok: false,
       code: 'invalid-target',
       reason: 'the target of an Or-Refinement link must be an element, not a link',
+      end: 'target',
     });
   });
 

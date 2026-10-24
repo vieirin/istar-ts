@@ -4,6 +4,9 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **core:** a failing `LinkCheck`/`ConnectResult` carries `end?: 'source' | 'target'` naming the
+  offending endpoint; `connectResultToDiagnostic` reads it instead of matching `'source'` in the
+  reason text, so a source or target id containing the word "source" is no longer misattributed.
 - **core:** `DEFAULT_PALETTE` (`./palette`) is iStar 2.0's palette data (label, group, section,
   order, and a dependency/contribution entry's `dependum`/`value`) without React, so a host can
   answer "what can I add here" (GLSP's `RequestContextActions`) headlessly; the react registry's

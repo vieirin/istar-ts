@@ -388,11 +388,9 @@ export type ConnectResult<EK extends string = ElementKind, LK extends string = L
   | Extract<LinkCheck, { ok: false }>;
 
 /**
- * Maps a failing `connect` result to a `GoalDiagnostic`, anchored on the offending end: `source`
- * for `invalid-source` and an `unknown-element` whose reason names the source, `target`
- * otherwise. Most iStar 2.0 checks are about the target (`invalid-target`, same-actor,
- * refinement, dependency…); `self-link` and `actor-types-differ` apply to both ends, so `target`
- * is as good an anchor as `source`. `undefined` for a successful result.
+ * Maps a failing `connect` result to a `GoalDiagnostic`, anchored on the end named by the
+ * `LinkCheck`'s `end` field (`target` when a check doesn't single out one end, such as
+ * `self-link` or `actor-types-differ`). `undefined` for a successful result.
  */
 export function connectResultToDiagnostic<
   EK extends string = ElementKind,
@@ -402,11 +400,7 @@ export function connectResultToDiagnostic<
   endpoints: { readonly source: string; readonly target: string },
 ): GoalDiagnostic | undefined {
   if (result.ok) return undefined;
-  const elementId =
-    result.code === 'invalid-source' ||
-    (result.code === 'unknown-element' && result.reason.includes('source'))
-      ? endpoints.source
-      : endpoints.target;
+  const elementId = (result.end ?? 'target') === 'source' ? endpoints.source : endpoints.target;
   return {
     elementId,
     severity: 'error',

@@ -37,12 +37,14 @@ export type ConstraintCode =
   /** `validateModel`: the hub of an n-ary link lacks its end or every leg. */
   | 'incomplete-hub';
 
-export type LinkCheck = { ok: true } | { ok: false; reason: string; code: ConstraintCode };
+export type LinkCheck =
+  | { ok: true }
+  | { ok: false; reason: string; code: ConstraintCode; end?: 'source' | 'target' };
 
 const OK: LinkCheck = { ok: true };
 
-function fail(code: ConstraintCode, reason: string): LinkCheck {
-  return { ok: false, code, reason };
+function fail(code: ConstraintCode, reason: string, end?: 'source' | 'target'): LinkCheck {
+  return { ok: false, code, reason, end };
 }
 
 type ElementRef = string | { readonly id: string };
@@ -88,8 +90,8 @@ export function canLink<EK extends string = ElementKind, LK extends string = Lin
   const metamodel = (options.metamodel ?? metamodelOf(model)) as unknown as AnyMetamodel;
   const s = resolve(any, source);
   const t = resolve(any, target) ?? any.links.get(refId(target));
-  if (!s) return fail('unknown-element', `unknown source element "${refId(source)}"`);
-  if (!t) return fail('unknown-element', `unknown target element "${refId(target)}"`);
+  if (!s) return fail('unknown-element', `unknown source element "${refId(source)}"`, 'source');
+  if (!t) return fail('unknown-element', `unknown target element "${refId(target)}"`, 'target');
   let definition = metamodel.links.get(kind);
   if (!definition) return fail('unknown-link-kind', `unknown link kind "${String(kind)}"`);
   // Linking to one of the kind's own hubs adds a leg to it.
@@ -177,6 +179,7 @@ function elementTargetOnly(definition: LinkKindDefinition): LinkCheck {
   return fail(
     'invalid-target',
     `the target of ${article} ${definition.label} link must be an element, not a link`,
+    'target',
   );
 }
 
@@ -331,6 +334,7 @@ const isALink: Check = (graph, source, target) => {
     return fail(
       'invalid-source',
       'the source of Is-A links must be a Role or a general Actor (iStar 2.0 Guide, Page 6).',
+      'source',
     );
   }
   if (source.kind !== target.kind) {
@@ -343,6 +347,7 @@ const isALink: Check = (graph, source, target) => {
     return fail(
       'invalid-target',
       'the target of Is-A links must be a Role or a general Actor (iStar 2.0 Guide, Page 6).',
+      'target',
     );
   }
   if (source.id === target.id) {
@@ -362,12 +367,14 @@ const participatesInLink: Check = (graph, source, target) => {
     return fail(
       'invalid-source',
       'the source of a Participates-In link must be some kind of actor (iStar 2.0 Guide, Page 6)',
+      'source',
     );
   }
   if (!graph.isActor(target)) {
     return fail(
       'invalid-target',
       'the target of a Participates-In link must be some kind of actor (iStar 2.0 Guide, Page 6)',
+      'target',
     );
   }
   if (source.id === target.id) {
@@ -392,10 +399,10 @@ const dependencyLink: Check = (graph, source, target) => {
     return fail('self-link', 'a Dependency link cannot link an element onto itself');
   }
   if (isDependum(source)) {
-    return fail('dependum-endpoint', 'a Dependency link cannot start from a dependum');
+    return fail('dependum-endpoint', 'a Dependency link cannot start from a dependum', 'source');
   }
   if (isDependum(target)) {
-    return fail('dependum-endpoint', 'a Dependency link cannot end in a dependum');
+    return fail('dependum-endpoint', 'a Dependency link cannot end in a dependum', 'target');
   }
   if (owningActorId(graph, source) === owningActorId(graph, target)) {
     return fail(
@@ -411,6 +418,7 @@ const dependencyLink: Check = (graph, source, target) => {
       'refined-depender',
       'a refined element cannot be the Depender Element in a Dependency link (iStar 2.0 Guide, Page 14). ' +
         'Instead, you can try to add the Dependency originating from a child.',
+      'source',
     );
   }
   if (graph.isTargetOfType(source, 'istar.ContributionLink')) {
@@ -418,6 +426,7 @@ const dependencyLink: Check = (graph, source, target) => {
       'contributed-depender',
       'a contributed element cannot be the Depender Element in a Dependency link (iStar 2.0 Guide, Page 14). ' +
         'Instead, you can try to add the Dependency originating from a child.',
+      'source',
     );
   }
   return OK;
@@ -430,12 +439,14 @@ function refinementLink(label: 'AND' | 'OR'): Check {
       return fail(
         'invalid-source',
         `the source of an ${label}-refinement link must be a Goal or a Task (iStar 2.0 Guide, Table 1)`,
+        'source',
       );
     }
     if (!is(graph, target, 'Task', 'Goal')) {
       return fail(
         'invalid-target',
         `the target of an ${label}-refinement link must be a Goal or a Task (iStar 2.0 Guide, Table 1)`,
+        'target',
       );
     }
     if (source.id === target.id) {
@@ -467,6 +478,7 @@ function refinementLink(label: 'AND' | 'OR'): Check {
         'depender-target',
         'you cannot refine a Depender Element; that is, an element that is the source of a Dependency (iStar 2.0 Guide, Page 14). ' +
           'Instead, you can try to move the dependency to the sub-element.',
+        'target',
       );
     }
     if (graph.isTargetOfType(target, other)) {
@@ -474,7 +486,7 @@ function refinementLink(label: 'AND' | 'OR'): Check {
         label === 'AND'
           ? 'you cannot mix AND-refinements with OR-refinements targeting the same element (iStar 2.0 Guide, Page 10).'
           : 'you cannot mix OR-refinements with AND-refinements targeting the same element (iStar 2.0 Guide, Page 10).';
-      return fail('mixed-refinement', mix);
+      return fail('mixed-refinement', mix, 'target');
     }
     return OK;
   };
@@ -485,12 +497,14 @@ const neededByLink: Check = (graph, source, target) => {
     return fail(
       'invalid-source',
       'the source of a Needed-By link must be a Resource (iStar 2.0 Guide, Table 1)',
+      'source',
     );
   }
   if (!is(graph, target, 'Task')) {
     return fail(
       'invalid-target',
       'the target of a Needed-By link must be a Task (iStar 2.0 Guide, Table 1)',
+      'target',
     );
   }
   if (source.id === target.id) {
@@ -522,12 +536,14 @@ const contributionLink: Check = (graph, source, target) => {
     return fail(
       'invalid-source',
       'the source of a Contribution link must be a Goal, a Quality, a Task or a Resource (iStar 2.0 Guide, Table 1)',
+      'source',
     );
   }
   if (!is(graph, target, 'Quality')) {
     return fail(
       'invalid-target',
       'the target of a Contribution link must be a Quality (iStar 2.0 Guide, Table 1)',
+      'target',
     );
   }
   if (source.id === target.id) {
@@ -565,6 +581,7 @@ const contributionLink: Check = (graph, source, target) => {
       'depender-target',
       'you cannot contribute to a Depender Element; that is, an element that is the source of a Dependency (iStar 2.0 Guide, Page 14). ' +
         'Instead, you can try to move the dependency to the sub-quality.',
+      'target',
     );
   }
   return OK;
@@ -575,12 +592,14 @@ const qualificationLink: Check = (graph, source, target) => {
     return fail(
       'invalid-source',
       'the source of a Qualification link must be a Quality (iStar 2.0 Guide, Table 1)',
+      'source',
     );
   }
   if (!is(graph, target, 'Goal', 'Task', 'Resource')) {
     return fail(
       'invalid-target',
       'the target of a Qualification link must be a Goal, a Task or a Resource (iStar 2.0 Guide, Table 1)',
+      'target',
     );
   }
   if (source.id === target.id) {
@@ -672,6 +691,7 @@ function declarativeCheck(
     return fail(
       'invalid-source',
       `the source of ${article} ${name} link must be ${describe(graph, rules.sources)}`,
+      'source',
     );
   }
   if (!rules.targets.some((selector) => matchesSelector(graph, target, selector))) {
@@ -684,11 +704,13 @@ function declarativeCheck(
       return fail(
         'hub-target',
         `you cannot make ${article} ${name} link towards the hub of ${/^[aeiou]/i.test(hubOf.label) ? 'an' : 'a'} ${hubOf.label} link`,
+        'target',
       );
     }
     return fail(
       'invalid-target',
       `the target of ${article} ${name} link must be ${describe(graph, rules.targets)}`,
+      'target',
     );
   }
   if (!rules.allowSelf && source.id === target.id) {
