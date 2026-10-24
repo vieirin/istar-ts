@@ -9,9 +9,9 @@ export type LabTab =
   | 'Change set'
   | 'Replay';
 
-/** Loads the playground and waits for the canvas to render. */
+/** Loads the React playground and waits for the canvas to render. */
 export async function gotoApp(page: Page): Promise<void> {
-  await page.goto('/');
+  await page.goto('/react.html');
   await expect(page.locator('.react-flow__pane')).toBeVisible();
 }
 

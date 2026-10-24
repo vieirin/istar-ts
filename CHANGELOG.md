@@ -4,6 +4,10 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
+  cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
+  GLSP client and the side-by-side view are disabled pending #83 and #85).
+
 - **react:** `IstarProvider`/`IstarCanvas` accept an optional `dispatcherFor?: (surface: IstarSurface) => ActionDispatcher`
   prop (`IstarSurface = 'canvas' | 'inspector'`) so a host can tell which surface sent an action
   without a protocol change. The canvas's own handlers dispatch through `dispatcherFor('canvas')`.

@@ -3,10 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>istar-ts playground</title>
+    <title>istar-ts examples</title>
+    <link rel="stylesheet" href="/start.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <main class="pg-start">
+      <h1 class="pg-start-title">istar-ts examples</h1>
+      <p class="pg-start-intro">Pick a front end for the goal model canvas.</p>
+      <div class="pg-start-cards">
+        <a class="pg-start-card" href="/react.html">
+          <h2>istar-ts React</h2>
+          <p>
+            The React Flow canvas, inspector and protocol lab built in this repo
+            (<code>@istar-ts/react</code>).
+          </p>
+        </a>
+        <a class="pg-start-card" role="link" aria-disabled="true" tabindex="-1">
+          <h2>Eclipse GLSP client (stock)</h2>
+          <p>The upstream Sprotty-based client, served by <code>@istar-ts/glsp</code>.</p>
+          <p class="pg-start-card-status">coming with #83</p>
+        </a>
+        <a class="pg-start-card" role="link" aria-disabled="true" tabindex="-1">
+          <h2>Both, side by side</h2>
+          <p>The React canvas and the stock GLSP client, sharing one model.</p>
+          <p class="pg-start-card-status">coming with #85</p>
+        </a>
+      </div>
+    </main>
   </body>
 </html>
