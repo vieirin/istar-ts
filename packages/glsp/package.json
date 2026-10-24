@@ -1,13 +1,21 @@
 {
   "name": "@istar-ts/glsp",
   "version": "0.0.0-development",
-  "description": "A GLSP server diagram module for istar-ts models, on @eclipse-glsp/server: GModel, diagram configuration and dialect contributions. Never depends on React.",
+  "description": "A GLSP server for istar-ts models, on @eclipse-glsp/server: GModel, diagram configuration, dialect contributions, and Web Worker, in-page and Node (WebSocket, MCP) launchers. Never depends on React.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
     "./src/index.ts",
+    "./src/node.ts",
+    "./src/browser.ts",
+    "./src/serve.ts",
     "./dist/index.js",
-    "./dist/index.cjs"
+    "./dist/index.cjs",
+    "./dist/node.js",
+    "./dist/node.cjs",
+    "./dist/browser.js",
+    "./dist/browser.cjs",
+    "./dist/serve.js"
   ],
   "keywords": [
     "istar",
@@ -55,6 +63,39 @@
         "default": "./dist/nfr.cjs"
       }
     },
+    "./node": {
+      "@istar-ts/source": "./src/node.ts",
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    },
+    "./browser": {
+      "@istar-ts/source": "./src/browser.ts",
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js"
+      },
+      "require": {
+        "types": "./dist/browser.d.cts",
+        "default": "./dist/browser.cjs"
+      }
+    },
+    "./page": {
+      "@istar-ts/source": "./src/page.ts",
+      "import": {
+        "types": "./dist/page.d.ts",
+        "default": "./dist/page.js"
+      },
+      "require": {
+        "types": "./dist/page.d.cts",
+        "default": "./dist/page.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -70,6 +111,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "serve": "pnpm --filter \"@istar-ts/glsp...\" build && node dist/serve.js",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "prepack": "cp ../../LICENSE . && pnpm build"
   },
@@ -78,17 +120,22 @@
     "@istar-ts/actions": "workspace:^",
     "@istar-ts/core": "workspace:^",
     "inversify": "^6.2.2",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "vscode-jsonrpc": "8.2.0"
   },
   "peerDependencies": {
     "@istar-ts/dsm3-kaos": "workspace:^",
-    "@istar-ts/dsm3-nfr": "workspace:^"
+    "@istar-ts/dsm3-nfr": "workspace:^",
+    "@eclipse-glsp/server-mcp": "2.8.0"
   },
   "peerDependenciesMeta": {
     "@istar-ts/dsm3-kaos": {
       "optional": true
     },
     "@istar-ts/dsm3-nfr": {
+      "optional": true
+    },
+    "@eclipse-glsp/server-mcp": {
       "optional": true
     }
   },

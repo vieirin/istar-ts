@@ -160,6 +160,9 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      vscode-jsonrpc:
+        specifier: 8.2.0
+        version: 8.2.0
     devDependencies:
       '@eclipse-glsp/server-mcp':
         specifier: 2.8.0

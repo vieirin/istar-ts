@@ -1,0 +1,121 @@
+/**
+ * The Node launcher (`@istar-ts/glsp/node`): a WebSocket GLSP server a stock client connects to,
+ * and its MCP opt-in.
+ */
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, test } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { RequestModelAction } from '@eclipse-glsp/server';
+import { ISTAR_GLSP, createIstarSharedModel } from '../src';
+import type { IstarGlspNodeServer } from '../src/node';
+import { diskPistarFiles, startIstarGlspServer } from '../src/node';
+import { fixture } from './fixtures';
+import { connect } from './glsp-client';
+import { next } from './server';
+
+const welcome = fixture('pistar/welcome.txt').text;
+const running: Array<{ close(): Promise<unknown> | unknown }> = [];
+
+afterEach(async () => {
+  for (const thing of running.splice(0).toReversed()) await thing.close();
+});
+
+async function start(
+  ...args: Parameters<typeof startIstarGlspServer>
+): Promise<IstarGlspNodeServer> {
+  const server = await startIstarGlspServer(...args);
+  running.push(server);
+  return server;
+}
+
+async function client(url: string) {
+  const connection = await connect(url);
+  running.push({ close: () => connection.socket.close() });
+  return connection;
+}
+
+describe('the Node launcher', () => {
+  test('accepts a connection and answers initialize with protocol version 1.0.0', async () => {
+    const server = await start();
+    expect(server.url).toBe(`ws://127.0.0.1:${server.port}/istar`);
+    const { client: glsp } = await client(server.url);
+    const result = await glsp.initializeServer({ applicationId: 'test', protocolVersion: '1.0.0' });
+    expect(result.protocolVersion).toBe('1.0.0');
+    expect(Object.keys(result.serverActions)).toContain('istar');
+  });
+
+  test('a session on a shared model gets its GModel', async () => {
+    const shared = createIstarSharedModel(ISTAR_GLSP, { model: welcome });
+    const server = await start({ shared });
+    const { client: glsp, received } = await client(server.url);
+    await glsp.initializeServer({ applicationId: 'test', protocolVersion: '1.0.0' });
+    await glsp.initializeClientSession({
+      clientSessionId: 's1',
+      diagramType: 'istar',
+      clientActionKinds: ['setModel', 'updateModel'],
+    });
+    glsp.sendActionMessage({ clientId: 's1', action: RequestModelAction.create() });
+    const { action } = await next(received, 'setModel');
+    expect(JSON.stringify(action)).toContain('fcf67803-5e5a-4bae-8690-1f12af4446d6');
+  });
+
+  test('diskPistarFiles reads under its root and refuses anything outside it', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'istar-glsp-'));
+    writeFileSync(join(root, 'model.txt'), welcome);
+    const files = diskPistarFiles(root);
+    expect(await files.read('model.txt')).toBe(welcome);
+    expect(await files.read(`file://${join(root, 'model.txt')}`)).toBe(welcome);
+    expect(() => files.read('../model.txt')).toThrow(/outside/);
+    expect(() => files.read('/etc/hosts')).toThrow(/outside/);
+  });
+});
+
+describe('MCP', () => {
+  test('is off by default', async () => {
+    const server = await start();
+    const { client: glsp } = await client(server.url);
+    const result = await glsp.initializeServer({ applicationId: 'test', protocolVersion: '1.0.0' });
+    expect(result).not.toHaveProperty('mcpServer');
+  });
+
+  test('opted in, session-info and element-types answer', async () => {
+    const shared = createIstarSharedModel(ISTAR_GLSP, { model: welcome });
+    const server = await start({ shared, mcp: true });
+    const { client: glsp } = await client(server.url);
+    const result = (await glsp.initializeServer({
+      applicationId: 'test',
+      protocolVersion: '1.0.0',
+    })) as { mcpServer?: { url: string } };
+    const url = result.mcpServer!.url;
+    expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/);
+    await glsp.initializeClientSession({
+      clientSessionId: 's1',
+      diagramType: 'istar',
+      clientActionKinds: ['setModel', 'updateModel'],
+    });
+
+    const mcp = new Client({ name: 'istar-glsp-test', version: '0.0.0' });
+    await mcp.connect(new StreamableHTTPClientTransport(new URL(url)));
+    running.push(mcp);
+    const tools = (await mcp.listTools()).tools.map((t) => t.name);
+    expect(tools).toEqual(expect.arrayContaining(['session-info', 'element-types']));
+
+    const info = await mcp.callTool({ name: 'session-info', arguments: {} });
+    expect(info.isError).toBeFalsy();
+    expect(info.structuredContent).toMatchObject({
+      sessions: [{ sessionId: 's1', diagramType: 'istar' }],
+    });
+
+    const types = await mcp.callTool({ name: 'element-types', arguments: { sessionId: 's1' } });
+    expect(types.isError).toBeFalsy();
+    const content = types.structuredContent as {
+      nodeTypes: Array<{ id: string }>;
+      edgeTypes: Array<{ id: string }>;
+    };
+    expect(content.nodeTypes.map((t) => t.id)).toContain('node:istar.Goal');
+    expect(content.edgeTypes.map((t) => t.id)).toContain('edge:istar.DependencyLink');
+  });
+});
