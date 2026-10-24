@@ -4,6 +4,8 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "types": ["vite/client"],
+    // `@istar-ts/glsp` (glsp.html only) uses Inversify's legacy decorators.
+    "experimentalDecorators": true,
     "isolatedDeclarations": false,
     "declaration": false
   },
