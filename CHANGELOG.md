@@ -169,6 +169,13 @@ Versions are published from GitHub release tags; see the release notes for full 
   default (`fill: black`) and edges had no stroke at all (#103). The sprotty SVG now fills
   `.pg-glsp-diagram`, and `MountedGlspClient` gains a `fit()` method the playground calls on
   window resize (the standalone container never re-fits on its own).
+- **glsp:** edges can be created and reconnected by clicking in a stock GLSP client (#105). Edge
+  type hints are no longer `dynamic`: `@eclipse-glsp/client` drops a click that lands before its
+  own `requestCheckEdge` answer, and never shows a refusal's reason. The client now checks types
+  and sends `createEdge`, and a refused link (a self-refinement, say) comes back as an `ERROR`
+  message with `canLink`'s reason. Edge hints are `repositionable`, which GLSP reads as "can be
+  reconnected", and an n-ary kind's hint targets its hub, so a leg can be drawn onto it.
+  `mountGlspClient` takes `logActions` (`/glsp.html?debug=actions`) to log the action traffic.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.

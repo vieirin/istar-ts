@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
+import type { AnyMetamodel } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import { IstarDiagramConfiguration, ISTAR_GLSP, LINK_ANCHOR_TYPE, gmodelTypes } from '../src';
 import type { IstarGlspContribution } from '../src';
+import { loadFixtures, parseFixture } from './fixtures';
 import { KAOS_GLSP, KAOS_OBSTACLES_GLSP } from '../src/kaos';
 import { NFR_GLSP } from '../src/nfr';
 import { GEdge, GNode, ServerLayoutKind } from '@eclipse-glsp/server';
@@ -53,6 +56,38 @@ describe.each(contributions)('%s', (_, contribution) => {
     expect(config.needsClientLayout).toBe(false);
     expect(config.layoutKind).toBe(ServerLayoutKind.NONE);
   });
+
+  // #105: a stock client drops a click that lands before a dynamic check's answer, and shows no
+  // reason for a refusal; and it only offers reconnect handles on a `repositionable` edge.
+  test('edge hints are static, and their ends can be reconnected', () => {
+    for (const hint of config.edgeTypeHints) {
+      expect(hint.dynamic).toBe(false);
+      expect(hint.repositionable).toBe(true);
+    }
+  });
+});
+
+// With static hints the client's type check is the only one before the server's, so it must
+// never refuse a link the model can hold: one test per fixture, over every link in it.
+describe('edge hints admit every link of every fixture', () => {
+  test.each(loadFixtures().map((f) => [f.name, f] as const))('%s', (_, f) => {
+    const model = parseFixture(f);
+    const metamodel = metamodelOf(model) as unknown as AnyMetamodel;
+    const types = gmodelTypes(metamodel, f.contribution.types);
+    const config = new IstarDiagramConfiguration({ ...f.contribution, metamodel });
+    const hints = new Map(config.edgeTypeHints.map((h) => [h.elementTypeId, h]));
+    for (const link of model.links.values()) {
+      const hint = hints.get(types.of(link.kind)!)!;
+      const source = model.elements.get(link.source)!;
+      const target = model.links.has(link.target)
+        ? LINK_ANCHOR_TYPE
+        : types.of(model.elements.get(link.target)!.kind);
+      expect(hint.sourceElementTypeIds, `${link.kind} from ${source.kind}`).toContain(
+        types.of(source.kind),
+      );
+      expect(hint.targetElementTypeIds, `${link.kind} to ${target}`).toContain(target);
+    }
+  });
 });
 
 test('iStar 2.0: actors contain the inner node kinds; dependencies run between any elements', () => {
@@ -76,6 +111,16 @@ test('NFR: an edge that targets links targets the link anchor', () => {
   const config = new IstarDiagramConfiguration(NFR_GLSP);
   const argument = config.edgeTypeHints.find((h) => h.elementTypeId === 'edge:nfr.ArgumentLink')!;
   expect(argument.targetElementTypeIds).toEqual([LINK_ANCHOR_TYPE]);
+});
+
+test('KAOS: an n-ary link kind joins two goals, or adds a leg onto its hub', () => {
+  const config = new IstarDiagramConfiguration(KAOS_GLSP);
+  const refinement = config.edgeTypeHints.find(
+    (h) => h.elementTypeId === 'edge:kaos.RefinementLink',
+  )!;
+  expect(refinement.sourceElementTypeIds).toContain('node:kaos.BehavioralGoal');
+  expect(refinement.targetElementTypeIds).toContain('node:kaos.BehavioralGoal');
+  expect(refinement.targetElementTypeIds).toContain('node:kaos.RefinementLinkHub');
 });
 
 test('overrides rename types in the hints too', () => {

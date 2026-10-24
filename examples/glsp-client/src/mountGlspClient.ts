@@ -52,6 +52,11 @@ export interface MountGlspClientOptions {
    * validation modules.
    */
   readonly onMessage?: (message: MessageAction) => void;
+  /**
+   * Logs every action message between this client and the server to the console (`[glsp] ->`
+   * client to server, `[glsp] <-` server to client), for debugging a flow that stops halfway.
+   */
+  readonly logActions?: boolean;
 }
 
 export interface MountedGlspClient {
@@ -85,6 +90,21 @@ function messageModule(onMessage: MountGlspClientOptions['onMessage']): FeatureM
   });
 }
 
+/** Wraps `client`'s send and receive with a console log of each action (`logActions`). */
+function logActionMessages(client: GLSPClient): void {
+  const send = client.sendActionMessage.bind(client);
+  client.sendActionMessage = (message) => {
+    console.debug('[glsp] ->', JSON.stringify(message.action));
+    send(message);
+  };
+  const listen = client.onActionMessage.bind(client);
+  client.onActionMessage = (handler, id) =>
+    listen((message) => {
+      console.debug('[glsp] <-', JSON.stringify(message.action));
+      handler(message);
+    }, id);
+}
+
 function connectionProviderFor(options: MountGlspClientOptions): ConnectionProvider {
   if (options.port) return portConnectionProvider(options.port);
   if (options.url) return websocketConnectionProvider(options.url);
@@ -107,7 +127,10 @@ export function mountGlspClient(
   const connectionProvider = connectionProviderFor(options);
   let glspClient: GLSPClient | undefined;
   const glspClientProvider = async (): Promise<GLSPClient> => {
-    glspClient ??= new BaseJsonrpcGLSPClient({ id: clientId, connectionProvider });
+    if (!glspClient) {
+      glspClient = new BaseJsonrpcGLSPClient({ id: clientId, connectionProvider });
+      if (options.logActions) logActionMessages(glspClient);
+    }
     return glspClient;
   };
 
