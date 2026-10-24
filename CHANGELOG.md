@@ -13,6 +13,10 @@ Versions are published from GitHub release tags; see the release notes for full 
   edge (`role="separator"`, arrow keys step it, double-click resets it). New optional props
   `inspectorWidth` (controlled), `defaultInspectorWidth` and `onInspectorWidthChange` let a host
   control or persist the width; the playground persists it in `localStorage`.
+- **docs:** `docs/papers/metin-bork-2025.md` transcribes the reference architecture section of
+  Metin & Bork, "A reference architecture for the development of GLSP-based web modeling tools"
+  (SoSyM 24(6), 2025, CC BY 4.0) — layers, feature tiers, manifests/contributions, figures redrawn
+  as text, and a mapping to istar-ts. `#74`'s build briefs cite this file instead of the PDF.
 - **react:** `IstarProvider`/`IstarCanvas` accept an optional `dispatcherFor?: (surface: IstarSurface) => ActionDispatcher`
   prop (`IstarSurface = 'canvas' | 'inspector'`) so a host can tell which surface sent an action
   without a protocol change. The canvas's own handlers dispatch through `dispatcherFor('canvas')`.
