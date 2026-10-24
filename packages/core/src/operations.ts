@@ -16,6 +16,7 @@
  */
 import type { LinkCheck } from './constraints';
 import { canLink } from './constraints';
+import type { GoalDiagnostic } from './diagnostics';
 import type { ActorKind, DependencyLinkKind, ElementKind, LinkKind } from './metamodel';
 import type { AnyMetamodel, LinkKindDefinition } from './metamodels';
 import type {
@@ -40,6 +41,22 @@ import { inheritSourceLayout } from './serialization';
 
 export class ModelOperationError extends Error {
   override name = 'ModelOperationError';
+  /** The element or link the error is about, when the operation named one. */
+  readonly elementId?: string;
+
+  constructor(message: string, elementId?: string) {
+    super(message);
+    this.elementId = elementId;
+  }
+
+  /** As a `GoalDiagnostic`, anchored on `elementId` (empty string if the error names none). */
+  toDiagnostic(): GoalDiagnostic {
+    return {
+      elementId: this.elementId ?? '',
+      severity: 'error',
+      message: this.message,
+    };
+  }
 }
 
 /** Generates ids for new elements and links. piStar uses UUID v4. */
@@ -84,13 +101,13 @@ function derive(from: AnyIstarModel, changes: Partial<AnyIstarModel>): AnyIstarM
 
 function requireElement(model: AnyIstarModel, id: string): AnyElement {
   const element = model.elements.get(id);
-  if (!element) throw new ModelOperationError(`unknown element "${id}"`);
+  if (!element) throw new ModelOperationError(`unknown element "${id}"`, id);
   return element;
 }
 
 function requireLink(model: AnyIstarModel, id: string): AnyLink {
   const link = model.links.get(id);
-  if (!link) throw new ModelOperationError(`unknown link "${id}"`);
+  if (!link) throw new ModelOperationError(`unknown link "${id}"`, id);
   return link;
 }
 
@@ -129,12 +146,12 @@ export function addElement<EK extends string = ElementKind, LK extends string = 
   }
   const id = input.id ?? (ctx.createId ?? defaultIdGenerator)();
   if (m.elements.has(id) || m.links.has(id)) {
-    throw new ModelOperationError(`id "${id}" is already in use`);
+    throw new ModelOperationError(`id "${id}" is already in use`, id);
   }
   if (input.parent !== undefined) {
     if (definition.category === 'actor') throw new ModelOperationError('actors cannot be nested');
     if (!isActorIn(m, requireElement(m, input.parent).kind)) {
-      throw new ModelOperationError(`parent "${input.parent}" is not an actor`);
+      throw new ModelOperationError(`parent "${input.parent}" is not an actor`, input.parent);
     }
   }
   const element: AnyElement = withoutUndefined({
@@ -230,11 +247,11 @@ export function nestElement<EK extends string = ElementKind, LK extends string =
 ): IstarModel<EK, LK> {
   const m = any(model);
   const current = requireElement(m, id);
-  if (isActorIn(m, current.kind)) throw new ModelOperationError('actors cannot be nested');
-  if (current.isDependum) throw new ModelOperationError('a dependum cannot be nested');
+  if (isActorIn(m, current.kind)) throw new ModelOperationError('actors cannot be nested', id);
+  if (current.isDependum) throw new ModelOperationError('a dependum cannot be nested', id);
   if ((current.parent ?? null) === parent) return model;
   if (parent !== null && !isActorIn(m, requireElement(m, parent).kind)) {
-    throw new ModelOperationError(`parent "${parent}" is not an actor`);
+    throw new ModelOperationError(`parent "${parent}" is not an actor`, parent);
   }
   const elements = new Map(m.elements);
   elements.delete(id);
@@ -371,6 +388,34 @@ export type ConnectResult<EK extends string = ElementKind, LK extends string = L
   | Extract<LinkCheck, { ok: false }>;
 
 /**
+ * Maps a failing `connect` result to a `GoalDiagnostic`, anchored on the offending end: `source`
+ * for `invalid-source` and an `unknown-element` whose reason names the source, `target`
+ * otherwise. Most iStar 2.0 checks are about the target (`invalid-target`, same-actor,
+ * refinement, dependency…); `self-link` and `actor-types-differ` apply to both ends, so `target`
+ * is as good an anchor as `source`. `undefined` for a successful result.
+ */
+export function connectResultToDiagnostic<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+>(
+  result: ConnectResult<EK, LK>,
+  endpoints: { readonly source: string; readonly target: string },
+): GoalDiagnostic | undefined {
+  if (result.ok) return undefined;
+  const elementId =
+    result.code === 'invalid-source' ||
+    (result.code === 'unknown-element' && result.reason.includes('source'))
+      ? endpoints.source
+      : endpoints.target;
+  return {
+    elementId,
+    severity: 'error',
+    message: result.reason,
+    code: result.code,
+  };
+}
+
+/**
  * Adds a link between two elements if the iStar constraints allow it.
  *
  * With an n-ary kind (`arity: 'n'`), a `target` that is one of the kind's hubs gets a new leg
@@ -414,7 +459,7 @@ export function connect<EK extends string = ElementKind, LK extends string = Lin
   }
   const id = input.id ?? (options.createId ?? defaultIdGenerator)();
   if (m.elements.has(id) || m.links.has(id)) {
-    throw new ModelOperationError(`id "${id}" is already in use`);
+    throw new ModelOperationError(`id "${id}" is already in use`, id);
   }
   const link: AnyLink = withoutUndefined({
     id,
@@ -457,7 +502,7 @@ function connectHub<EK extends string, LK extends string>(
   const endId = createId();
   for (const [i, id] of [hubId, legId, endId].entries()) {
     if (m.elements.has(id) || m.links.has(id) || [hubId, legId, endId].indexOf(id) !== i) {
-      throw new ModelOperationError(`id "${id}" is already in use`);
+      throw new ModelOperationError(`id "${id}" is already in use`, id);
     }
   }
   const size = metamodel.elements.get(parts.hub)?.size ?? { width: 20, height: 20 };
@@ -507,7 +552,7 @@ export function addLeg<EK extends string = ElementKind, LK extends string = Link
   const hub = requireElement(m, hubId);
   const base = metamodel.links.get(metamodel.elements.get(hub.kind)?.of ?? '');
   if (metamodel.elements.get(hub.kind)?.role !== 'hub' || !base?.parts) {
-    throw new ModelOperationError(`"${hubId}" is not the hub of an n-ary link`);
+    throw new ModelOperationError(`"${hubId}" is not the hub of an n-ary link`, hubId);
   }
   const kind = base.parts.leg;
   if (!options.force) {
@@ -518,7 +563,7 @@ export function addLeg<EK extends string = ElementKind, LK extends string = Link
   }
   const id = options.id ?? (options.createId ?? defaultIdGenerator)();
   if (m.elements.has(id) || m.links.has(id)) {
-    throw new ModelOperationError(`id "${id}" is already in use`);
+    throw new ModelOperationError(`id "${id}" is already in use`, id);
   }
   const leg: AnyLink = { id, kind, source, target: hubId };
   const next = derive(m, { links: new Map(m.links).set(id, leg) });
@@ -542,7 +587,7 @@ export function removeLeg<EK extends string = ElementKind, LK extends string = L
   const m = any(model);
   const leg = requireLink(m, legId);
   if (metaOf(m).links.get(leg.kind)?.role !== 'leg') {
-    throw new ModelOperationError(`"${legId}" is not a leg of an n-ary link`);
+    throw new ModelOperationError(`"${legId}" is not a leg of an n-ary link`, legId);
   }
   return disconnect(model, legId);
 }
@@ -618,7 +663,7 @@ export function addDependency<EK extends string = ElementKind, LK extends string
   const second: AnyLink = { id: id2, kind: linkKind, source: dependum.id, target: dependee.id };
   for (const id of [id1, id2]) {
     if (added.model.elements.has(id) || added.model.links.has(id) || id1 === id2) {
-      throw new ModelOperationError(`id "${id}" is already in use`);
+      throw new ModelOperationError(`id "${id}" is already in use`, id);
     }
   }
   return {
