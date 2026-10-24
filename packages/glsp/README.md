@@ -108,6 +108,19 @@ Metin & Bork §4.1.4).
   bounds round trip). Changes by the store's other clients are pushed too: `IstarStoreListener`
   hears the dispatcher and queues an internal `istar.storeChanged` on the session's action queue,
   answered with `updateModel`, or `setDirtyState` after another client's save.
+- **Edge hints are static** (`dynamic: false`, #105). The client checks an edge's source and
+  target types against its hint (from the link rules) and sends `createEdge`; `canLink` runs in
+  the dispatcher, and a refusal comes back as a rejection (below), with its reason. With
+  `dynamic: true`, `@eclipse-glsp/client` 2.8 asks `requestCheckEdge` when the pointer enters an
+  element and treats it as invalid until the answer arrives ("so a fast-clicking user doesn't
+  get a chance to create the edge in the meantime"): a click without a hover before it (a tap,
+  browser automation) is dropped, and a refused target is silently not clickable, since the
+  client ignores the answer's `reason`. The trade-off: refusals the types can't express (a
+  self-link, a refinement across actors) no longer show the not-allowed cursor on hover; the
+  click is sent, and refused with a message. Type-level refusals still show it.
+  `requestCheckEdge` still answers with `canLink` for a client that asks. Edge hints are also
+  `repositionable` (in GLSP, an edge whose ends can be reconnected) and an n-ary kind's hint
+  targets its hub kind (drawing it onto a hub adds a leg).
 - **Rejections.** GLSP has no failure answer to an operation: a rejected one (`{ ok: false }`, or
   an unknown id) sends the unchanged model again (so the client drops its feedback), a
   `message` (severity `ERROR`) and markers on the elements it names

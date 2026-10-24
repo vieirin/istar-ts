@@ -3,8 +3,9 @@
  * connection is in-page (`serveIstarGlsp` over this page's own store and dispatcher, shared with
  * the stock client through a `MessageChannel`); `?server=worker` uses the Vite module worker
  * (`./worker.ts`), `?server=ws://host:port/path` connects to the Node launcher
- * (`pnpm --filter @istar-ts/glsp serve <fixture>`). Kept out of `/react.html`'s bundle: nothing
- * here is imported from `main.tsx`/`App.tsx`.
+ * (`pnpm --filter @istar-ts/glsp serve <fixture>`). `?debug=actions` logs the client ↔ server
+ * action traffic to the console. Kept out of `/react.html`'s bundle: nothing here is imported
+ * from `main.tsx`/`App.tsx`.
  */
 import type { IstarGlspContribution } from '@istar-ts/glsp';
 import { ISTAR_GLSP, createIstarSharedModel, gmodelTypes } from '@istar-ts/glsp';
@@ -45,6 +46,10 @@ const FIXTURES: readonly FixtureEntry[] = [
     contribution: NFR_GLSP,
   },
 ];
+
+const params = new URLSearchParams(location.search);
+/** `?debug=actions` logs the client ↔ server action traffic to the console. */
+const logActions = params.get('debug') === 'actions';
 
 // Cast, not just narrow: a `function` declaration below loses an enclosing `if`'s narrowing of
 // these (TS doesn't track that they're only ever called afterwards), so the guard below is a
@@ -115,6 +120,7 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
     types: gmodelTypes(fixture.contribution.metamodel, fixture.contribution.types).all,
     port: channel.port1,
     onMessage: (action) => showMessage(action.message, action.severity),
+    logActions,
   });
   currentClient = client;
   current = {
@@ -139,6 +145,7 @@ async function mountWorker(): Promise<void> {
     types: gmodelTypes(ISTAR_GLSP.metamodel).all,
     port: worker,
     onMessage: (action) => showMessage(action.message, action.severity),
+    logActions,
   });
   currentClient = client;
   await client.ready;
@@ -153,6 +160,7 @@ async function mountWebSocket(url: string, sourceUri: string): Promise<void> {
     types: gmodelTypes(ISTAR_GLSP.metamodel).all,
     url,
     onMessage: (action) => showMessage(action.message, action.severity),
+    logActions,
   });
   currentClient = client;
   await client.ready;
@@ -166,7 +174,6 @@ for (const [index, fixture] of FIXTURES.entries()) {
   select.append(option);
 }
 
-const params = new URLSearchParams(location.search);
 const server = params.get('server');
 
 if (server === 'worker') {

@@ -238,6 +238,20 @@ i.e. for non-dynamic hints, **the server trusts the client's own allowlist check
 re-verify**. Throws `GLSPServerError` if `sourceElementId`/`targetElementId` don't resolve in
 `ModelState.index`.
 
+✅ The client side of a dynamic hint (`@eclipse-glsp/client` 2.8.0,
+`lib/features/tools/edge-creation/edge-creation-tool.js`, `EdgeCreationToolMouseListener`):
+`mouseOver` calls `canConnect`, which for a `dynamic` hint sends `requestCheckEdge` and returns
+`false` until `checkEdgeTargetResult` arrives ("Temporarily mark the target as invalid while we
+wait for the server response, so a fast-clicking user doesn't get a chance to create the edge in
+the meantime"). `nonDraggingMouseUp` only takes a click when `this.currentTarget &&
+this.allowedTarget`, and only then sends `createEdge`. So a click whose own pointer move starts
+the check is dropped, and a refused target is never sent: the client reads `isValid` only, not
+an istar-ts `reason`. `@istar-ts/glsp` therefore sends static edge hints and lets `createEdge`'s
+rejection carry the reason (#105, its README). The edge-edit (reconnect) tool never asks
+`requestCheckEdge`; it reads an edge's `repositionable` as `reconnectFeature`
+(`ApplyTypeHintsCommand.applyEdgeTypeHint`), and reconnects by click: the handle, then the new
+end (a drag resets the candidate end on every move).
+
 ### How a handler reports a failure to the client
 
 ◐/✅ Three distinct mechanisms, confirmed in source, not unified:
