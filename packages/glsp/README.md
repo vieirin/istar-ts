@@ -7,8 +7,9 @@ GLSP, Inversify and `reflect-metadata` stay inside this package; it never depend
 The read side ([#80](https://github.com/vieirin/istar-ts/issues/80)): GModel, diagram
 configuration, loading and saving. The write side
 ([#81](https://github.com/vieirin/istar-ts/issues/81)): operations, undo and model updates through
-the istar-ts dispatcher, the palette, edge checks and markers. Launchers and hosts come next
-([#82](https://github.com/vieirin/istar-ts/issues/82)).
+the istar-ts dispatcher, the palette, edge checks and markers. The hosts
+([#82](https://github.com/vieirin/istar-ts/issues/82)): a Web Worker, a page and a Node
+WebSocket server, a shared store, and an opt-in MCP server (see [Hosting](#hosting)).
 
 ```ts
 import { ContainerModule } from 'inversify';
@@ -75,7 +76,8 @@ modules) under the contribution's diagram type. Contributions: `ISTAR_GLSP` (def
 
 `IstarModelState` holds one `ModelStore` for the whole session and the action dispatcher over it.
 Loading a file `load`s that store (clearing its history) rather than replacing it, so a
-`CommandStack` that maps GLSP's undo onto `store.undo()`/`store.redo()` can wrap it.
+`CommandStack` that maps GLSP's undo onto `store.undo()`/`store.redo()` can wrap it. A host can
+bind its own store and dispatcher instead (`IstarSharedModel`, see [Hosting](#hosting)).
 
 ## The write side: one dispatcher, one undo stack
 
@@ -114,9 +116,112 @@ Metin & Bork §4.1.4).
 - **Client-bound actions** the client did not list in `clientActionKinds` (a `status` from
   live validation, a `message`) are dropped by `IstarClientActionForwarder`, not an error.
 
+**For client authors:** GLSP sends a client only the action kinds it lists in
+`initializeClientSession`'s `clientActionKinds`. Besides `setModel`, `updateModel` and
+`setDirtyState`, list **`status`**, **`message`** and **`setMarkers`** (and `deleteMarkers`), or
+rejections and validation never reach the user. A stock `@eclipse-glsp/client` lists every kind
+its container handles (`GLSPModelSource`, `getHandledActionKinds`): `status` with the status
+module, `setMarkers` with the validation module. In a standalone app `message` only reaches a
+`FallbackActionHandler`, which logs it, so the app should bind a handler that shows it.
+
+## Hosting
+
+Three launchers, each a subpath, all built on `createIstarServerModules(options)` (the server
+module with every contribution's diagram, plus the host's modules). Options shared by all:
+`contributions` (default `[ISTAR_GLSP]`), `files` (`PistarFiles`), `shared`, and extra
+`modules`/`diagramModules`.
+
+### A shared store
+
+By default each GLSP session has its own store, loaded by `requestModel`'s `sourceUri`. A host
+that already has a model passes `shared: { store, dispatcher }` (an `IstarSharedModel`; the
+token of the same name, `bindIstarSharedModel` binds it). Every session of that diagram type then
+uses that store and dispatcher, and so does whatever else the host gives them to (a React Flow
+canvas, a `connectDispatcher` port): one model, one undo stack, one dirty state.
+
+- `requestModel` shows the shared model and reads no file (`sourceUri` is ignored).
+- Saves go through the dispatcher, so to the host's `save` option.
+- An edit is pushed exactly once to every session: the session that made it sends its own
+  `updateModel`, and every other session hears it from the dispatcher as another client's
+  change. This relies on the dispatcher applying an operation before its first `await`
+  (`IstarModelState.ownChange` is per session), which `@istar-ts/actions` guarantees.
+- A session's store listener unsubscribes when the session is disposed. A shared dispatcher is
+  never disposed by a session; a session's own one is.
+
+`createIstarSharedModel(contribution, { model, save })` makes a store and dispatcher set up as a
+session's would be (the contribution's metamodel, palette and schemas), for hosts without one.
+
+### In a Web Worker: `@istar-ts/glsp/browser`, `@istar-ts/glsp/page`
+
+```ts
+// worker.ts (a module worker)
+import { startIstarGlspWorker } from '@istar-ts/glsp/browser';
+void startIstarGlspWorker({ url: '/models/welcome.txt' }); // or { model: text }, { contribution }
+```
+
+The model lives in the worker, in one store every session shares. GLSP runs on the worker
+itself, with the transport of upstream's `WorkerServerLauncher` (vscode-jsonrpc's
+`BrowserMessageReader`/`Writer`, framework-notes §3), so a stock client connects with
+`GLSPWebWorkerProvider`, or with a `MessageConnection` over the `Worker` it made. GLSP messages
+sent while the model loads are kept until the server listens. Saves go to `files` (default in
+memory) under `saveModel`'s `fileUri`, else `sourceUri` (default: the URL's file name).
+
+The page reaches the same model as an istar-ts action client on a second port:
+
+```ts
+import { connectWorkerDispatcher } from '@istar-ts/glsp/page'; // no GLSP in the page's bundle
+const dispatcher = connectWorkerDispatcher(worker); // posts { kind: 'istar.dispatcherPort', port }
+await dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Goal', location });
+```
+
+Built with Vite (`test/vite-build.test.ts`), the worker chunk is about 534 kB minified (135 kB
+gzip); the page's `@istar-ts/glsp/page` code is under 2 kB.
+
+### In the page: `serveIstarGlsp`
+
+```ts
+import { serveIstarGlsp } from '@istar-ts/glsp/browser';
+const { port1, port2 } = new MessageChannel();
+serveIstarGlsp(port2, { shared: { store, dispatcher } }); // the canvas's own store
+// The stock client: createMessageConnection(new BrowserMessageReader(port1),
+//   new BrowserMessageWriter(port1)) as BaseJsonrpcGLSPClient's connectionProvider.
+```
+
+One call per GLSP client. **This is the route for a page that shows a React Flow canvas and a
+stock GLSP client side by side** (#85): `<IstarCanvas>` renders from a `ModelStore` in the page,
+so sharing that store with the GLSP server needs no syncing at all. The worker route would leave
+the page with only a remote dispatcher and no store for the canvas to render. The cost is the
+GLSP server on the page's main thread, on that page only.
+
+### In Node: `@istar-ts/glsp/node`
+
+```ts
+import { diskPistarFiles, startIstarGlspServer } from '@istar-ts/glsp/node';
+const server = await startIstarGlspServer({ files: diskPistarFiles('models'), port: 8081 });
+server.url; // ws://127.0.0.1:8081/istar
+```
+
+Upstream's `WebSocketServerLauncher`: every connection gets its own GLSP server (with `shared`,
+all of them edit the host's model). `diskPistarFiles(root)` refuses paths outside `root`. The
+host defaults to `127.0.0.1`.
+
+`pnpm --filter @istar-ts/glsp serve <file.txt> [--port 8081] [--diagram istar|kaos|nfr] [--mcp]`
+builds the package and serves one file as a shared model; `saveModel` writes it back.
+
+### MCP
+
+`startIstarGlspServer({ mcp: true })` (or `{ port, route, name }`) adds
+`@eclipse-glsp/server-mcp`'s server and diagram modules: an MCP server on `127.0.0.1`, no
+authentication, started with each connection's first `initialize` whether or not the client
+asks for it, its URL returned as `initialize`'s `mcpServer.url` (port 0, a free one, by default).
+Off by default. `@eclipse-glsp/server-mcp` is an optional peer dependency pinned to `2.8.0`:
+upstream marks it `@experimental` (framework-notes §5, §8). Node only; the browser launchers
+have no MCP.
+
 ## Decorators
 
 Inversify 6 needs TypeScript's legacy decorators. This package alone sets
 `experimentalDecorators`; tsdown (oxc) emits them, and every constructor parameter has an
 explicit `@inject(TOKEN)`, so no `emitDecoratorMetadata` (which needs whole-program types). The
-entry point imports `reflect-metadata` first.
+entry points (`index`, `node`, `browser`) import `reflect-metadata` first; `page` imports none of
+GLSP, Inversify or `reflect-metadata`.

@@ -23,9 +23,27 @@ test('no source file imports React; dialects only through their React-free entry
   }
 });
 
-test('the entry point loads reflect-metadata before anything else', () => {
-  const index = readFileSync(join(root, 'src/index.ts'), 'utf8');
-  expect(index.split('\n').find((line) => line.startsWith('import'))).toBe(
-    "import 'reflect-metadata';",
+test.each(['index', 'node', 'browser', 'serve'])(
+  'the %s entry point loads reflect-metadata before anything else',
+  (entry) => {
+    const text = readFileSync(join(root, `src/${entry}.ts`), 'utf8');
+    expect(text.split('\n').find((line) => line.startsWith('import'))).toBe(
+      "import 'reflect-metadata';",
+    );
+  },
+);
+
+test('the page entry point imports no GLSP, Inversify or reflect-metadata', () => {
+  const text = readFileSync(join(root, 'src/page.ts'), 'utf8');
+  const imports = [...text.matchAll(/from '([^']+)'|import '([^']+)'/g)].map(([, a, b]) => a ?? b);
+  expect(imports.filter((from) => !from!.startsWith('@istar-ts/'))).toEqual([]);
+});
+
+test('MCP is an optional peer, pinned exactly while upstream marks it experimental', () => {
+  expect(pkg.peerDependencies['@eclipse-glsp/server-mcp']).toMatch(/^\d+\.\d+\.\d+$/);
+  expect(pkg.peerDependenciesMeta['@eclipse-glsp/server-mcp']).toEqual({ optional: true });
+  expect(pkg.devDependencies['@eclipse-glsp/server-mcp']).toBe(
+    pkg.peerDependencies['@eclipse-glsp/server-mcp'],
   );
+  expect(Object.keys(pkg.dependencies)).not.toContain('@eclipse-glsp/server-mcp');
 });

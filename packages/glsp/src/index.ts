@@ -14,3 +14,4 @@ export * from './updates';
 export * from './gmodel-factory';
 export * from './diagram-configuration';
 export * from './diagram-module';
+export * from './host';

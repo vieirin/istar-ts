@@ -57,14 +57,20 @@ export const CLIENT_ACTION_KINDS: string[] = [
 
 export async function startServer(
   fileMap: Map<string, string> = files,
+  host: { serverModule: ServerModule; modules: ContainerModule[] } = {
+    serverModule: [ISTAR_GLSP, KAOS_GLSP, NFR_GLSP].reduce(
+      (module, contribution) => configureIstarDiagram(module, contribution),
+      new ServerModule(),
+    ),
+    modules: [
+      new ContainerModule((bind) => {
+        bind(PistarFiles).toConstantValue(memoryPistarFiles(fileMap));
+      }),
+    ],
+  },
 ): Promise<{ server: Server; sent: ActionMessage[] }> {
   const sent: ActionMessage[] = [];
-  const serverModule = new ServerModule();
-  for (const contribution of [ISTAR_GLSP, KAOS_GLSP, NFR_GLSP]) {
-    configureIstarDiagram(serverModule, contribution);
-  }
-  const host = new ContainerModule((bind) => {
-    bind(PistarFiles).toConstantValue(memoryPistarFiles(fileMap));
+  const proxy = new ContainerModule((bind) => {
     bind(GLSPClientProxy).toConstantValue({
       process: (message: ActionMessage) => sent.push(message),
     });
@@ -72,18 +78,26 @@ export async function startServer(
   const container = new Container();
   container.load(
     createAppModule({ logLevel: LogLevel.none, fileLog: false, consoleLog: false }),
-    serverModule,
-    host,
+    host.serverModule,
+    ...host.modules,
+    proxy,
   );
   const server = container.get<Server>(GLSPServer);
   await server.initialize({ applicationId: 'test', protocolVersion: '1.0.0' });
   return { server, sent };
 }
 
-/** The first `kind` message sent at or after index `from`. */
-export async function next(sent: ActionMessage[], kind: string, from = 0): Promise<ActionMessage> {
+/** The first `kind` message sent at or after index `from` (to `clientId`, if given). */
+export async function next(
+  sent: ActionMessage[],
+  kind: string,
+  from = 0,
+  clientId?: string,
+): Promise<ActionMessage> {
   for (let i = 0; i < 100; i++) {
-    const found = sent.slice(from).find((m) => m.action.kind === kind);
+    const found = sent
+      .slice(from)
+      .find((m) => m.action.kind === kind && (clientId === undefined || m.clientId === clientId));
     if (found) return found;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
@@ -99,7 +113,7 @@ export interface Session {
   readonly state: IstarModelState;
   /** Sends `action` as the client does (`process`), and waits until the session handled it. */
   send(action: Action): Promise<void>;
-  /** The kinds of the messages sent since `from`. */
+  /** The kinds of the messages sent to this session since `from`. */
   kinds(from: number): string[];
 }
 
@@ -109,14 +123,32 @@ export async function open(
   options: { clientActionKinds?: string[]; files?: Map<string, string> } = {},
 ): Promise<Session> {
   const { server, sent } = await startServer(options.files);
-  const clientId = `client-${contribution.diagramType}`;
+  return openOn(server, sent, contribution, sourceUri, {
+    clientId: `client-${contribution.diagramType}`,
+    ...options,
+  });
+}
+
+/** Opens a client session on a running server, as `open` does. */
+export async function openOn(
+  server: Server,
+  sent: ActionMessage[],
+  contribution: IstarGlspContribution,
+  sourceUri: string | undefined,
+  options: { clientId: string; clientActionKinds?: string[] },
+): Promise<Session> {
+  const { clientId } = options;
+  const start = sent.length;
   await server.initializeClientSession({
     clientSessionId: clientId,
     diagramType: contribution.diagramType,
     clientActionKinds: options.clientActionKinds ?? CLIENT_ACTION_KINDS,
   });
-  server.process({ clientId, action: RequestModelAction.create({ options: { sourceUri } }) });
-  const message = await next(sent, 'setModel');
+  server.process({
+    clientId,
+    action: RequestModelAction.create({ options: sourceUri === undefined ? {} : { sourceUri } }),
+  });
+  const message = await next(sent, 'setModel', start, clientId);
   const session = (server as DefaultGLSPServer).getClientSession(clientId)!;
   return {
     server,
@@ -130,6 +162,10 @@ export async function open(
       ClientAction.mark(action);
       await session.actionDispatcher.dispatch(action);
     },
-    kinds: (from) => sent.slice(from).map((m) => m.action.kind),
+    kinds: (from) =>
+      sent
+        .slice(from)
+        .filter((m) => m.clientId === clientId)
+        .map((m) => m.action.kind),
   };
 }
