@@ -42,7 +42,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         key={element.id}
         target={element}
         model={model}
-        actions={editor.elementActions(element.id)}
+        actions={editor.elementActions(element.id, 'inspector')}
         readOnly={readOnly}
         schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(element.id) ?? []}
@@ -57,7 +57,7 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
         key={link.id}
         target={link}
         model={model}
-        actions={editor.linkActions(link.id)}
+        actions={editor.linkActions(link.id, 'inspector')}
         readOnly={readOnly}
         schema={config.properties as PropertySchema | undefined}
         issues={editor.issuesById.get(link.id) ?? []}

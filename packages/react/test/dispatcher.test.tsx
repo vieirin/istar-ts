@@ -260,3 +260,67 @@ describe('a custom dispatcher prop', () => {
     expect(store.getModel().links.get(link.link.id)?.name).toBeUndefined();
   });
 });
+
+describe('dispatcherFor', () => {
+  test('routes canvas actions through "canvas" and inspector actions through "inspector"', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const goal = store.addElement({
+      kind: 'istar.Goal',
+      x: 10,
+      y: 10,
+      parent: actor.id,
+      name: 'Original',
+    });
+    const base = createActionDispatcher(store);
+    const canvasKinds: string[] = [];
+    const inspectorKinds: string[] = [];
+    const canvasDispatcher = recordingDispatcher(base, canvasKinds);
+    const inspectorDispatcher = recordingDispatcher(base, inspectorKinds);
+    const dispatcherFor = (surface: 'canvas' | 'inspector'): ActionDispatcher =>
+      surface === 'inspector' ? inspectorDispatcher : canvasDispatcher;
+    const editorRef: { current?: IstarEditor } = {};
+
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store} dispatcherFor={dispatcherFor}>
+          <Grab onEditor={(e) => (editorRef.current = e)} />
+          <IstarCanvas aside={<IstarInspector />} />
+        </IstarProvider>
+      </div>,
+    );
+
+    // The canvas: adding an actor from the palette dispatches `createNode` through 'canvas'.
+    fireEvent.click(screen.getByRole('button', { name: 'Actor' }));
+    const pane = container.querySelector('.react-flow__pane')!;
+    fireEvent.click(pane, { clientX: 400, clientY: 400 });
+    expect(canvasKinds).toContain('createNode');
+    expect(inspectorKinds).not.toContain('createNode');
+
+    // The inspector: committing a new name on the selected goal dispatches `applyLabelEdit`
+    // through 'inspector' (`IstarInspector` passes `surface: 'inspector'` to `elementActions`).
+    act(() => editorRef.current!.select({ type: 'element', id: goal.id }));
+    const name = screen.getByLabelText('Name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Renamed' } });
+    fireEvent.blur(name);
+    expect(inspectorKinds).toContain('applyLabelEdit');
+    expect(canvasKinds).not.toContain('applyLabelEdit');
+    expect(store.getModel().elements.get(goal.id)?.name).toBe('Renamed');
+  });
+
+  test('omitted, both surfaces use the base dispatcher', () => {
+    const store = createModelStore();
+    const kinds: string[] = [];
+    const dispatcher = recordingDispatcher(createActionDispatcher(store), kinds);
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={store} dispatcher={dispatcher} aside={<IstarInspector />} />
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actor' }));
+    const pane = container.querySelector('.react-flow__pane')!;
+    fireEvent.click(pane, { clientX: 100, clientY: 100 });
+    expect(kinds).toContain('createNode');
+  });
+});

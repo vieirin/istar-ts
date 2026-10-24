@@ -56,7 +56,7 @@ import {
 } from 'react';
 import type { LinkShape } from './canvas-options';
 import { CanvasOptionsProvider } from './canvas-options';
-import type { Selection, Tool } from './context';
+import type { IstarSurface, Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
@@ -79,6 +79,8 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
   readonly store?: ModelStore<EK, LK>;
   /** The action dispatcher the canvas and inspector send edits through (see `IstarProvider`). */
   readonly dispatcher?: ActionDispatcher<EK, LK>;
+  /** Wraps `dispatcher` per surface (see `IstarProviderProps.dispatcherFor`). */
+  readonly dispatcherFor?: (surface: IstarSurface) => ActionDispatcher<EK, LK>;
   readonly registry?: IstarRegistry | IstarRegistry<EK, LK>;
   /** Extensions adapting the editor to another modeller (see `IstarExtension`). */
   readonly extensions?: readonly IstarExtension<EK, LK>[];
@@ -198,6 +200,7 @@ export const IstarCanvas: ForwardRefExoticComponent<
       onChange={props.onChange}
       store={props.store}
       dispatcher={props.dispatcher}
+      dispatcherFor={props.dispatcherFor}
       registry={props.registry}
       extensions={props.extensions}
       readOnly={props.readOnly}
@@ -363,12 +366,16 @@ function Diagram({
     tool,
     readOnly,
     metamodel,
-    dispatcher,
+    dispatcherFor,
     notify,
     select,
     setEditingId,
     setTool,
   } = editor;
+  // The canvas's own handlers (drag, create, connect, delete, undo/redo) dispatch through the
+  // 'canvas' surface; `elementActions`/`linkActions` calls elsewhere (e.g. inline rename) are
+  // unaffected (see `IstarEditor.elementActions`).
+  const dispatcher = dispatcherFor('canvas');
   const isActorKind = useCallback(
     (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor',
     [metamodel],

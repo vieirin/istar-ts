@@ -21,7 +21,14 @@ export {
   useSelectedTarget,
   useStoreModel,
 } from './context';
-export type { IstarEditor, IstarProviderProps, Notice, Selection, Tool } from './context';
+export type {
+  IstarEditor,
+  IstarProviderProps,
+  IstarSurface,
+  Notice,
+  Selection,
+  Tool,
+} from './context';
 export {
   LINE_DASHES,
   applyExtensions,

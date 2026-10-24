@@ -60,6 +60,13 @@ export type Tool<EK extends string = ElementKind, LK extends string = LinkKind> 
 
 export type Selection = { type: 'element'; id: string } | { type: 'link'; id: string } | null;
 
+/**
+ * Which part of the editor sent an action, for hosts that wrap the dispatcher per surface
+ * (`dispatcherFor`). An exported union so a future surface (e.g. a tree view) can be added
+ * without a breaking change.
+ */
+export type IstarSurface = 'canvas' | 'inspector';
+
 export interface Notice {
   readonly id: number;
   readonly message: string;
@@ -90,14 +97,26 @@ export interface IstarEditor {
   dismissNotice(): void;
   /** Checks a connection for the current tool (dependencies check depender → dependee). */
   checkConnection(source: string, target: string, tool?: Tool | null): LinkCheck;
-  elementActions(id: string): ElementActions;
-  linkActions(id: string): LinkActions;
+  /**
+   * `surface` tags the call for `dispatcherFor` (see `dispatcherFor`). Pass it only when the
+   * caller is itself surface-specific; `<IstarInspector>` passes `'inspector'`. Omitted (host
+   * code outside the inspector, e.g. a toolbar button), calls go through the base `dispatcher`.
+   */
+  elementActions(id: string, surface?: IstarSurface): ElementActions;
+  linkActions(id: string, surface?: IstarSurface): LinkActions;
   /**
    * The GLSP-style action protocol over `store` (see `@istar-ts/actions`): the `dispatcher`
-   * prop, or one this provider created. `elementActions`/`linkActions` and the canvas's
-   * handlers dispatch through it; a rejection surfaces via `notify`.
+   * prop, or one this provider created. `elementActions`/`linkActions` (without a `surface`)
+   * and any caller that doesn't resolve a surface-specific dispatcher go through it; a
+   * rejection surfaces via `notify`.
    */
   readonly dispatcher: ActionDispatcher;
+  /**
+   * Resolves the dispatcher for a surface: the host's `dispatcherFor(surface)` when given,
+   * `dispatcher` otherwise. The canvas dispatches through `dispatcherFor('canvas')`;
+   * `<IstarInspector>` through `dispatcherFor('inspector')`.
+   */
+  dispatcherFor(surface: IstarSurface): ActionDispatcher;
   /**
    * Host-owned issues keyed by element/link id (e.g. LSP diagnostics). Empty map when the
    * host did not pass `issues`.
@@ -184,6 +203,14 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
    */
   readonly dispatcher?: ActionDispatcher<EK, LK>;
   /**
+   * Wraps `dispatcher` per surface, so a host (e.g. the playground's action log) can tell which
+   * part of the editor sent an action without a protocol change. The canvas dispatches through
+   * `dispatcherFor('canvas')`; `<IstarInspector>` through `dispatcherFor('inspector')`.
+   * `elementActions`/`linkActions` called without a `surface` (host code outside the inspector)
+   * use `dispatcher` directly, not this. Omitted: both surfaces use `dispatcher`, unchanged.
+   */
+  readonly dispatcherFor?: (surface: IstarSurface) => ActionDispatcher<EK, LK>;
+  /**
    * Base registry; the piStar-like `defaultRegistry` when omitted. It is completed with default
    * configurations for kinds the model's metamodel adds (see `registryForMetamodel`).
    */
@@ -253,6 +280,11 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   const [ownDispatcher] = useState(() => createActionDispatcher(store));
   useEffect(() => () => ownDispatcher.dispose(), [ownDispatcher]);
   const dispatcher = props.dispatcher ?? ownDispatcher;
+  const propsDispatcherFor = props.dispatcherFor;
+  const dispatcherFor = useCallback(
+    (surface: IstarSurface): ActionDispatcher => propsDispatcherFor?.(surface) ?? dispatcher,
+    [propsDispatcherFor, dispatcher],
+  );
   const readOnly = props.readOnly ?? false;
   const [tool, setTool] = useState<Tool | null>(null);
   const [rawSelection, setRawSelection] = useState<Selection>(null);
@@ -344,42 +376,51 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   );
 
   /** Dispatches an operation, notifying a rejection; fire-and-forget (the model already
-   * updated synchronously by the time this returns, see `createActionDispatcher`). */
+   * updated synchronously by the time this returns, see `createActionDispatcher`). `surface`
+   * routes through `dispatcherFor`; omitted, through the base `dispatcher`. */
   const run = useCallback(
-    (action: IstarAction) => {
-      void dispatcher.dispatch(action).then((result) => {
+    (action: IstarAction, surface?: IstarSurface) => {
+      const activeDispatcher = surface ? dispatcherFor(surface) : dispatcher;
+      void activeDispatcher.dispatch(action).then((result) => {
         if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
       });
     },
-    [dispatcher, notify],
+    [dispatcher, dispatcherFor, notify],
   );
 
   const elementActions = useCallback(
-    (id: string): ElementActions => ({
-      rename: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name }),
+    (id: string, surface?: IstarSurface): ElementActions => ({
+      rename: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name }, surface),
       setProperties: (patch) =>
-        run({
-          kind: 'istar.updateProperties',
-          elementId: id,
-          properties: patchToProperties(patch),
-        }),
-      setDisplay: (patch) => run({ kind: 'istar.updateDisplay', elementId: id, patch }),
-      remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
+        run(
+          {
+            kind: 'istar.updateProperties',
+            elementId: id,
+            properties: patchToProperties(patch),
+          },
+          surface,
+        ),
+      setDisplay: (patch) => run({ kind: 'istar.updateDisplay', elementId: id, patch }, surface),
+      remove: () => run({ kind: 'deleteElement', elementIds: [id] }, surface),
     }),
     [run],
   );
 
   const linkActions = useCallback(
-    (id: string): LinkActions => ({
-      setLabel: (label) => run({ kind: 'istar.setLinkValue', linkId: id, value: label ?? null }),
-      setName: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name ?? '' }),
+    (id: string, surface?: IstarSurface): LinkActions => ({
+      setLabel: (label) =>
+        run({ kind: 'istar.setLinkValue', linkId: id, value: label ?? null }, surface),
+      setName: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name ?? '' }, surface),
       setProperties: (patch) =>
-        run({
-          kind: 'istar.updateProperties',
-          elementId: id,
-          properties: patchToProperties(patch),
-        }),
-      remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
+        run(
+          {
+            kind: 'istar.updateProperties',
+            elementId: id,
+            properties: patchToProperties(patch),
+          },
+          surface,
+        ),
+      remove: () => run({ kind: 'deleteElement', elementIds: [id] }, surface),
     }),
     [run],
   );
@@ -404,6 +445,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       elementActions,
       linkActions,
       dispatcher,
+      dispatcherFor,
       issuesById,
       diagnostics,
       diagnosticsById,
@@ -427,6 +469,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       elementActions,
       linkActions,
       dispatcher,
+      dispatcherFor,
       issuesById,
       diagnostics,
       diagnosticsById,
