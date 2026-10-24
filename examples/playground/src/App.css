@@ -368,3 +368,28 @@ body {
   gap: 6px;
   align-items: center;
 }
+
+.pg-lab-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.pg-lab-replay-source,
+.pg-lab-replay-io {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pg-lab-replay-error {
+  color: #dc2626;
+}
+
+.pg-lab-replay-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}

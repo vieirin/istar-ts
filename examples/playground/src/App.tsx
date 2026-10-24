@@ -160,6 +160,7 @@ export default function App(): ReactElement {
   // tell apart. The canvas and the inspector (`@istar-ts/react`) share whatever dispatcher the
   // provider gets, so both are tagged "UI" — see lab/tagClient.ts.
   const [log] = useState(() => createLogStore());
+  useEffect(() => log.attachStore(store), [log, store]);
   const [uiDispatcher] = useState(() =>
     tagClient(dispatcher as unknown as ActionDispatcher, 'UI', log),
   );
@@ -455,6 +456,7 @@ export default function App(): ReactElement {
               guardDescription={DEMO_GUARD_DESCRIPTION}
               guards={guardsEnabled ? [DEMO_GUARD] : []}
               agentDispatcher={agentDispatcher}
+              store={store}
             />
           }
         />
