@@ -222,7 +222,13 @@ the same as a direct store rejection did; the model is untouched. Two edits have
 still write to the store directly: a link's value (the contribution make/help/hurt/break) and
 name, because clearing a link's name needs to remove the key, which `applyLabelEdit`'s `text:
 string` can't express; and an element's display patch (colour, the auto-grown height), because
-`changeBounds` only carries position and size.
+`changeBounds` only carries position and size. Tracked as
+[#50](https://github.com/vieirin/istar-ts/issues/50),
+[#51](https://github.com/vieirin/istar-ts/issues/51) and
+[#52](https://github.com/vieirin/istar-ts/issues/52); see
+[`docs/action-protocol.md`](https://github.com/vieirin/istar-ts/blob/main/docs/action-protocol.md)
+for the full protocol design, the GLSP mapping, and what the transport does and doesn't support
+yet.
 
 The playground's "Run remote worker demo" button
 (`examples/playground/src/remote-worker.ts`) shows a client outside the page: a Web Worker gets

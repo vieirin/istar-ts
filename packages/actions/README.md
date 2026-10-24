@@ -59,3 +59,8 @@ const dispose = connectDispatcher(serverPort, dispatcher); // server side
 const remote = createRemoteDispatcher(clientPort); // client side, same ActionDispatcher interface
 await remote.dispatch({ kind: 'createNode', elementTypeId: 'istar.Goal' });
 ```
+
+This frames one JSON-RPC method per action kind, not yet GLSP's own five-method lifecycle
+(`initialize`/`initializeClientSession`/`process`/`disposeClientSession`/`shutdown`); see
+[`docs/action-protocol.md`](https://github.com/vieirin/istar-ts/blob/main/docs/action-protocol.md)
+for the GLSP mapping, the gap, and [#44](https://github.com/vieirin/istar-ts/issues/44).

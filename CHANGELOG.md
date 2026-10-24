@@ -24,35 +24,41 @@ Versions are published from GitHub release tags; see the release notes for full 
   (`addLeg`, `removeLeg`, `setCollapsed`, `updateDiagram`, `updateProperties`).
   `createActionDispatcher(store, { guards, palette, schemas, diagnostics, save })` runs each
   operation as one transaction; a rejection (`canLink`, `ModelOperationError`, a guard, a property
-  schema) returns `GoalDiagnostic`s and leaves the model untouched; a success returns the ids it
-  created. Store changes reach subscribers as `sourceModelChanged`. Actions and results are plain
-  JSON (`ActionDispatcher` is the interface a transport implements). Also `typeHintsFor`,
-  `contextActionsFor`, `diagnosticToMarker`/`markerToDiagnostic`. `connectDispatcher`/
-  `createRemoteDispatcher` carry an `ActionDispatcher` over a `MessagePort`-like object
-  (`{ postMessage, onmessage }`), framed as JSON-RPC 2.0: a dispatch is a request
-  (`method` = the action's `kind`), `subscribe` events go server to client as notifications, and
-  only a transport/protocol fault is a JSON-RPC error — a rejection stays a normal result.
-
-  `createRemoteDispatcher` carry an `ActionDispatcher` over a `MessagePort`-like object
-  (`{ postMessage, onmessage }`), framed as JSON-RPC 2.0: a dispatch is a request
-  (`method` = the action's `kind`), `subscribe` events go server to client as notifications, and
-  only a transport/protocol fault is a JSON-RPC error — a rejection stays a normal result.
+  schema) returns `GoalDiagnostic`s and leaves the model untouched (a shape GLSP's own protocol
+  has no equivalent for — see `docs/action-protocol.md`); a success returns the ids it created.
+  Store changes reach subscribers as `ModelSourceChangedAction` (wire `kind`:
+  `sourceModelChanged`). Actions and results are plain JSON (`ActionDispatcher` is the interface
+  a transport implements). Also `typeHintsFor`, `contextActionsFor`,
+  `diagnosticToMarker`/`markerToDiagnostic`. `connectDispatcher`/`createRemoteDispatcher` carry
+  an `ActionDispatcher` over a `MessagePort`-like object (`{ postMessage, onmessage }`), framed
+  as JSON-RPC 2.0 with one method per action kind (`method` = the action's `kind`) — not yet
+  GLSP's own five-method lifecycle (`initialize`/`initializeClientSession`/`process`/
+  `disposeClientSession`/`shutdown`), tracked as istar-ts#44; `subscribe` events go server to
+  client as notifications, and only a transport/protocol fault is a JSON-RPC error, a rejection
+  staying a normal result. One undo stack is shared by every client of a dispatcher.
 - **react:** `IstarProvider` and `IstarCanvas` accept a `dispatcher?: ActionDispatcher` prop
   (default: one `createActionDispatcher` makes over the store). The canvas's drag, create,
   connect, delete and undo/redo handlers, and the inspector's rename/delete/custom-property
   setters (`elementActions`/`linkActions`, unchanged as the typed facade), now dispatch through
   it instead of calling the store directly; a rejection surfaces through `notify`. A link's value
   (contribution make/help/hurt/break) and name, and an element's display patch (colour, the
-  auto-grown height), have no operation and stay on the store. Creating a kind that can't be an
-  inner element inside an actor is now refused with a notification, instead of the silent nested
-  create `addElement` allowed before (`createNode` checks `canBeInnerElement`/`canBeOnPaper`,
-  as `core`'s path did not); a rejected create or dependency connect no longer leaves the
-  selection or inline rename on the id it optimistically picked. The playground's toolbar gets a
-  "Run remote worker demo" button: a Web Worker dispatches `createNode` actions over a
-  `MessageChannel` (`createRemoteDispatcher`) served by the main thread's own dispatcher
-  (`connectDispatcher`), each node landing in the real model as its own undo step.
+  auto-grown height), have no operation yet and stay on the store (istar-ts#50, #51, #52).
+  Creating a kind that can't be an inner element inside an actor is now refused with a
+  notification, instead of the silent nested create `addElement` allowed before (`createNode`
+  checks `canBeInnerElement`/`canBeOnPaper`, as `core`'s path did not); a rejected create or
+  dependency connect no longer leaves the selection or inline rename on the id it optimistically
+  picked. The playground's toolbar gets a "Run remote worker demo" button: a Web Worker
+  dispatches `createNode` actions over a `MessageChannel` (`createRemoteDispatcher`) served by
+  the main thread's own dispatcher (`connectDispatcher`), each node landing in the real model as
+  its own undo step.
+- **docs:** `docs/action-protocol.md` — the GLSP concept ↔ istar-ts mapping, the vocabulary,
+  the dispatcher contract, the transport envelope and its gap with GLSP's own, how a host adds a
+  guard (a compiled example, `packages/actions/test/docs.test.ts`), and the limitations-by-design
+  list. README sections for `packages/actions`, `packages/core` (palette, `toDiagnostic`) and
+  `packages/react` (`dispatcher` prop).
 
-For goal-controller#185 and istar-ts#25 (A1, A2, B, C), istar-ts#26, istar-ts#28, istar-ts#31.
+For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
+istar-ts#31.
 
 ## 0.14.0
 
