@@ -1,6 +1,6 @@
 import type { ActionDispatcher } from '@istar-ts/actions';
-import { connectDispatcher, createActionDispatcher } from '@istar-ts/actions';
-import type { AnyIstarModel, AnyMetamodel, PropertySchema } from '@istar-ts/core';
+import { connectDispatcher } from '@istar-ts/actions';
+import type { AnyIstarModel, AnyMetamodel, ModelStore, PropertySchema } from '@istar-ts/core';
 import {
   KAOS,
   KAOS_OBSTACLES,
@@ -30,9 +30,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
 import { demoDiagnosticsFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
 import { rationalAgentsExtension } from './extensions/rationalAgents';
+import { DEMO_GUARD_MAX_CHILDREN, maxChildrenGuard } from './lab/guards';
 import { createLogStore } from './lab/log';
+import { createSwitchableGuardDispatcher } from './lab/switchableGuardDispatcher';
+import type { SwitchableGuardDispatcher } from './lab/switchableGuardDispatcher';
 import { tagClient } from './lab/tagClient';
 import { Sidebar } from './Sidebar';
+
+/** The protocol lab's guards switch (#47): one demo guard, described for its tab's label. */
+const DEMO_GUARD = maxChildrenGuard(DEMO_GUARD_MAX_CHILDREN);
+const DEMO_GUARD_DESCRIPTION = `No more than ${DEMO_GUARD_MAX_CHILDREN} child element per actor`;
 
 const fixtureModules = import.meta.glob('../../../fixtures/**/*.txt', {
   query: '?raw',
@@ -137,9 +144,18 @@ function unknownKinds(model: AnyIstarModel, metamodel: AnyMetamodel): string[] {
 export default function App(): ReactElement {
   const topChromeRef = useRef<HTMLDivElement>(null);
   const { store, model } = useIstarStore<string, string>(() => createEmptyModel());
-  const [dispatcher] = useState<ActionDispatcher<string, string>>(() =>
-    createActionDispatcher(store),
+  // The protocol lab's guards switch (#47): recreates the dispatcher with the demo guard on or
+  // off, over the same `store` — so the model and the undo history survive the switch.
+  const [guardDispatcher] = useState<SwitchableGuardDispatcher>(() =>
+    createSwitchableGuardDispatcher(store as unknown as ModelStore, DEMO_GUARD),
   );
+  const dispatcher: ActionDispatcher<string, string> =
+    guardDispatcher as unknown as ActionDispatcher<string, string>;
+  const [guardsEnabled, setGuardsEnabled] = useState(false);
+  const onToggleGuards = (enabled: boolean): void => {
+    guardDispatcher.setGuardEnabled(enabled);
+    setGuardsEnabled(enabled);
+  };
   // The protocol lab (#45): one log, tagged wrappers over `dispatcher` for each client it can
   // tell apart. The canvas and the inspector (`@istar-ts/react`) share whatever dispatcher the
   // provider gets, so both are tagged "UI" — see lab/tagClient.ts.
@@ -153,9 +169,14 @@ export default function App(): ReactElement {
   const [scriptDispatcher] = useState(() =>
     tagClient(dispatcher as unknown as ActionDispatcher, 'Script', log),
   );
+  // The pseudo-agent change set (#47) gets its own client tag: #42's lesson is that every
+  // kind of sender shows up on its own row in the log, not lumped in with the script console.
+  const [agentDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Agent', log),
+  );
   const labDispatchers = useMemo(
-    () => [uiDispatcher, workerDispatcher, scriptDispatcher],
-    [uiDispatcher, workerDispatcher, scriptDispatcher],
+    () => [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
+    [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
   );
   const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
@@ -429,6 +450,11 @@ export default function App(): ReactElement {
               log={log}
               dispatchers={labDispatchers}
               scriptDispatcher={scriptDispatcher}
+              guardsEnabled={guardsEnabled}
+              onToggleGuards={onToggleGuards}
+              guardDescription={DEMO_GUARD_DESCRIPTION}
+              guards={guardsEnabled ? [DEMO_GUARD] : []}
+              agentDispatcher={agentDispatcher}
             />
           }
         />
