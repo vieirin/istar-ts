@@ -17,6 +17,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   Metin & Bork, "A reference architecture for the development of GLSP-based web modeling tools"
   (SoSyM 24(6), 2025, CC BY 4.0) — layers, feature tiers, manifests/contributions, figures redrawn
   as text, and a mapping to istar-ts. `#74`'s build briefs cite this file instead of the PDF.
+- **docs:** `docs/glsp/framework-notes.md` — a GLSP server/client framework reference read from
+  `eclipse-glsp/glsp-core` source (server module anatomy, GModel, the five-method lifecycle,
+  the standalone client, `server-mcp`, `e2e/playwright`), plus a GLSP-piece-to-istar-ts-piece
+  mapping table and a risk table, for [#74](https://github.com/vieirin/istar-ts/issues/74)'s
+  later stages. Docs only, no code.
 - **react:** `IstarProvider`/`IstarCanvas` accept an optional `dispatcherFor?: (surface: IstarSurface) => ActionDispatcher`
   prop (`IstarSurface = 'canvas' | 'inspector'`) so a host can tell which surface sent an action
   without a protocol change. The canvas's own handlers dispatch through `dispatcherFor('canvas')`.
