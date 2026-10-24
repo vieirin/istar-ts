@@ -1,0 +1,110 @@
+{
+  "initialModel": {
+    "actors": [],
+    "orphans": [],
+    "dependencies": [],
+    "links": [],
+    "display": {},
+    "tool": "pistar.2.1.0",
+    "istar": "2.0",
+    "saveDate": "Sat, 24 Oct 2026 16:31:41 GMT",
+    "diagram": {
+      "width": 2000,
+      "height": 1300
+    }
+  },
+  "entries": [
+    {
+      "id": 0,
+      "client": "UI",
+      "action": {
+        "kind": "createNode",
+        "elementTypeId": "istar.Actor",
+        "location": {
+          "x": 40,
+          "y": 40
+        },
+        "args": {
+          "id": "fixture-actor-1",
+          "name": "Audit Team"
+        }
+      },
+      "result": {
+        "ok": true,
+        "createdIds": [
+          "fixture-actor-1"
+        ]
+      },
+      "startedAt": 1792859501144,
+      "durationMs": 0
+    },
+    {
+      "id": 1,
+      "client": "UI",
+      "action": {
+        "kind": "createNode",
+        "elementTypeId": "istar.Goal",
+        "containerId": "fixture-actor-1",
+        "location": {
+          "x": 20,
+          "y": 100
+        },
+        "args": {
+          "id": "fixture-goal-1",
+          "name": "Track Expenses"
+        }
+      },
+      "result": {
+        "ok": true,
+        "createdIds": [
+          "fixture-goal-1"
+        ]
+      },
+      "startedAt": 1792859501144,
+      "durationMs": 0
+    },
+    {
+      "id": 2,
+      "client": "Script",
+      "action": {
+        "kind": "createNode",
+        "elementTypeId": "istar.Task",
+        "containerId": "fixture-actor-1",
+        "location": {
+          "x": 20,
+          "y": 160
+        },
+        "args": {
+          "id": "fixture-task-1",
+          "name": "Log Expense"
+        }
+      },
+      "result": {
+        "ok": true,
+        "createdIds": [
+          "fixture-task-1"
+        ]
+      },
+      "startedAt": 1792859501144,
+      "durationMs": 0
+    },
+    {
+      "id": 3,
+      "client": "Script",
+      "action": {
+        "kind": "createEdge",
+        "elementTypeId": "istar.AndRefinementLink",
+        "sourceElementId": "fixture-goal-1",
+        "targetElementId": "fixture-task-1"
+      },
+      "result": {
+        "ok": true,
+        "createdIds": [
+          "a3a9adae-d674-43ca-8475-786f099dbc03"
+        ]
+      },
+      "startedAt": 1792859501144,
+      "durationMs": 0
+    }
+  ]
+}

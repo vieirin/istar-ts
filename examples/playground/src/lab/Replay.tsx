@@ -1,7 +1,7 @@
 import type { ModelStore } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
 import type { ChangeEvent, ReactElement } from 'react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { LogEntry, LogStore } from './log';
 import { exportLog, parseLogExport } from './log';
 import { replayableEntries, replayLog } from './replayLog';
@@ -48,11 +48,15 @@ export function Replay({
   const [imported, setImported] = useState<Source | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const source: Source | null =
-    imported ??
-    (log.getInitialModel()
-      ? { label: 'live log', initialModel: log.getInitialModel()!, entries: liveEntries }
-      : null);
+  // Memoized: a fresh object every render would change identity even when nothing did, and the
+  // effect below depends on it — an infinite render loop (fires, sets `outcome`, re-renders,
+  // fires again), not just a wasted recompute.
+  const initialModel = log.getInitialModel();
+  const source: Source | null = useMemo(
+    () =>
+      imported ?? (initialModel ? { label: 'live log', initialModel, entries: liveEntries } : null),
+    [imported, initialModel, liveEntries],
+  );
 
   const entries = source ? replayableEntries(source.entries) : [];
   const [limit, setLimit] = useState(entries.length);

@@ -5,3 +5,6 @@ coverage/
 .DS_Store
 .vite/
 packages/*/LICENSE
+examples/playground/test-results/
+examples/playground/playwright-report/
+examples/playground/playwright/.cache/
