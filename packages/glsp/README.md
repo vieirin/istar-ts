@@ -4,9 +4,10 @@ A [GLSP](https://eclipse.dev/glsp/) server diagram module for istar-ts models, b
 `@eclipse-glsp/server` 2.8. A stock GLSP client opens a piStar file and sees it as a GModel.
 GLSP, Inversify and `reflect-metadata` stay inside this package; it never depends on React.
 
-This is the read side ([#80](https://github.com/vieirin/istar-ts/issues/80)): GModel, diagram
-configuration, loading and saving. Operation handlers, undo and the palette provider come next
-([#81](https://github.com/vieirin/istar-ts/issues/81)), launchers and hosts after that
+The read side ([#80](https://github.com/vieirin/istar-ts/issues/80)): GModel, diagram
+configuration, loading and saving. The write side
+([#81](https://github.com/vieirin/istar-ts/issues/81)): operations, undo and model updates through
+the istar-ts dispatcher, the palette, edge checks and markers. Launchers and hosts come next
 ([#82](https://github.com/vieirin/istar-ts/issues/82)).
 
 ```ts
@@ -60,11 +61,11 @@ representations (§4.1.3, [docs/papers/metin-bork-2025.md](../../docs/papers/met
 After the reference architecture's tiers (§4.1.1) and its manifests and contributions through DI
 (§4.1.2, bigUML §5.1.1), on the GLSP server's own Inversify container:
 
-| Tier    | Here                                                                                                                                                                       |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| core    | `IstarDiagramModule`, the manifest binding `IstarModelState`, `IstarSourceModelStorage`, `IstarGModelFactory` and `IstarDiagramConfiguration`. Generic over the metamodel. |
-| tool    | Nothing yet (palette provider and validation arrive with #81).                                                                                                             |
-| diagram | An `IstarGlspContribution`: the dialect's data (metamodel, palette, type overrides, property schemas), bound by its manifest `IstarContributionModule`.                    |
+| Tier    | Here                                                                                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| core    | `IstarDiagramModule`, the manifest binding `IstarModelState`, `IstarSourceModelStorage`, `IstarGModelFactory` and `IstarDiagramConfiguration`. Generic over the metamodel.         |
+| tool    | `IstarToolPaletteItemProvider`, `IstarRequestCheckEdgeActionHandler`, `IstarModelValidator`, `IstarLabelEditValidator` (`tools.ts`), all from the contribution and the dispatcher. |
+| diagram | An `IstarGlspContribution`: the dialect's data (metamodel, palette, type overrides, property schemas), bound by its manifest `IstarContributionModule`.                            |
 
 The core classes `@inject(IstarGlspContribution)`, so a dialect never subclasses them, and dialect
 packages export plain values. `configureIstarDiagram` installs both manifests (plus any further
@@ -75,6 +76,43 @@ modules) under the contribution's diagram type. Contributions: `ISTAR_GLSP` (def
 `IstarModelState` holds one `ModelStore` for the whole session and the action dispatcher over it.
 Loading a file `load`s that store (clearing its history) rather than replacing it, so a
 `CommandStack` that maps GLSP's undo onto `store.undo()`/`store.redo()` can wrap it.
+
+## The write side: one dispatcher, one undo stack
+
+Every GLSP edit goes through the session's istar-ts dispatcher, so guards, rejections,
+transactions and the undo stack behave exactly as for the React Flow canvas (flow similarity,
+Metin & Bork §4.1.4).
+
+- **Operations.** `createNode`, `createEdge`, `deleteElement`, `changeBounds`, `changeContainer`,
+  `reconnectEdge`, `applyLabelEdit` and `compound` each have an `IstarOperationHandler`, which hands
+  the operation to `translateOperation` and dispatches the result. The translation maps GModel
+  types back to kinds, `<id>_anchor` to its link, the root to "no container", `<id>_label` to a
+  name edit and `<id>_value` to `istar.setLinkValue`, and positions back to absolute ones:
+  `createNode` locations are absolute (as GLSP sends them), `changeBounds` positions relative to
+  the parent node (an actor moves by its boundary's offset), and `changeContainer`'s location is
+  read relative to the new container. A size GLSP sends with an unchanged move isn't written to
+  `display`. A dependency creates its dependum, an n-ary link its hub or a leg, with the args the
+  React canvas sends. A `compound` is one istar-ts `compound`: one undo step, all or nothing.
+  Operations with no istar-ts counterpart (`changeRoutingPoints`) are skipped.
+- **Flat args.** GLSP's `args` are primitives, so the palette's presets travel as
+  `customProperties.<key>`, `value` and `dependumKind` (`GLSP_ARGS`).
+- **Undo.** `IstarCommandStack` keeps no commands: `undo`/`redo` dispatch `glspUndo`/`glspRedo`,
+  `canUndo`/`canRedo` ask the store. An edit made through GLSP and undone by another client (or
+  the reverse) is gone for both.
+- **Dirty state** is the dispatcher's `isDirty`. GLSP's `saveModel` saves through the
+  dispatcher's `saveModel` (the model state writes the file), so either path marks the model
+  clean.
+- **Updates.** After an accepted operation, undo or redo the session sends `updateModel` (no
+  bounds round trip). Changes by the store's other clients are pushed too: `IstarStoreListener`
+  hears the dispatcher and queues an internal `istar.storeChanged` on the session's action queue,
+  answered with `updateModel`, or `setDirtyState` after another client's save.
+- **Rejections.** GLSP has no failure answer to an operation: a rejected one (`{ ok: false }`, or
+  an unknown id) sends the unchanged model again (so the client drops its feedback), a
+  `message` (severity `ERROR`) and markers on the elements it names
+  (`reason: 'istar.rejection'`), cleared by the next accepted edit. Guard warnings on an
+  accepted edit are a `WARNING` message.
+- **Client-bound actions** the client did not list in `clientActionKinds` (a `status` from
+  live validation, a `message`) are dropped by `IstarClientActionForwarder`, not an error.
 
 ## Decorators
 

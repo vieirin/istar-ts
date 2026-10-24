@@ -4,108 +4,19 @@
  * no bounds round trip. Then the model state's store is the one the dispatcher edits.
  */
 import { describe, expect, test } from 'vitest';
-import { Container, ContainerModule } from 'inversify';
-import type { ActionMessage, GModelRootSchema, GLSPServer as Server } from '@eclipse-glsp/server';
+import type { GModelRootSchema } from '@eclipse-glsp/server';
 import type { DefaultGLSPServer } from '@eclipse-glsp/server';
 import {
-  LogLevel,
   GModelFactory,
   ModelState,
-  GLSPClientProxy,
-  GLSPServer,
-  RequestModelAction,
   RequestTypeHintsAction,
   SaveModelAction,
-  ServerModule,
 } from '@eclipse-glsp/server';
-import { createAppModule } from '@eclipse-glsp/server/node';
 import { metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
-import type { IstarGlspContribution } from '../src';
-import {
-  ISTAR_GLSP,
-  IstarModelState,
-  PistarFiles,
-  configureIstarDiagram,
-  memoryPistarFiles,
-} from '../src';
+import { ISTAR_GLSP, IstarModelState } from '../src';
 import { KAOS_GLSP } from '../src/kaos';
 import { NFR_GLSP } from '../src/nfr';
-import { fixture } from './fixtures';
-
-const files = new Map<string, string>([
-  ['welcome.txt', fixture('pistar/welcome.txt').text],
-  ['kaos.txt', fixture('dsm3/kaos-welcome.txt').text],
-  ['nfr.txt', fixture('dsm3/nfr-welcome.txt').text],
-]);
-
-/** What a stock client handles, as far as these tests get. */
-const CLIENT_ACTION_KINDS = [
-  'setModel',
-  'updateModel',
-  'setTypeHints',
-  'setDirtyState',
-  'status',
-  'message',
-  'startProgress',
-  'updateProgress',
-  'endProgress',
-  'setMarkers',
-];
-
-/** A GLSP server with the iStar, KAOS and NFR diagrams, and every message it sends. */
-async function startServer(): Promise<{ server: Server; sent: ActionMessage[] }> {
-  const sent: ActionMessage[] = [];
-  const serverModule = new ServerModule();
-  for (const contribution of [ISTAR_GLSP, KAOS_GLSP, NFR_GLSP]) {
-    configureIstarDiagram(serverModule, contribution);
-  }
-  const host = new ContainerModule((bind) => {
-    bind(PistarFiles).toConstantValue(memoryPistarFiles(files));
-    bind(GLSPClientProxy).toConstantValue({
-      process: (message: ActionMessage) => sent.push(message),
-    });
-  });
-  const container = new Container();
-  container.load(
-    createAppModule({ logLevel: LogLevel.none, fileLog: false, consoleLog: false }),
-    serverModule,
-    host,
-  );
-  const server = container.get<Server>(GLSPServer);
-  await server.initialize({ applicationId: 'test', protocolVersion: '1.0.0' });
-  return { server, sent };
-}
-
-/** The first `kind` message sent at or after index `from`. */
-async function next(sent: ActionMessage[], kind: string, from = 0): Promise<ActionMessage> {
-  for (let i = 0; i < 100; i++) {
-    const found = sent.slice(from).find((m) => m.action.kind === kind);
-    if (found) return found;
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(`no ${kind}; got ${sent.map((m) => m.action.kind).join(', ')}`);
-}
-
-async function open(
-  contribution: IstarGlspContribution,
-  sourceUri: string,
-): Promise<{ server: Server; sent: ActionMessage[]; root: GModelRootSchema; clientId: string }> {
-  const { server, sent } = await startServer();
-  const clientId = `client-${contribution.diagramType}`;
-  await server.initializeClientSession({
-    clientSessionId: clientId,
-    diagramType: contribution.diagramType,
-    clientActionKinds: CLIENT_ACTION_KINDS,
-  });
-  server.process({ clientId, action: RequestModelAction.create({ options: { sourceUri } }) });
-  const message = await next(sent, 'setModel');
-  return {
-    server,
-    sent,
-    clientId,
-    root: (message.action as unknown as { newRoot: GModelRootSchema }).newRoot,
-  };
-}
+import { files, next, open } from './server';
 
 function ids(schema: GModelRootSchema): string[] {
   const list: string[] = [];

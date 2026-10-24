@@ -14,6 +14,15 @@ Versions are published from GitHub release tags; see the release notes for full 
   `ISTAR_GLSP`, `KAOS_GLSP`/`KAOS_OBSTACLES_GLSP` (`@istar-ts/glsp/kaos`) and `NFR_GLSP`
   (`@istar-ts/glsp/nfr`). Inversify's legacy decorators build with tsdown, with an explicit
   `@inject()` per constructor parameter. No React dependency.
+- **glsp:** the write side (#81): GLSP's operations (`createNode`, `createEdge`, `deleteElement`,
+  `changeBounds`, `changeContainer`, `reconnectEdge`, `applyLabelEdit`, `compound`) go through the
+  istar-ts dispatcher (`translateOperation` maps GModel types, ids and relative positions back);
+  `IstarCommandStack` delegates undo/redo to `glspUndo`/`glspRedo`, so there is one undo stack,
+  and dirty state is the dispatcher's (GLSP's `saveModel` saves through it). `updateModel` follows
+  every accepted operation, undo, redo and change by another client of the store; rejections are
+  a `message` plus markers. The palette comes from the contribution's `PaletteDescription`,
+  `requestCheckEdge` from the dispatcher (with `canLink`'s reason), markers from its
+  `requestMarkers`, and client-bound actions a client didn't list are dropped quietly.
 
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock

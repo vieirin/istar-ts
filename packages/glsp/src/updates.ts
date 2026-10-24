@@ -1,0 +1,195 @@
+/**
+ * Model updates for changes this session did not make. The store may have other clients (a
+ * React Flow canvas, a script, a second protocol endpoint on the same dispatcher); whatever they
+ * change, undo, redo or save, the GLSP client gets the new GModel (`updateModel`) or dirty state
+ * (`setDirtyState`), as it does after its own operations. That is what lets two clients share
+ * one model.
+ *
+ * Also here: the quiet forwarder, so actions GLSP sends to a client that never asked for them
+ * are dropped instead of failing.
+ */
+import {
+  ActionDispatcher,
+  CenterAction,
+  CheckEdgeResultAction,
+  ClientAction,
+  ClientActionForwarder,
+  ClientActionKinds,
+  DeleteMarkersAction,
+  EndProgressAction,
+  ExportSvgAction,
+  FitToScreenAction,
+  Logger,
+  MessageAction,
+  ModelState,
+  ModelSubmissionHandler,
+  NavigateToExternalTargetAction,
+  NavigateToTargetAction,
+  SelectAction,
+  SelectAllAction,
+  SetClipboardDataAction,
+  SetContextActions,
+  SetDirtyStateAction,
+  SetEditModeAction,
+  SetEditValidationResultAction,
+  SetMarkersAction,
+  SetModelAction,
+  SetNavigationTargetsAction,
+  SetPopupModelAction,
+  SetResolvedNavigationTargetAction,
+  SetTypeHintsAction,
+  SourceModelChangedAction,
+  StartProgressAction,
+  StatusAction,
+  TriggerEdgeCreationAction,
+  TriggerNodeCreationAction,
+  UpdateModelAction,
+  UpdateProgressAction,
+} from '@eclipse-glsp/server';
+import type { Action, ActionHandler, ClientSessionInitializer } from '@eclipse-glsp/server';
+import { inject, injectable } from 'inversify';
+import type { IstarModelState } from './model-state';
+
+/**
+ * Server-internal: the store changed, and not through this session. `IstarStoreListener`
+ * dispatches it to the session's own action queue, so the update is ordered with the session's
+ * other actions; `IstarStoreChangedHandler` answers it with the update.
+ */
+export const ISTAR_STORE_CHANGED = 'istar.storeChanged';
+
+/**
+ * Hears the session's dispatcher and queues an update for every change this session did not
+ * make (`IstarModelState.ownChange`): `updateModel` after an edit, undo, redo or load, and
+ * `setDirtyState` after a save. Changes that come before the queued update is sent share it.
+ */
+@injectable()
+export class IstarStoreListener implements ClientSessionInitializer {
+  protected readonly state: IstarModelState;
+  protected readonly actions: ActionDispatcher;
+  protected readonly logger: Logger;
+  private pending: 'model' | 'dirty' | undefined;
+
+  constructor(
+    @inject(ModelState) state: IstarModelState,
+    @inject(ActionDispatcher) actions: ActionDispatcher,
+    @inject(Logger) logger: Logger,
+  ) {
+    this.state = state;
+    this.actions = actions;
+    this.logger = logger;
+  }
+
+  initialize(): void {
+    this.state.dispatcher.subscribe((action) => {
+      if (this.state.isOwnChange) return;
+      if (action.kind === 'sourceModelChanged') this.schedule('model');
+      // A save made through GLSP is reported by GLSP's own save handler.
+      else if (
+        action.kind === 'setDirtyState' &&
+        action.reason === 'save' &&
+        !this.state.isSavingFromGlsp
+      ) {
+        this.schedule('dirty');
+      }
+    });
+  }
+
+  /** What the queued update has to send; clears it. */
+  take(): 'model' | 'dirty' | undefined {
+    const pending = this.pending;
+    this.pending = undefined;
+    return pending;
+  }
+
+  protected schedule(what: 'model' | 'dirty'): void {
+    const queued = this.pending !== undefined;
+    if (this.pending !== 'model') this.pending = what;
+    if (queued) return;
+    this.actions.dispatch({ kind: ISTAR_STORE_CHANGED }).catch((error: unknown) => {
+      this.logger.error('Could not push a change made by another client', error);
+    });
+  }
+}
+
+/** Answers `ISTAR_STORE_CHANGED` with the new GModel (`updateModel`) or dirty state. */
+@injectable()
+export class IstarStoreChangedHandler implements ActionHandler {
+  readonly actionKinds: string[] = [ISTAR_STORE_CHANGED];
+  protected readonly state: IstarModelState;
+  protected readonly listener: IstarStoreListener;
+  protected readonly submission: ModelSubmissionHandler;
+
+  constructor(
+    @inject(ModelState) state: IstarModelState,
+    @inject(IstarStoreListener) listener: IstarStoreListener,
+    @inject(ModelSubmissionHandler) submission: ModelSubmissionHandler,
+  ) {
+    this.state = state;
+    this.listener = listener;
+    this.submission = submission;
+  }
+
+  async execute(_action: Action): Promise<Action[]> {
+    const pending = this.listener.take();
+    // Before the client's `requestModel` there is no GModel to update.
+    if (pending === undefined || !this.state.root) return [];
+    if (pending === 'dirty') {
+      return [SetDirtyStateAction.create(this.state.dispatcher.isDirty(), { reason: 'save' })];
+    }
+    return this.submission.submitModel('external');
+  }
+}
+
+/**
+ * The actions a GLSP server sends to its client, from `@eclipse-glsp/protocol`'s action
+ * definitions: notifications, responses and client commands. A client lists the ones it handles
+ * in `clientActionKinds` (`initializeClientSession`).
+ */
+export const CLIENT_BOUND_ACTION_KINDS: ReadonlySet<string> = new Set([
+  SetModelAction.KIND,
+  UpdateModelAction.KIND,
+  SourceModelChangedAction.KIND,
+  SetDirtyStateAction.KIND,
+  StatusAction.KIND,
+  MessageAction.KIND,
+  StartProgressAction.KIND,
+  UpdateProgressAction.KIND,
+  EndProgressAction.KIND,
+  SetMarkersAction.KIND,
+  DeleteMarkersAction.KIND,
+  SetTypeHintsAction.KIND,
+  SetContextActions.KIND,
+  CheckEdgeResultAction.KIND,
+  SetPopupModelAction.KIND,
+  SetEditValidationResultAction.KIND,
+  SetEditModeAction.KIND,
+  SetNavigationTargetsAction.KIND,
+  SetResolvedNavigationTargetAction.KIND,
+  NavigateToTargetAction.KIND,
+  NavigateToExternalTargetAction.KIND,
+  SetClipboardDataAction.KIND,
+  ExportSvgAction.KIND,
+  SelectAction.KIND,
+  SelectAllAction.KIND,
+  CenterAction.KIND,
+  FitToScreenAction.KIND,
+  TriggerNodeCreationAction.KIND,
+  TriggerEdgeCreationAction.KIND,
+]);
+
+/**
+ * GLSP's forwarder, quiet about client-bound actions the client did not list: a `status` from
+ * live validation, a `message` about a rejection, to a client that shows neither, is dropped
+ * (GLSP would fail with "No handler registered"). Any other unhandled kind still fails.
+ */
+@injectable()
+export class IstarClientActionForwarder extends ClientActionForwarder {
+  constructor(@inject(ClientActionKinds) actionKinds: Set<string>) {
+    super(actionKinds);
+  }
+
+  override handle(action: Action): boolean {
+    if (super.handle(action)) return true;
+    return !ClientAction.is(action) && CLIENT_BOUND_ACTION_KINDS.has(action.kind);
+  }
+}
