@@ -1,4 +1,4 @@
-import type { ActionDispatcher } from '@istar-ts/actions';
+import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
 import type { AnyIstarModel, PropertySchema } from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector, useIstarEditor } from '@istar-ts/react';
@@ -13,6 +13,11 @@ export function Sidebar({
   log,
   dispatchers,
   scriptDispatcher,
+  guardsEnabled,
+  onToggleGuards,
+  guardDescription,
+  guards,
+  agentDispatcher,
 }: {
   readonly model: AnyIstarModel;
   /** Property schemas contributed by the active extension, if any. */
@@ -20,6 +25,11 @@ export function Sidebar({
   readonly log: LogStore;
   readonly dispatchers: readonly TaggedDispatcher[];
   readonly scriptDispatcher: ActionDispatcher;
+  readonly guardsEnabled: boolean;
+  readonly onToggleGuards: (enabled: boolean) => void;
+  readonly guardDescription: string;
+  readonly guards: readonly ActionGuard[];
+  readonly agentDispatcher: ActionDispatcher;
 }): ReactElement {
   const issues = validateModel(model);
   const propertyIssues = validateModelProperties(model, schemas);
@@ -40,6 +50,11 @@ export function Sidebar({
           scriptDispatcher={scriptDispatcher}
           model={model}
           select={select}
+          guardsEnabled={guardsEnabled}
+          onToggleGuards={onToggleGuards}
+          guardDescription={guardDescription}
+          guards={guards}
+          agentDispatcher={agentDispatcher}
         />
       </section>
       <section className="pg-aside-section">
