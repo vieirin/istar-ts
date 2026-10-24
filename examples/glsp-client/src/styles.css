@@ -1,0 +1,15 @@
+/**
+ * The stock `@eclipse-glsp/client`'s own CSS (#103): none of it is pulled in by the package
+ * itself (upstream's `examples/workflow-standalone` imports it from the app, not the library),
+ * so a host that only imports `mountGlspClient` got no styling at all — small black boxes, no
+ * palette chrome, no toast/status-overlay layout. Imported once, from `index.ts`, so every
+ * host that mounts the stock client gets it for free.
+ */
+@import 'sprotty/css/sprotty.css';
+@import '@eclipse-glsp/client/css/glsp-sprotty.css';
+@import '@eclipse-glsp/client/css/tool-palette.css';
+@import '@eclipse-glsp/client/css/decoration.css';
+@import '@eclipse-glsp/client/css/toast.css';
+@import '@eclipse-glsp/client/css/status-overlay.css';
+@import '@vscode/codicons/dist/codicon.css';
+@import './istar-glsp.css';

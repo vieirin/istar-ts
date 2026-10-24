@@ -32,12 +32,18 @@ importers:
       '@eclipse-glsp/client':
         specifier: ^2.8.0
         version: 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
+      '@vscode/codicons':
+        specifier: ^0.0.44
+        version: 0.0.44
       inversify:
         specifier: ^6.2.2
         version: 6.2.2(reflect-metadata@0.2.2)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      sprotty:
+        specifier: ^1.4.0
+        version: 1.4.0(reflect-metadata@0.2.2)
       vscode-jsonrpc:
         specifier: 8.2.0
         version: 8.2.0
@@ -45,6 +51,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vite:
+        specifier: ^6.3.5
+        version: 6.4.3(@types/node@26.6.3)(lightningcss@1.33.0)
 
   examples/playground:
     dependencies:

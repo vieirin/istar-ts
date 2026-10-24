@@ -64,6 +64,12 @@ export interface MountedGlspClient {
    * toolbar button, a test) dispatches directly instead.
    */
   dispatch(action: Action): Promise<void>;
+  /**
+   * Re-fits the viewport to the model (#103): the standalone container never re-fits on its
+   * own, e.g. after the host's element resizes. A host page calls this from its own resize
+   * listener; `mountGlspClient` already does so once after the initial load (`ready`).
+   */
+  fit(): Promise<void>;
   /** Disposes the container; does not close `port`/the WebSocket (the caller owns those). */
   dispose(): void;
 }
@@ -130,13 +136,13 @@ export function mountGlspClient(
   // The standalone container never auto-fits the viewport to the loaded model (upstream leaves
   // that to the app, e.g. an IDE host's own "fit to screen" command); without this, a model
   // whose elements sit outside the initial 1:1 viewport at the origin renders empty.
-  const ready = container
-    .get(DiagramLoader)
-    .load()
-    .then(() => dispatcher.dispatch(FitToScreenAction.create([], { animate: false })));
+  const fit = (): Promise<void> =>
+    dispatcher.dispatch(FitToScreenAction.create([], { animate: false }));
+  const ready = container.get(DiagramLoader).load().then(fit);
   return {
     ready,
     dispatch: (action) => dispatcher.dispatch(action),
+    fit,
     dispose: () => void glspClient?.stop(),
   };
 }

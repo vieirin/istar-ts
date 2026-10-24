@@ -1,0 +1,81 @@
+/**
+ * Fills, strokes and label colours for istar-ts's concrete GModel types (#103): the stock
+ * client's own CSS (`styles.ts`) has no idea `node:istar.Goal` or `edge:istar.DependencyLink`
+ * exist, so without this every shape falls back to the SVG default (`fill: black`, `stroke:
+ * none`). Colours mirror `@istar-ts/react`'s `--istar-*` theme
+ * (packages/react/src/styles.css) so the two clients read as the same tool, in both light and
+ * dark (`prefers-color-scheme`).
+ *
+ * Default views only (#84 adds custom shapes): this colours the stock rect/path/text sprotty
+ * already renders, selected through the attributes/classes `elementTypes.ts` and
+ * `@istar-ts/glsp`'s `modelToGModel` already produce —
+ * `data-svg-metadata-type` (every element and link, set by GLSP's own `MetadataPlacer`) and
+ * the `dependum`/`collapsed` CSS classes `modelToGModel` adds (`packages/glsp/src/gmodel.ts`).
+ */
+
+:root {
+  --istar-glsp-text: #000;
+  --istar-glsp-node-stroke: #000;
+  --istar-glsp-link-stroke: #000;
+  --istar-glsp-node-fill: rgb(205, 254, 205);
+  --istar-glsp-actor-fill: rgb(242, 242, 242);
+  --istar-glsp-anchor-fill: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --istar-glsp-text: #e4e4e7;
+    --istar-glsp-link-stroke: #e4e4e7;
+    --istar-glsp-actor-fill: #2a2a2e;
+    --istar-glsp-anchor-fill: #1e1e1e;
+  }
+}
+
+/* Every label (`label`, a link's `_value` label) and the toolbar/palette's own text, which
+   `glsp-sprotty.css`'s `.sprotty text` rule otherwise fixes to black. */
+.sprotty text {
+  fill: var(--istar-glsp-text);
+}
+
+/* Edges: `glsp-sprotty.css` already sets `.sprotty-edge { fill: none }`; the line itself (a
+   plain, classless `path`, `GEdgeView`/`PolylineEdgeView`) has no stroke at all otherwise. */
+[data-svg-metadata-type^='edge:'] path {
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 1.5px;
+}
+
+/* Every node, as `--istar-node-fill` draws every intentional-element kind the same in
+   `@istar-ts/react`. `glsp-sprotty.css`'s `.sprotty-node:not(.selected)` zeroes the stroke
+   width, so it's set again here. A direct child, not just a descendant: an actor's own shape is
+   its type's outer element's *own* `.sprotty-node`, not one of its nested children's (an
+   actor's elements are DOM descendants of its own `<g>`, `packages/glsp/src/gmodel.ts`'s GModel
+   nesting) — a descendant selector would otherwise also catch, and mis-style, those. */
+[data-svg-metadata-type^='node:'] > .sprotty-node {
+  fill: var(--istar-glsp-node-fill);
+  stroke: var(--istar-glsp-node-stroke);
+  stroke-width: 1.5px;
+}
+
+/* Actor containers (`istar.Actor`/`.Agent`/`.Role`): a muted fill, as `--istar-actor-fill`. An
+   exact match, not a `.Actor`/`.Agent`/`.Role` suffix, since a dialect may name an ordinary node
+   kind that way (KAOS's `kaos.Agent` is a node, not a container). */
+[data-svg-metadata-type='node:istar.Actor'] > .sprotty-node,
+[data-svg-metadata-type='node:istar.Agent'] > .sprotty-node,
+[data-svg-metadata-type='node:istar.Role'] > .sprotty-node {
+  fill: var(--istar-glsp-actor-fill);
+}
+
+/* A dependum (the `dependum` class `modelToGModel` adds): same fill as its own kind, a dashed
+   stroke to mark it, as piStar's dependency links read at a glance. */
+[data-svg-metadata-type^='node:'].dependum > .sprotty-node {
+  stroke-dasharray: 4 2;
+}
+
+/* Hubs (an n-ary link's join point, kind `<Kind>Hub`, by `addHubKinds`'s own naming default)
+   and link-anchors (`node:link-anchor`, a link-on-link's attach point): small and
+   canvas-coloured, not an intentional element's fill. */
+[data-svg-metadata-type$='Hub'] > .sprotty-node,
+[data-svg-metadata-type='node:link-anchor'] > .sprotty-node {
+  fill: var(--istar-glsp-anchor-fill);
+  stroke: var(--istar-glsp-link-stroke);
+}

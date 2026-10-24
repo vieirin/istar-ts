@@ -81,6 +81,12 @@ let currentClient: MountedGlspClient | undefined;
 undoButton.addEventListener('click', () => void currentClient?.dispatch(undoAction()));
 redoButton.addEventListener('click', () => void currentClient?.dispatch(redoAction()));
 
+// The standalone container never re-fits on its own (#103): a window resize leaves the old
+// viewport framing, now wrong relative to `.pg-glsp-diagram`'s new size. A fixture switch
+// already gets a fresh fit from `mountGlspClient`'s own `ready` (every `mountFixture` call
+// mounts a new client), so only resize needs handling here.
+window.addEventListener('resize', () => void currentClient?.fit());
+
 /**
  * Each fixture is a different contribution (metamodel, diagram type), so switching fixtures
  * tears down the previous session's store, server and client and builds a fresh one for the
