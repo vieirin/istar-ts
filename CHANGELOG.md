@@ -4,12 +4,19 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **core:** `DEFAULT_PALETTE` (`./palette`) is iStar 2.0's palette data (label, group, section,
+  order, and a dependency/contribution entry's `dependum`/`value`) without React, so a host can
+  answer "what can I add here" (GLSP's `RequestContextActions`) headlessly; the react registry's
+  default entries derive from it, icons and titles staying in react. `ModelOperationError` carries
+  the `elementId` it names (when it names one) and gains `toDiagnostic(): GoalDiagnostic`;
+  `connectResultToDiagnostic` maps a failing `connect` result to a `GoalDiagnostic` anchored on
+  the offending end.
 - **react:** `modelToFlow` and `actorBoundary` are generic over the model's kinds
   (`IstarModel<EK, LK>` with an `IstarRegistry<EK, LK>`, iStar 2.0's by default), so a KAOS, NFR or
   extended model is laid out without a cast. `modelToFlow`'s registry is optional: by default
   `registryForMetamodel(metamodelOf(model))`.
 
-For goal-controller#185.
+For goal-controller#185 and istar-ts#25 (B), istar-ts#26.
 
 ## 0.14.0
 

@@ -16,6 +16,7 @@ import type {
   IstarLink,
   IstarModel,
   LinkKind,
+  LinkToolEntryDescription,
   Metamodel,
   MetamodelExtension,
   NodeKind,
@@ -27,11 +28,10 @@ import type {
 import {
   ISTAR_2_0,
   extendMetamodel,
-  CONTRIBUTION_LABELS,
   DEFAULT_ELEMENT_SIZE,
+  DEFAULT_PALETTE,
   ELEMENT_KINDS,
   LINK_KINDS,
-  NODE_KINDS,
   isActorKind,
   shortKindName,
 } from '@istar-ts/core';
@@ -324,9 +324,14 @@ const ELEMENT_TITLES: Partial<Record<ElementKind, string>> = {
   'istar.Resource': 'Adding Resource: click on an actor/role/agent to add a Resource',
 };
 
-function defaultElementConfig(kind: ElementKind, index: number): ElementKindConfig {
+/**
+ * The label, grouping, ordering and presets of each built-in kind's palette entry live in
+ * `DEFAULT_PALETTE` (`@istar-ts/core`), React-free; this adds the icon and title piStar shows.
+ */
+function defaultElementConfig(kind: ElementKind): ElementKindConfig {
   const label = shortKindName(kind);
   const actor = isActorKind(kind);
+  const entry = DEFAULT_PALETTE.elements[kind] as PaletteEntry;
   return {
     kind,
     label,
@@ -334,140 +339,91 @@ function defaultElementConfig(kind: ElementKind, index: number): ElementKindConf
     component: actor ? DefaultActorComponent : DefaultElementComponent,
     resizable: !actor,
     palette: {
-      label,
+      ...entry,
       title: ELEMENT_TITLES[kind],
       icon: elementIcon(kind),
-      // piStar order: Actor… | Actor links… | Dependency… ‖ Goal Quality Resource Task | links
-      order: actor ? index : 30 + index,
-      section: actor ? 'actors' : 'elements',
-      ...(actor ? { group: 'actors' } : {}),
     },
   };
 }
 
-// Link toolbar labels and hints from piStar's ui.metamodel.js.
-const LINK_DEFAULTS: Record<LinkKind, Omit<LinkKindConfig, 'kind'>> = {
-  'istar.IsALink': {
-    label: 'Is-A',
-    palette: [
-      {
-        label: 'Is A',
-        order: 10,
-        group: 'actor-links',
-        section: 'actors',
-        icon: linkIcon('istar.IsALink', 'is a'),
-        title:
-          'Add an Is-A link between an Actor and another Actor, or between a Role and another Role: drag from the sub-actor to the super-actor',
-      },
-    ],
-  },
-  'istar.ParticipatesInLink': {
-    label: 'Participates-In',
-    palette: [
-      {
-        label: 'Participates-In',
-        order: 11,
-        group: 'actor-links',
-        section: 'actors',
-        icon: linkIcon('istar.ParticipatesInLink', 'part. in'),
-        title: 'Add a Participates-In link between any Actors, Roles, or Agents',
-      },
-    ],
-  },
-  'istar.DependencyLink': {
-    label: 'Dependency',
-    palette: NODE_KINDS.map((dependum, i) => ({
-      label: `${shortKindName(dependum)} dependency`,
-      dependum,
-      order: 20 + i,
-      group: 'dependencies',
-      section: 'actors',
-      icon: dependencyIcon(dependum),
-      title: `Add a dependency with a ${shortKindName(dependum)} dependum: drag from the depender to the dependee`,
-    })),
-  },
-  'istar.AndRefinementLink': {
-    label: 'And-Refinement',
-    palette: [
-      {
-        label: 'And',
-        order: 40,
-        section: 'elements',
-        icon: linkIcon('istar.AndRefinementLink'),
-        title:
-          'Add And-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
-      },
-    ],
-  },
-  'istar.OrRefinementLink': {
-    label: 'Or-Refinement',
-    palette: [
-      {
-        label: 'Or',
-        order: 41,
-        section: 'elements',
-        icon: linkIcon('istar.OrRefinementLink'),
-        title:
-          'Add Or-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
-      },
-    ],
-  },
-  'istar.NeededByLink': {
-    label: 'Needed-By',
-    palette: [
-      {
-        label: 'Needed-By',
-        order: 42,
-        section: 'elements',
-        icon: linkIcon('istar.NeededByLink'),
-        title:
-          'Add Needed-By link: drag from the Resource that is needed to the Task that needs it.',
-      },
-    ],
-  },
-  'istar.QualificationLink': {
-    label: 'Qualification',
-    palette: [
-      {
-        label: 'Qualification',
-        order: 43,
-        section: 'elements',
-        icon: linkIcon('istar.QualificationLink'),
-        title:
-          'Add Qualification link: drag from the Quality to the element it qualifies (Goal, Task or Resource).',
-      },
-    ],
-  },
-  'istar.ContributionLink': {
-    label: 'Contribution',
-    palette: CONTRIBUTION_LABELS.map((value, i) => ({
-      label: { make: 'Make (++)', help: 'Help (+)', hurt: 'Hurt (-)', break: 'Break (--)' }[value],
-      value,
-      order: 50 + i,
-      group: 'contributions',
-      section: 'elements',
-      icon: linkIcon('istar.ContributionLink', value),
-      title: `Add a ${value} contribution: drag from an element to the Quality it contributes to`,
-    })),
-  },
+// Link kind labels and toolbar hints from piStar's ui.metamodel.js; grouping and ordering come
+// from DEFAULT_PALETTE.
+const LINK_LABELS: Readonly<Record<LinkKind, string>> = {
+  'istar.IsALink': 'Is-A',
+  'istar.ParticipatesInLink': 'Participates-In',
+  'istar.DependencyLink': 'Dependency',
+  'istar.AndRefinementLink': 'And-Refinement',
+  'istar.OrRefinementLink': 'Or-Refinement',
+  'istar.NeededByLink': 'Needed-By',
+  'istar.QualificationLink': 'Qualification',
+  'istar.ContributionLink': 'Contribution',
 };
+
+const LINK_ENTRY_TITLES: Readonly<
+  Record<LinkKind, string | ((entry: LinkToolEntryDescription) => string)>
+> = {
+  'istar.IsALink':
+    'Add an Is-A link between an Actor and another Actor, or between a Role and another Role: drag from the sub-actor to the super-actor',
+  'istar.ParticipatesInLink': 'Add a Participates-In link between any Actors, Roles, or Agents',
+  'istar.DependencyLink': (entry) =>
+    `Add a dependency with a ${shortKindName(entry.dependum!)} dependum: drag from the depender to the dependee`,
+  'istar.AndRefinementLink':
+    'Add And-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
+  'istar.OrRefinementLink':
+    'Add Or-Refinement link: drag from the child to the parent. It can only be applied to goals or tasks.',
+  'istar.NeededByLink':
+    'Add Needed-By link: drag from the Resource that is needed to the Task that needs it.',
+  'istar.QualificationLink':
+    'Add Qualification link: drag from the Quality to the element it qualifies (Goal, Task or Resource).',
+  'istar.ContributionLink': (entry) =>
+    `Add a ${entry.value} contribution: drag from an element to the Quality it contributes to`,
+};
+
+/** The icon for a link kind's palette entry; dependencies and Contribution vary it per entry. */
+function linkPaletteIcon(kind: LinkKind, entry: LinkToolEntryDescription): ReactNode {
+  if (entry.dependum) return dependencyIcon(entry.dependum);
+  if (kind === 'istar.IsALink') return linkIcon(kind, 'is a');
+  if (kind === 'istar.ParticipatesInLink') return linkIcon(kind, 'part. in');
+  if (entry.value) return linkIcon(kind, entry.value);
+  return linkIcon(kind);
+}
+
+function defaultLinkConfig(kind: LinkKind): LinkKindConfig {
+  const entries = DEFAULT_PALETTE.links[kind];
+  const titleFor = LINK_ENTRY_TITLES[kind];
+  return {
+    kind,
+    label: LINK_LABELS[kind],
+    palette: entries
+      ? entries.map((entry) => ({
+          ...entry,
+          title: typeof titleFor === 'function' ? titleFor(entry) : titleFor,
+          icon: linkPaletteIcon(kind, entry),
+        }))
+      : false,
+  };
+}
 
 function buildDefaultRegistry(): IstarRegistry {
   const elements = {} as Record<ElementKind, ElementKindConfig>;
-  ELEMENT_KINDS.forEach((kind, i) => {
-    elements[kind] = defaultElementConfig(kind, i);
-  });
+  for (const kind of ELEMENT_KINDS) elements[kind] = defaultElementConfig(kind);
   const links = {} as Record<LinkKind, LinkKindConfig>;
-  for (const kind of LINK_KINDS) links[kind] = { kind, ...LINK_DEFAULTS[kind] };
+  for (const kind of LINK_KINDS) links[kind] = defaultLinkConfig(kind);
   return { elements, links, paletteGroups: DEFAULT_PALETTE_GROUPS };
 }
 
-/** piStar's dropdown buttons. */
+/** piStar's dropdown buttons: `DEFAULT_PALETTE.groups`' labels, with the title shown in react. */
 const DEFAULT_PALETTE_GROUPS: Readonly<Record<string, PaletteGroup>> = {
-  actors: { label: 'Actor', title: 'Add an Actor, Agent or Role' },
-  'actor-links': { label: 'Actor links', title: 'Add an Is-A or Participates-In link' },
-  dependencies: { label: 'Dependency', title: 'Add a dependency' },
-  contributions: { label: 'Contribution', title: 'Add a Make, Help, Hurt or Break contribution' },
+  actors: { ...DEFAULT_PALETTE.groups.actors!, title: 'Add an Actor, Agent or Role' },
+  'actor-links': {
+    ...DEFAULT_PALETTE.groups['actor-links']!,
+    title: 'Add an Is-A or Participates-In link',
+  },
+  dependencies: { ...DEFAULT_PALETTE.groups.dependencies!, title: 'Add a dependency' },
+  contributions: {
+    ...DEFAULT_PALETTE.groups.contributions!,
+    title: 'Add a Make, Help, Hurt or Break contribution',
+  },
 };
 
 /** A registry that looks and behaves like the piStar tool. */
