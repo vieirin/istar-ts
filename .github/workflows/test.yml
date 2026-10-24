@@ -30,5 +30,4 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # pnpm check minus the tests, which run in test.yml.
       - run: pnpm test
