@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>istar-ts examples — GLSP client</title>
+    <link rel="stylesheet" href="/start.css" />
+    <link rel="stylesheet" href="/src/glsp/glsp.css" />
+  </head>
+  <body>
+    <div class="pg-glsp">
+      <header class="pg-glsp-toolbar">
+        <a class="pg-glsp-back" href="/">← istar-ts examples</a>
+        <label class="pg-glsp-fixture-label">
+          Fixture
+          <select id="pg-glsp-fixture"></select>
+        </label>
+        <button id="pg-glsp-undo" type="button">Undo</button>
+        <button id="pg-glsp-redo" type="button">Redo</button>
+        <span id="pg-glsp-status" class="pg-glsp-status" role="status"></span>
+      </header>
+      <main id="pg-glsp-canvas" class="pg-glsp-canvas"></main>
+    </div>
+    <script type="module" src="/src/glsp/main.ts"></script>
+  </body>
+</html>

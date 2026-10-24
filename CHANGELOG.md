@@ -36,6 +36,18 @@ Versions are published from GitHub release tags; see the release notes for full 
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
   GLSP client and the side-by-side view are disabled pending #83 and #85).
+- **examples:** a new workspace package, `glsp-client`, exports `mountGlspClient(element, options)`:
+  the stock `@eclipse-glsp/client` 2.8 (default modules, default views, plus every concrete
+  `node:<kind>`/`edge:<kind>` type registered against the default node/edge views) connected over
+  an in-page `MessageChannel` port, a module `Worker`, or a Node launcher's WebSocket. A standalone
+  container never auto-fits the viewport, so `mountGlspClient` dispatches `fit` once the model
+  loads. `MountedGlspClient.dispatch` lets a host send actions directly (`undoAction`/`redoAction`,
+  for a toolbar button — the default modules bind no undo/redo button, only a keyboard shortcut).
+  The start page's GLSP card is enabled and opens `/glsp.html`: a fixture picker (iStar, KAOS, NFR,
+  one `@istar-ts/glsp` session each, in-page by default, `?server=worker` or `?server=ws://...`
+  for the other two launchers), Undo/Redo buttons, and a status line for rejections and other
+  server messages (`message`; `status` and `setMarkers` already show through the default modules).
+  GLSP, Inversify and `@eclipse-glsp/*` stay out of `/react.html`'s bundle.
 - **react:** `IstarInspector`'s width is a CSS variable (`--istar-inspector-width`, default
   340px, up from a fixed 280px) with min/max variables (`--istar-inspector-min-width` 240px,
   `--istar-inspector-max-width` 60vw), and resizable by dragging a handle on its canvas-facing

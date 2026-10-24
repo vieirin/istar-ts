@@ -1,0 +1,23 @@
+{
+  "name": "glsp-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@eclipse-glsp/client": "^2.8.0",
+    "inversify": "^6.2.2",
+    "reflect-metadata": "^0.2.2",
+    "vscode-jsonrpc": "8.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

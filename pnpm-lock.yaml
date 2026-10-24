@@ -27,6 +27,25 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@26.6.3)(jsdom@30.1.1)(vite@8.3.1(@types/node@26.6.3))
 
+  examples/glsp-client:
+    dependencies:
+      '@eclipse-glsp/client':
+        specifier: ^2.8.0
+        version: 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
+      inversify:
+        specifier: ^6.2.2
+        version: 6.2.2(reflect-metadata@0.2.2)
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      vscode-jsonrpc:
+        specifier: 8.2.0
+        version: 8.2.0
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+
   examples/playground:
     dependencies:
       '@istar-ts/actions':
@@ -41,12 +60,18 @@ importers:
       '@istar-ts/dsm3-nfr':
         specifier: workspace:^
         version: link:../../packages/dsm3-nfr
+      '@istar-ts/glsp':
+        specifier: workspace:^
+        version: link:../../packages/glsp
       '@istar-ts/react':
         specifier: workspace:^
         version: link:../../packages/react
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      glsp-client:
+        specifier: workspace:*
+        version: link:../glsp-client
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -359,6 +384,12 @@ packages:
   '@dabh/diagnostics@2.0.9':
     resolution: {integrity: sha512-R6siwR65Hm+3yfgP7o8DKhNvputQAwfoz9zTc3kyDudnomj2/BcLmD+uGQQPICjuFUp8ounPBU+jmKsocwVVAg==}
 
+  '@eclipse-glsp/client@2.8.0':
+    resolution: {integrity: sha512-dR3mQ3jMUIxMic0Bd8cxg6POeMM8o2i7XVDMTP8gxcsdezk2YipHQRYYQ6YDyk3UPqxoBhwyD0a14qFqTJDYIQ==}
+    peerDependencies:
+      inversify: ^6.1.3
+      reflect-metadata: ^0.2.2
+
   '@eclipse-glsp/graph@2.8.0':
     resolution: {integrity: sha512-FNLQ27K5w42ygxPnWHEXOLChQR3HBXou5J5UMXhTKJJTFy/lbGyxCmtsKDZ72rvj8l3Wyxg15SRLQUjykFxPbA==}
 
@@ -381,6 +412,12 @@ packages:
 
   '@eclipse-glsp/server@2.8.0':
     resolution: {integrity: sha512-75jROuMd/la6YPq84R97oxxnu+R1SOXvkzEis+wu1c0By3VYriL5ur1ehRbEqdKMklQd4as9+ayuZaSojdbH0A==}
+    peerDependencies:
+      inversify: ^6.1.3
+      reflect-metadata: ^0.2.2
+
+  '@eclipse-glsp/sprotty@2.8.0':
+    resolution: {integrity: sha512-gT9JnPsecfCU2ycXCceTj66Q3UsVgya+9+JZd51b1q7Q/6zusH51x1/FkEGBbfPWpimG3awpNLV7SDdZEidNOg==}
     peerDependencies:
       inversify: ^6.1.3
       reflect-metadata: ^0.2.2
@@ -1313,6 +1350,9 @@ packages:
   '@vitest/spy@5.0.2':
     resolution: {integrity: sha512-Ijc7T1nT9efNb5LxvjaBrEqw3f/QwUv5EE0nKqZxgqsaV/FxAAZ8baGylA8X/Z2oS4Lp+K74Jr6dTJsDKxJDeg==}
 
+  '@vscode/codicons@0.0.44':
+    resolution: {integrity: sha512-F7qPRumUK3EHjNdopfICLGRf3iNPoZQt+McTHAn4AlOWPB3W2kL4H0S7uqEqbyZ6rCxaeDjpAn3MCUnwTu/VJQ==}
+
   '@xyflow/react@12.12.0':
     resolution: {integrity: sha512-74oXI0Rgm1Eu33cHQAd74J6oVgCH9mbFyTVQbsGgp2kmWwh0HdtBr2VP04z8mbPD+M/xO69nqG5dDEt7/EN2rQ==}
     peerDependencies:
@@ -1496,6 +1536,9 @@ packages:
 
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
+
+  autocompleter@9.3.2:
+    resolution: {integrity: sha512-rLbf2TLGOD7y+gOS36ksrZdIsvoHa2KXc2A7503w+NBRPrcF73zzFeYBxEcV/iMPjaBH3jFhNIYObZ7zt1fkCQ==}
 
   baseline-browser-mapping@2.11.26:
     resolution: {integrity: sha512-GLQdD3y6UF8iVuMJl5fHgE4jdn/ua7n+toKfLgNlg3BqQtOZjpy68T8Tup8/wGWZCDlm7KMg7tPb4MPn7oN0TQ==}
@@ -1780,6 +1823,9 @@ packages:
 
   fecha@4.2.3:
     resolution: {integrity: sha512-OP2IUU6HeYKJi3i0z4A19kHMQoLVs4Hc+DPqqxI2h/DPZHTm/vjsfC6P0b4jCMy14XizLBqvndQ+UilD7707Jw==}
+
+  file-saver@2.0.5:
+    resolution: {integrity: sha512-P9bmyZ3h/PRG+Nzga+rbdI4OEpNDzAVyy74uVO9ATgzLK6VtAsYybF/+TOCvrc0MO793d6+42lLyZTw7/ArVzA==}
 
   finalhandler@2.1.1:
     resolution: {integrity: sha512-S8KoZgRZN+a5rNwqTxlZZePjT/4cnm0ROV70LedRHZ0p8u9fRID0hJUZQpkKLzro8LfmC8sx23bY6tVNxv8pQA==}
@@ -2289,12 +2335,19 @@ packages:
     resolution: {integrity: sha512-6x6dK6zJdpTzF4sQeNYxwtvBzf6Eg4GtlesS94HOvTudUeyK2WXAaIfmDgsyslYrRBeFIlsi54AYsFGUuhmvrQ==}
     engines: {node: '>= 0.4'}
 
+  snabbdom@3.5.1:
+    resolution: {integrity: sha512-wHMNIOjkm/YNE5EM3RCbr/+DVgPg6AqQAX1eOxO46zYNvCXjKP5Y865tqQj3EXnaMBjkxmQA5jFuDpDK/dbfiA==}
+    engines: {node: '>=8.3.0'}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
   sprotty-protocol@1.4.0:
     resolution: {integrity: sha512-+AAskW3Mzcq5UhMnummp4wwJ1dYdgT7/utmWoHtjfrK7JTJq9G/VWWlHnTnQGzHHyma03Loy2AozToXoArQuAQ==}
+
+  sprotty@1.4.0:
+    resolution: {integrity: sha512-QGZZQAM2pOa1QxJUG05Ox76RJOKuvKloT1nCkvs6SD5w/HfkcL0mjq1Om1+fb5NAalDzurrJL6agKUReST3TFw==}
 
   stack-trace@0.0.10:
     resolution: {integrity: sha512-KGzahc7puUKkzyMt+IqAep+TVNbKP+k2Lmwhub39m1AsTSkaDutx56aDCo+HLDzf/D26BIHTJWNiTG1KAJiQCg==}
@@ -2327,6 +2380,9 @@ packages:
   tinypool@2.2.0:
     resolution: {integrity: sha512-jBrmx4lYmaC9k/mgPbylxs7kBUxHtD8256up+HjLaDFfXScKJQyil+SWXSvhAtT7XHo+yTVlpB81PGmHP8oLSQ==}
     engines: {node: ^20.0.0 || >=22.0.0}
+
+  tinyqueue@2.0.3:
+    resolution: {integrity: sha512-ppJZNDuKGgxzkHihX8v9v9G5f+18gzaTfrukGrq6ueg0lmH4nqVnA2IPG0AEH3jKEk2GRJCUhDoqpoiw3PHLBA==}
 
   tldts-core@7.4.16:
     resolution: {integrity: sha512-MDolfaSJtlSK5Y0A1xl3277ekubZwobpBjugknDizI9O5Rm60a1m8k4ICK+MRsCDzPygT81mp3BBf5RKDlFRfA==}
@@ -2830,6 +2886,17 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
+  '@eclipse-glsp/client@2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)':
+    dependencies:
+      '@eclipse-glsp/sprotty': 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
+      '@vscode/codicons': 0.0.44
+      autocompleter: 9.3.2
+      file-saver: 2.0.5
+      inversify: 6.2.2(reflect-metadata@0.2.2)
+      reflect-metadata: 0.2.2
+      snabbdom: 3.5.1
+      vscode-jsonrpc: 8.2.0
+
   '@eclipse-glsp/graph@2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)':
     dependencies:
       '@eclipse-glsp/protocol': 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
@@ -2875,6 +2942,17 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@eclipse-glsp/sprotty@2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)':
+    dependencies:
+      '@eclipse-glsp/protocol': 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
+      autocompleter: 9.3.2
+      inversify: 6.2.2(reflect-metadata@0.2.2)
+      reflect-metadata: 0.2.2
+      snabbdom: 3.5.1
+      sprotty: 1.4.0(reflect-metadata@0.2.2)
+      sprotty-protocol: 1.4.0
+      vscode-jsonrpc: 8.2.0
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -3441,6 +3519,8 @@ snapshots:
 
   '@vitest/spy@5.0.2': {}
 
+  '@vscode/codicons@0.0.44': {}
+
   '@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@xyflow/system': 0.0.83
@@ -3567,6 +3647,8 @@ snapshots:
   assertion-error@2.0.1: {}
 
   async@3.2.6: {}
+
+  autocompleter@9.3.2: {}
 
   baseline-browser-mapping@2.11.26: {}
 
@@ -3851,6 +3933,8 @@ snapshots:
       picomatch: 4.0.7
 
   fecha@4.2.3: {}
+
+  file-saver@2.0.5: {}
 
   finalhandler@2.1.1:
     dependencies:
@@ -4381,9 +4465,22 @@ snapshots:
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
 
+  snabbdom@3.5.1: {}
+
   source-map-js@1.2.1: {}
 
   sprotty-protocol@1.4.0: {}
+
+  sprotty@1.4.0(reflect-metadata@0.2.2):
+    dependencies:
+      autocompleter: 9.3.2
+      file-saver: 2.0.5
+      inversify: 6.2.2(reflect-metadata@0.2.2)
+      snabbdom: 3.5.1
+      sprotty-protocol: 1.4.0
+      tinyqueue: 2.0.3
+    transitivePeerDependencies:
+      - reflect-metadata
 
   stack-trace@0.0.10: {}
 
@@ -4407,6 +4504,8 @@ snapshots:
       picomatch: 4.0.7
 
   tinypool@2.2.0: {}
+
+  tinyqueue@2.0.3: {}
 
   tldts-core@7.4.16: {}
 
