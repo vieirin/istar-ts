@@ -181,6 +181,7 @@ body {
 
 .pg-lab-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }

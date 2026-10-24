@@ -296,14 +296,6 @@ test.describe('protocol lab', () => {
   });
 
   test('export, clear, replay: byte-identical toPistar', async ({ page }) => {
-    test.fixme(
-      true,
-      'UI defect: .pg-lab-tabs (App.css) has no flex-wrap, so its 6 tab buttons overflow the ' +
-        'sidebar in one unwrapped row; the last one, "Replay", renders past the viewport\'s ' +
-        'right edge at any reasonable width (reproduced at 1280px and 1600px) — a real pointer ' +
-        'click never reaches it (only a script-dispatched click, bypassing hit-testing, lands). ' +
-        "Failing step: page.getByRole('button', { name: 'Replay' }).click() hangs indefinitely.",
-    );
     await selectActorTool(page);
     await canvasPane(page).click({ position: { x: 160, y: 140 } });
     const actorId = await lastCreatedId(page);

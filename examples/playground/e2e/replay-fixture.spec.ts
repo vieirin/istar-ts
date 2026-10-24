@@ -17,14 +17,6 @@ const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/sample-log.json', import.
  * import parsed: three elements, one link, under the actor the fixture's first entry created.
  */
 test('replays an imported log fixture', async ({ page }) => {
-  test.fixme(
-    true,
-    'UI defect: .pg-lab-tabs (App.css) has no flex-wrap, so its 6 tab buttons overflow the ' +
-      'sidebar in one unwrapped row; the last one, "Replay", renders past the viewport\'s ' +
-      'right edge at any reasonable width (reproduced at 1280px and 1600px) — a real pointer ' +
-      'click never reaches it (only a script-dispatched click, bypassing hit-testing, lands). ' +
-      "Failing step: page.getByRole('button', { name: 'Replay' }).click() hangs indefinitely.",
-  );
   await gotoApp(page);
   await resetToEmptyModel(page);
 
