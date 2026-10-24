@@ -1,5 +1,5 @@
 import { contextActionsFor } from '@istar-ts/actions';
-import type { LinkToolEntryDescription, PaletteEntryDescription } from '@istar-ts/core';
+import type { LinkToolEntryDescription, Metamodel, PaletteEntryDescription } from '@istar-ts/core';
 import type { AnyIstarRegistry, LinkToolEntry } from '@istar-ts/react';
 import { applyExtensions, registryForMetamodel } from '@istar-ts/react';
 import { describe, expect, it } from 'vitest';
@@ -11,12 +11,40 @@ function nfrRegistry(): AnyIstarRegistry {
   ]);
 }
 
-/** The core-relevant fields of a live registry's palette entry, for comparison with a description. */
+/** The core-relevant fields of a palette entry, for comparing a description with the live registry. */
 function corePart(
   entry: PaletteEntryDescription | LinkToolEntryDescription,
 ): Pick<PaletteEntryDescription, 'label' | 'order' | 'section' | 'group'> {
   const { label, order, section, group } = entry;
   return { label, order, section, group };
+}
+
+type CorePalette = Readonly<
+  Record<
+    string,
+    | { readonly elements: ReturnType<typeof corePart> | false }
+    | { readonly links: readonly ReturnType<typeof corePart>[] | false }
+  >
+>;
+
+/** `NFR_PALETTE`'s and the live registry's palette entries, boiled down to their core fields. */
+function corePalettes(metamodel: Metamodel<string, string>): readonly [CorePalette, CorePalette] {
+  const registry = nfrRegistry();
+  const elements = NFR_PALETTE.elements as Readonly<Record<string, PaletteEntryDescription>>;
+  const links = NFR_PALETTE.links as Readonly<Record<string, readonly LinkToolEntryDescription[]>>;
+  const live: Record<string, unknown> = {};
+  const described: Record<string, unknown> = {};
+  for (const kind of metamodel.elements.keys()) {
+    const entry = registry.elements[kind]?.palette as PaletteEntryDescription | false;
+    live[kind] = { elements: entry === false ? false : corePart(entry) };
+    described[kind] = { elements: corePart(elements[kind]!) };
+  }
+  for (const kind of metamodel.links.keys()) {
+    const entries = registry.links[kind]?.palette as readonly LinkToolEntry[] | false;
+    live[kind] = { links: entries === false ? false : entries.map(corePart) };
+    described[kind] = { links: links[kind]!.map(corePart) };
+  }
+  return [live as CorePalette, described as CorePalette];
 }
 
 describe('NFR_PALETTE', () => {
@@ -28,29 +56,8 @@ describe('NFR_PALETTE', () => {
     );
   });
 
-  it('matches the live registry’s label, order and section for every NFR element kind', () => {
-    const registry = nfrRegistry();
-    for (const kind of NFR.elements.keys()) {
-      const live = registry.elements[kind]?.palette;
-      expect(live, kind).not.toBe(false);
-      expect(corePart(live as PaletteEntryDescription), kind).toEqual(
-        corePart(NFR_PALETTE.elements[kind] as PaletteEntryDescription),
-      );
-    }
-  });
-
-  it('matches the live registry’s label, order, section and group for every NFR link kind', () => {
-    const registry = nfrRegistry();
-    for (const kind of NFR.links.keys()) {
-      const live = registry.links[kind]?.palette;
-      const described = NFR_PALETTE.links[kind];
-      if (described === false || live === false) {
-        expect(live, kind).toBe(false);
-        expect(described, kind).toBe(false);
-        continue;
-      }
-      const liveEntries = live as readonly LinkToolEntry[];
-      expect(liveEntries.map(corePart), kind).toEqual(described.map(corePart));
-    }
+  it('matches the live registry’s label, order, section and group for every NFR kind', () => {
+    const [live, described] = corePalettes(NFR as unknown as Metamodel<string, string>);
+    expect(live).toEqual(described);
   });
 });

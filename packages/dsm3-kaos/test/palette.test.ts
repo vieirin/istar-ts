@@ -2,6 +2,7 @@ import { contextActionsFor } from '@istar-ts/actions';
 import type {
   AnyMetamodel,
   LinkToolEntryDescription,
+  Metamodel,
   PaletteEntryDescription,
 } from '@istar-ts/core';
 import type { AnyIstarRegistry, ElementToolEntry, LinkToolEntry } from '@istar-ts/react';
@@ -15,7 +16,7 @@ function registryFor(metamodel: AnyMetamodel): AnyIstarRegistry {
   ]);
 }
 
-/** The core-relevant fields of a live registry's palette entry, for comparison with a description. */
+/** The core-relevant fields of a palette entry, for comparing a description with the live registry. */
 function corePart(
   entry: PaletteEntryDescription | LinkToolEntryDescription,
 ): Pick<PaletteEntryDescription, 'label' | 'order' | 'section' | 'group'> {
@@ -23,48 +24,41 @@ function corePart(
   return { label, order, section, group };
 }
 
-/**
- * `KAOS_PALETTE`/`KAOS_OBSTACLES_PALETTE` must describe the same palette react's live registry
- * builds (`registryForMetamodel` + `kaosExtension`), so a headless host sees what the canvas
- * does. Icon and title are react presentation and aren't compared.
- */
-function expectElementsMatch(
-  description: Readonly<
-    Record<string, PaletteEntryDescription | readonly PaletteEntryDescription[] | false>
-  >,
-  registry: AnyIstarRegistry,
-  kinds: readonly string[],
-): void {
-  for (const kind of kinds) {
-    const described = description[kind];
-    const live = registry.elements[kind]?.palette;
-    if (described === false || live === false) {
-      expect(live, kind).toBe(false);
-      expect(described, kind).toBe(false);
-      continue;
-    }
-    expect(corePart(live as ElementToolEntry), kind).toEqual(
-      corePart(described as PaletteEntryDescription),
-    );
-  }
-}
+type CorePalette = Readonly<
+  Record<
+    string,
+    | { readonly elements: ReturnType<typeof corePart> | false }
+    | { readonly links: readonly ReturnType<typeof corePart>[] | false }
+  >
+>;
 
-function expectLinksMatch(
-  description: Record<string, readonly LinkToolEntryDescription[] | false>,
-  registry: AnyIstarRegistry,
-  kinds: readonly string[],
-): void {
-  for (const kind of kinds) {
-    const described = description[kind];
-    const live = registry.links[kind]?.palette;
-    if (described === false || live === false) {
-      expect(live, kind).toBe(false);
-      expect(described, kind).toBe(false);
-      continue;
-    }
-    const liveEntries = live as readonly LinkToolEntry[];
-    expect(liveEntries.map(corePart), kind).toEqual((described ?? []).map(corePart));
+/** `description`'s and the live registry's palette entries, boiled down to their core fields. */
+function corePalettes(
+  metamodel: Metamodel<string, string>,
+  description: Pick<typeof KAOS_PALETTE, 'elements' | 'links'>,
+): readonly [CorePalette, CorePalette] {
+  const registry = registryFor(metamodel);
+  const elements = description.elements as Readonly<
+    Record<string, PaletteEntryDescription | false>
+  >;
+  const links = description.links as Readonly<
+    Record<string, readonly LinkToolEntryDescription[] | false>
+  >;
+  const live: Record<string, unknown> = {};
+  const described: Record<string, unknown> = {};
+  for (const kind of metamodel.elements.keys()) {
+    const entry = registry.elements[kind]?.palette as ElementToolEntry | false;
+    const given = elements[kind]!;
+    live[kind] = { elements: entry === false ? false : corePart(entry) };
+    described[kind] = { elements: given === false ? false : corePart(given) };
   }
+  for (const kind of metamodel.links.keys()) {
+    const entries = registry.links[kind]?.palette as readonly LinkToolEntry[] | false;
+    const given = links[kind]!;
+    live[kind] = { links: entries === false ? false : entries.map(corePart) };
+    described[kind] = { links: given === false ? false : given.map(corePart) };
+  }
+  return [live as CorePalette, described as CorePalette];
 }
 
 describe('KAOS_PALETTE', () => {
@@ -88,16 +82,18 @@ describe('KAOS_PALETTE', () => {
   });
 
   it('matches the live registry’s label, order, section and group for every KAOS kind', () => {
-    const registry = registryFor(KAOS);
-    expectElementsMatch(KAOS_PALETTE.elements, registry, [...KAOS.elements.keys()]);
-    expectLinksMatch(KAOS_PALETTE.links, registry, [...KAOS.links.keys()]);
+    const [live, described] = corePalettes(
+      KAOS as unknown as Metamodel<string, string>,
+      KAOS_PALETTE,
+    );
+    expect(live).toEqual(described);
   });
 
   it('matches the live registry’s label, order, section and group for every KAOS_OBSTACLES kind', () => {
-    const registry = registryFor(KAOS_OBSTACLES);
-    expectElementsMatch(KAOS_OBSTACLES_PALETTE.elements, registry, [
-      ...KAOS_OBSTACLES.elements.keys(),
-    ]);
-    expectLinksMatch(KAOS_OBSTACLES_PALETTE.links, registry, [...KAOS_OBSTACLES.links.keys()]);
+    const [live, described] = corePalettes(
+      KAOS_OBSTACLES as unknown as Metamodel<string, string>,
+      KAOS_OBSTACLES_PALETTE,
+    );
+    expect(live).toEqual(described);
   });
 });
