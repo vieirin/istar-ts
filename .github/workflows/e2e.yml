@@ -1,5 +1,5 @@
-# Runs the playground's Playwright suite (#48) on every pull request. Not a required status
-# check yet — the orchestrator promotes it once it's proven stable (see #48).
+# Runs the playground's Playwright suite (#48) on every pull request. `e2e` is a required status
+# check in the main branch ruleset, next to `check` and `test`.
 name: E2E
 
 on:
