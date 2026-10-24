@@ -98,9 +98,13 @@ export interface IstarEditor {
   /** Checks a connection for the current tool (dependencies check depender → dependee). */
   checkConnection(source: string, target: string, tool?: Tool | null): LinkCheck;
   /**
-   * `surface` tags the call for `dispatcherFor` (see `dispatcherFor`). Pass it only when the
-   * caller is itself surface-specific; `<IstarInspector>` passes `'inspector'`. Omitted (host
-   * code outside the inspector, e.g. a toolbar button), calls go through the base `dispatcher`.
+   * `surface` tags the call for `dispatcherFor` (see `dispatcherFor`). Pass `'inspector'` only
+   * from a component rendered in the inspector panel (`<IstarInspector>` itself, or a per-kind
+   * inspector the registry provides, e.g. `HubPartInspector`'s own call for the hub it inlines).
+   * A registry inspector that only forwards the `actions` it's given (the common case) needs no
+   * change: it inherits whatever surface the call that rendered it used. Omitted (host code
+   * outside the inspector, e.g. a toolbar button, or a canvas node's inline rename), calls go
+   * through the base `dispatcher`.
    */
   elementActions(id: string, surface?: IstarSurface): ElementActions;
   linkActions(id: string, surface?: IstarSurface): LinkActions;
@@ -205,9 +209,14 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
   /**
    * Wraps `dispatcher` per surface, so a host (e.g. the playground's action log) can tell which
    * part of the editor sent an action without a protocol change. The canvas dispatches through
-   * `dispatcherFor('canvas')`; `<IstarInspector>` through `dispatcherFor('inspector')`.
-   * `elementActions`/`linkActions` called without a `surface` (host code outside the inspector)
-   * use `dispatcher` directly, not this. Omitted: both surfaces use `dispatcher`, unchanged.
+   * `dispatcherFor('canvas')`. `'inspector'` covers calls made by components rendered in the
+   * inspector panel: `<IstarInspector>` itself, and the per-kind inspector components the
+   * registry provides (when one calls `elementActions`/`linkActions` directly, e.g.
+   * `HubPartInspector`'s own call for the hub it inlines — most just forward the `actions` prop
+   * they're given, which already carries the right surface). `elementActions`/`linkActions`
+   * called without a `surface` (host code outside the inspector, e.g. a toolbar button, or a
+   * canvas node's inline rename) use `dispatcher` directly, not this. Omitted: both surfaces use
+   * `dispatcher`, unchanged.
    */
   readonly dispatcherFor?: (surface: IstarSurface) => ActionDispatcher<EK, LK>;
   /**
