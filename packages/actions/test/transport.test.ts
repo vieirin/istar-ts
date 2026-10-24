@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { ISTAR_2_0, createModelStore } from '@istar-ts/core';
 import type { ActionDispatcher, IstarAction, ModelSourceChangedAction } from '../src';
 import { connectDispatcher, createActionDispatcher, createRemoteDispatcher } from '../src';
@@ -66,11 +66,14 @@ describe('connectDispatcher / createRemoteDispatcher', () => {
 
     store.addElement({ kind: 'istar.Task', id: 'extra', x: 0, y: 0 });
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const changed = received.find(
-      (a): a is ModelSourceChangedAction => a.kind === 'sourceModelChanged',
-    );
-    expect(changed).toBeDefined();
+    // The notification crosses a MessageChannel, which isn't ordered before a timer: poll.
+    const changed = await vi.waitFor(() => {
+      const found = received.find(
+        (a): a is ModelSourceChangedAction => a.kind === 'sourceModelChanged',
+      );
+      expect(found).toBeDefined();
+      return found;
+    });
     expect(changed?.source).toBe('edit');
     unsubscribe();
   });
