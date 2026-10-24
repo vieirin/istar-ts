@@ -29,6 +29,66 @@ function setUp() {
 }
 
 describe('replayLog', () => {
+  test('replays glspUndo/glspRedo to a byte-identical model', async () => {
+    const { store, log, tagged, actorId } = setUp();
+
+    await tagged.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      containerId: actorId,
+      args: { name: 'First goal' },
+    });
+    await tagged.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      containerId: actorId,
+      args: { name: 'Second goal' },
+    });
+    await tagged.dispatch({ kind: 'glspUndo' });
+    await tagged.dispatch({ kind: 'glspRedo' });
+    await tagged.dispatch({ kind: 'glspUndo' });
+
+    const entries = replayableEntries(log.getEntries());
+    expect(entries.map((e) => e.action.kind)).toEqual([
+      'createNode',
+      'createNode',
+      'glspUndo',
+      'glspRedo',
+      'glspUndo',
+    ]);
+
+    const outcome = await replayLog(log.getInitialModel()!, log.getEntries());
+
+    expect(toPistar(outcome.model)).toBe(toPistar(store.getModel()));
+  });
+
+  test('skipping an operation also skips the glspUndo/glspRedo paired with it', async () => {
+    const { log, tagged, actorId } = setUp();
+
+    await tagged.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      containerId: actorId,
+      args: { name: 'Will be skipped' },
+    });
+    await tagged.dispatch({ kind: 'glspUndo' });
+    await tagged.dispatch({ kind: 'glspRedo' });
+
+    const [createEntry, undoEntry, redoEntry] = log.getEntries();
+    const outcome = await replayLog(
+      log.getInitialModel()!,
+      log.getEntries(),
+      new Set([createEntry!.id]),
+    );
+
+    expect(outcome.steps).toHaveLength(3);
+    expect(outcome.steps.map((s) => s.entry)).toEqual([createEntry, undoEntry, redoEntry]);
+    expect(outcome.steps.every((s) => s.skipped)).toBe(true);
+    expect(toPistar(outcome.model)).toBe(toPistar(log.getInitialModel()!));
+  });
+});
+
+describe('replayLog (operations)', () => {
   test('replays a log over a fixture to a byte-identical model', async () => {
     const { store, log, tagged, actorId, otherActorId, elementId, otherElementId } = setUp();
 
