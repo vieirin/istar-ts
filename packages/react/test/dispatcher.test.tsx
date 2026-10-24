@@ -164,4 +164,52 @@ describe('a custom dispatcher prop', () => {
     // The rejected action never created the dependum.
     expect(store.getModel().elements.size).toBe(3);
   });
+
+  // #63: the dispatcher resolves on an already-settled promise, so its rejection reaches
+  // `.then()` as a microtask — before `act()` flushes the commit that would otherwise refresh
+  // `editorRef` first. `capturedOnConnect` is called outside `act()` on purpose, so React's
+  // commit (which needs a macrotask here, since this render uses a concurrent root) stays
+  // pending across that microtask tick, reproducing the race from the issue deterministically.
+  test('a rejected dependency connect rolls back against the latest state, not a stale snapshot', async () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const depender = store.addElement({
+      kind: 'istar.Goal',
+      x: 10,
+      y: 10,
+      parent: actor.id,
+      name: 'Depender',
+    });
+    const dependee = store.addElement({
+      kind: 'istar.Goal',
+      x: 300,
+      y: 10,
+      parent: actor.id,
+      name: 'Dependee',
+    });
+    const dispatcher = rejectingDispatcher(createActionDispatcher(store), 'createEdge');
+    const editorRef: { current?: IstarEditor } = {};
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store} dispatcher={dispatcher}>
+          <Grab onEditor={(e) => (editorRef.current = e)} />
+          <IstarCanvas />
+        </IstarProvider>
+      </div>,
+    );
+    act(() => editorRef.current!.setTool({ type: 'dependency', dependum: 'istar.Goal' }));
+
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    capturedOnConnect!({ source: depender.id, target: dependee.id } as Connection);
+    // Lets the already-settled rejection reach `.then()` before the pending `select`/
+    // `setEditingId` updates from `onConnect` are committed.
+    await Promise.resolve();
+    errors.mockRestore();
+
+    await screen.findByRole('alert');
+    expect(editorRef.current!.selection).toBeNull();
+    expect(editorRef.current!.editingId).toBeNull();
+    // The rejected action never created the dependum.
+    expect(store.getModel().elements.size).toBe(3);
+  });
 });

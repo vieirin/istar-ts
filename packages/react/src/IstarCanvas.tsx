@@ -356,7 +356,19 @@ function Diagram({
   panOnShiftScroll: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
-  const { model, registry, store, tool, readOnly, metamodel, dispatcher, notify } = editor;
+  const {
+    model,
+    registry,
+    store,
+    tool,
+    readOnly,
+    metamodel,
+    dispatcher,
+    notify,
+    select,
+    setEditingId,
+    setTool,
+  } = editor;
   const isActorKind = useCallback(
     (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor',
     [metamodel],
@@ -451,25 +463,24 @@ function Diagram({
     [dispatcher, notify],
   );
 
-  // Read in the `.then()` of a create dispatched optimistically (see `addAt`/`onConnect`):
-  // by then `editor` (and its `selection`/`editingId`/`tool`) may be a later render's than the
-  // one the dispatching closure captured, so those need the latest value, not the stale one.
-  const editorRef = useRef(editor);
-  useLayoutEffect(() => {
-    editorRef.current = editor;
-  });
-
   /**
    * Undoes `addAt`/`onConnect`'s optimistic selection of a client-generated id, once its create
    * comes back rejected: the selection and editing id, if they still name that id (an unrelated
    * selection made meanwhile is left alone), and the tool, to what it was before the attempt.
+   *
+   * `select`/`setEditingId` take an updater (as `useState`'s setter does) so the check runs
+   * against the latest state when React applies it, not a snapshot from whenever this
+   * `.then()` happened to run — a rejection can resolve before React has re-rendered with the
+   * optimistic selection/editing id in the first place.
    */
-  const rollbackOptimisticCreate = useCallback((id: string, previousTool: Tool | null) => {
-    const current = editorRef.current;
-    if (current.selection?.type === 'element' && current.selection.id === id) current.select(null);
-    if (current.editingId === id) current.setEditingId(null);
-    current.setTool(previousTool);
-  }, []);
+  const rollbackOptimisticCreate = useCallback(
+    (id: string, previousTool: Tool | null) => {
+      select((prev) => (prev?.type === 'element' && prev.id === id ? null : prev));
+      setEditingId((prev) => (prev === id ? null : prev));
+      setTool(previousTool);
+    },
+    [select, setEditingId, setTool],
+  );
 
   const onNodeDragStop = useCallback(
     (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
@@ -736,7 +747,6 @@ function Diagram({
     [editor],
   );
 
-  const { select } = editor;
   // A layout effect runs before React Flow's passive effects adopt the new nodes and report.
   useLayoutEffect(() => {
     rendered.current = { nodes, edges };
