@@ -67,6 +67,12 @@ importers:
         specifier: ^6.3.5
         version: 6.4.3(@types/node@26.6.3)(lightningcss@1.33.0)
 
+  packages/actions:
+    dependencies:
+      '@istar-ts/core':
+        specifier: workspace:^
+        version: link:../core
+
   packages/core: {}
 
   packages/dsm3-kaos:
