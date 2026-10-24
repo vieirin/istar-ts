@@ -9,6 +9,7 @@ export {
   KAOS_REFINEMENT_HUB,
 } from './kinds';
 export { KAOS_OBSTACLES, kaosObstacleAnalysis } from './obstacles';
+export { KAOS_OBSTACLES_PALETTE, KAOS_PALETTE } from './palette';
 export type {
   KaosDeclaredElementKind,
   KaosDeclaredLinkKind,

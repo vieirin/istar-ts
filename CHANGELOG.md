@@ -82,9 +82,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 - **playground:** the script console's kind list is `HANDLED_ACTION_KINDS.operations`, replacing
   its own mirrored copy; the protocol lab's replay injects a new n-ary hub's recorded leg/end ids
   too, closing the gap `replayLog.ts` used to document.
+- **dsm3-kaos, dsm3-nfr:** `KAOS_PALETTE`/`KAOS_OBSTACLES_PALETTE` and `NFR_PALETTE` are
+  React-free `PaletteDescription`s (`@istar-ts/core`) for each dialect's kinds, exported from the
+  packages' root and their React-free `./metamodel` subpath; `contextActionsFor`
+  (`@istar-ts/actions`) can now answer "what can I add here" for a KAOS or NFR model without
+  `@istar-ts/react`. `kaosExtension`/`nfrExtension` derive their palette entries' label, order,
+  section and group from them, adding titles, icons and shapes as before (palette output
+  unchanged).
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
-istar-ts#31, istar-ts#57, istar-ts#60.
+istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
 
 ## 0.14.0
 

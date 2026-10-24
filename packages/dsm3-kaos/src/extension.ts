@@ -2,6 +2,11 @@
  * How KAOS looks and what its palette offers, as a react registry extension. Labels and titles
  * come from DSM3-goals' `language_kaos_ui.metamodel.js`, shapes from `language_kaos_shapes.js`.
  */
+import type {
+  ElementToolEntryDescription,
+  LinkToolEntryDescription,
+  PaletteEntryDescription,
+} from '@istar-ts/core';
 import { linkIcon } from '@istar-ts/react';
 import type { IstarExtension } from '@istar-ts/react';
 import { AssignmentGlyph, ConflictGlyph } from './glyphs';
@@ -11,6 +16,7 @@ import type {
   KaosObstacleElementKind,
   KaosObstacleLinkKind,
 } from './kinds';
+import { KAOS_OBSTACLES_PALETTE } from './palette';
 import {
   behavioralGoalProperties,
   conflictProperties,
@@ -30,13 +36,22 @@ import {
   KAOS_SHAPES,
 } from './shapes';
 
-function addNode(label: string, article: string, order: number) {
+/** An element's palette entry (`KAOS_OBSTACLES_PALETTE`), with the title piStar-ext shows. */
+function addNode(
+  value: PaletteEntryDescription | readonly ElementToolEntryDescription[] | false,
+  article: string,
+) {
+  const entry = value as PaletteEntryDescription;
   return {
-    label,
-    title: `Adding ${label}: click on the diagram to add ${article} ${label}`,
-    order,
-    section: 'elements',
+    ...entry,
+    title: `Adding ${entry.label}: click on the diagram to add ${article} ${entry.label}`,
   };
+}
+
+/** A link kind's single palette entry (`KAOS_OBSTACLES_PALETTE`), with its title. */
+function addLink(entries: readonly LinkToolEntryDescription[] | false, title: string) {
+  const entry = (entries as readonly LinkToolEntryDescription[])[0]!;
+  return [{ ...entry, title }];
 }
 
 /**
@@ -54,20 +69,20 @@ export const kaosExtension: IstarExtension<
     'kaos.BehavioralGoal': {
       shape: KAOS_SHAPES['kaos.BehavioralGoal'],
       properties: behavioralGoalProperties,
-      palette: addNode('Behavioral Goal', 'a', 10),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaos.BehavioralGoal'], 'a'),
     },
     'kaos.Softgoal': {
       shape: KAOS_SHAPES['kaos.Softgoal'],
       properties: softgoalProperties,
-      palette: addNode('Softgoal', 'a', 11),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaos.Softgoal'], 'a'),
     },
     'kaos.Agent': {
       shape: KAOS_SHAPES['kaos.Agent'],
-      palette: addNode('Agent', 'an', 12),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaos.Agent'], 'an'),
     },
     'kaos.EnvironmentAgent': {
       shape: KAOS_SHAPES['kaos.EnvironmentAgent'],
-      palette: addNode('Environment Agent', 'an', 13),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaos.EnvironmentAgent'], 'an'),
     },
     // The refinement's circle: drawn and inspected by react's hub defaults; its schema is the
     // refinement's, as DSM3 saves the refinement's properties on it.
@@ -75,13 +90,13 @@ export const kaosExtension: IstarExtension<
     'kaos.DomainProperty': {
       shape: KAOS_SHAPES['kaos.DomainProperty'],
       properties: domainPropertyProperties,
-      palette: addNode('Domain Property', 'a', 14),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaos.DomainProperty'], 'a'),
     },
     // Obstacle analysis (KAOS_OBSTACLES).
     'kaosObstacles.Obstacle': {
       shape: KAOS_OBSTACLE_SHAPES['kaosObstacles.Obstacle'],
       properties: obstacleProperties,
-      palette: addNode('Obstacle', 'an', 15),
+      palette: addNode(KAOS_OBSTACLES_PALETTE.elements['kaosObstacles.Obstacle'], 'an'),
     },
   },
   links: {
@@ -90,15 +105,10 @@ export const kaosExtension: IstarExtension<
       line: { marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
       // Defaults for a new refinement's hub (react puts them there when connecting).
       properties: refinementProperties,
-      palette: [
-        {
-          label: 'Refinement',
-          title:
-            'Add Refinement link: drag from a sub-goal to the goal it refines; drop on the circle of an existing refinement to add a leg',
-          order: 40,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaos.RefinementLink'],
+        'Add Refinement link: drag from a sub-goal to the goal it refines; drop on the circle of an existing refinement to add a leg',
+      ),
     },
     'kaos.ResponsibilityAssignment': {
       line: { marker: false },
@@ -108,15 +118,10 @@ export const kaosExtension: IstarExtension<
         glyph: KAOS_ASSIGNMENT_GLYPH,
       }),
       labelComponent: AssignmentGlyph,
-      palette: [
-        {
-          label: 'Responsibility Assignment',
-          title:
-            'Add Responsibility Assignment: drag from the agent to the element it is responsible for',
-          order: 41,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaos.ResponsibilityAssignment'],
+        'Add Responsibility Assignment: drag from the agent to the element it is responsible for',
+      ),
     },
     'kaos.Conflict': {
       line: { marker: false },
@@ -124,50 +129,33 @@ export const kaosExtension: IstarExtension<
       icon: linkIcon('kaos.Conflict', undefined, { marker: null, glyph: KAOS_CONFLICT_GLYPH }),
       labelComponent: ConflictGlyph,
       properties: conflictProperties,
-      palette: [
-        {
-          label: 'Conflict',
-          title: 'Add Conflict link: drag from one conflicting element to the other',
-          order: 42,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaos.Conflict'],
+        'Add Conflict link: drag from one conflicting element to the other',
+      ),
     },
     // Obstacle analysis (KAOS_OBSTACLES).
     'kaosObstacles.ObstacleRefinementLink': {
       line: { marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
-      palette: [
-        {
-          label: 'Obstacle Refinement',
-          title:
-            'Add Obstacle Refinement link: drag from a sub-obstacle or domain property to the obstacle it refines; drop on the circle of an existing refinement to add a leg',
-          order: 43,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaosObstacles.ObstacleRefinementLink'],
+        'Add Obstacle Refinement link: drag from a sub-obstacle or domain property to the obstacle it refines; drop on the circle of an existing refinement to add a leg',
+      ),
     },
     'kaosObstacles.ObstructionLink': {
       line: { marker: KAOS_OBSTRUCTION_MARKER },
-      palette: [
-        {
-          label: 'Obstruction',
-          title: 'Add Obstruction link: drag from the obstacle to the goal it obstructs',
-          order: 44,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaosObstacles.ObstructionLink'],
+        'Add Obstruction link: drag from the obstacle to the goal it obstructs',
+      ),
     },
     'kaosObstacles.ResolutionLink': {
       line: { dash: KAOS_RESOLUTION_DASH, marker: KAOS_REFINEMENT_MARKER, markerFilled: true },
       properties: resolutionProperties,
-      palette: [
-        {
-          label: 'Resolution',
-          title: 'Add Resolution link: drag from the resolving goal to the obstacle',
-          order: 45,
-          section: 'elements',
-        },
-      ],
+      palette: addLink(
+        KAOS_OBSTACLES_PALETTE.links['kaosObstacles.ResolutionLink'],
+        'Add Resolution link: drag from the resolving goal to the obstacle',
+      ),
     },
   },
 };
