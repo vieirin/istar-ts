@@ -3,7 +3,7 @@ import { createModelStore, defineProperties, prop } from '@istar-ts/core';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { useEffect } from 'react';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import type { InspectorProps, IstarEditor, IstarRegistry } from '../src';
 import { IstarInspector, IstarProvider, createRegistry, useIstarEditor } from '../src';
 import type { IstarElement } from '@istar-ts/core';
@@ -110,6 +110,71 @@ describe('IstarInspector', () => {
     setup(createRegistry({ elements: { 'istar.Resource': { inspector: false } } }));
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(screen.getByRole('complementary', { name: 'Inspector' }).textContent).toBe('');
+  });
+
+  test('resize handle: drag changes width, arrow keys step it, double-click resets, width clamps', () => {
+    const onInspectorWidthChange = vi.fn<(width: number) => void>();
+    render(
+      <IstarProvider store={createModelStore()}>
+        <IstarInspector
+          defaultInspectorWidth={300}
+          onInspectorWidthChange={onInspectorWidthChange}
+        />
+      </IstarProvider>,
+    );
+    const inspector = screen.getByRole('complementary', { name: 'Inspector' }) as HTMLElement;
+    const handle = screen.getByRole('separator', { name: 'Resize inspector' });
+    expect(inspector.style.width).toBe('300px');
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 500 });
+    fireEvent.pointerMove(handle, { clientX: 480 });
+    expect(inspector.style.width).toBe('320px');
+    expect(onInspectorWidthChange).toHaveBeenLastCalledWith(320);
+    fireEvent.pointerUp(handle, { clientX: 480 });
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(inspector.style.width).toBe('336px');
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(inspector.style.width).toBe('304px');
+
+    fireEvent.doubleClick(handle);
+    expect(inspector.style.width).toBe('300px');
+
+    // Clamps to the minimum.
+    fireEvent.pointerDown(handle, { button: 0, clientX: 0 });
+    fireEvent.pointerMove(handle, { clientX: 1000 });
+    expect(inspector.style.width).toBe('240px');
+    fireEvent.pointerUp(handle, { clientX: 1000 });
+
+    // Clamps to the (viewport-relative) maximum.
+    fireEvent.pointerDown(handle, { button: 0, clientX: 0 });
+    fireEvent.pointerMove(handle, { clientX: -100_000 });
+    expect(inspector.style.width).toBe(`${window.innerWidth * 0.6}px`);
+  });
+
+  test('resize handle: controlled width is driven by the inspectorWidth prop', () => {
+    const onInspectorWidthChange = vi.fn<(width: number) => void>();
+    const { rerender } = render(
+      <IstarProvider store={createModelStore()}>
+        <IstarInspector inspectorWidth={400} onInspectorWidthChange={onInspectorWidthChange} />
+      </IstarProvider>,
+    );
+    const inspector = screen.getByRole('complementary', { name: 'Inspector' }) as HTMLElement;
+    const handle = screen.getByRole('separator', { name: 'Resize inspector' });
+    expect(inspector.style.width).toBe('400px');
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    // Uncommitted locally: the host owns the width and hasn't re-rendered with a new prop.
+    expect(inspector.style.width).toBe('400px');
+    expect(onInspectorWidthChange).toHaveBeenLastCalledWith(416);
+
+    rerender(
+      <IstarProvider store={createModelStore()}>
+        <IstarInspector inspectorWidth={416} onInspectorWidthChange={onInspectorWidthChange} />
+      </IstarProvider>,
+    );
+    expect(inspector.style.width).toBe('416px');
   });
 
   test('reset to default colour removes backgroundColor from display', () => {

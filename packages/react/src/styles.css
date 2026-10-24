@@ -30,6 +30,9 @@
   --istar-error-text: #8a1c1c;
   --istar-info-bg: #eef4fd;
   --istar-info-text: #1d3f7a;
+  --istar-inspector-width: 340px;
+  --istar-inspector-min-width: 240px;
+  --istar-inspector-max-width: 60vw;
   font-family: var(--istar-font-family);
   font-size: var(--istar-font-size);
   color: var(--istar-text);
@@ -577,12 +580,33 @@
 /* Inspector */
 .istar-inspector {
   box-sizing: border-box;
-  width: 280px;
+  position: relative;
+  width: var(--istar-inspector-width);
+  min-width: var(--istar-inspector-min-width);
+  max-width: var(--istar-inspector-max-width);
   flex: none;
   overflow-y: auto;
   padding: 12px;
   background: var(--istar-panel-bg);
   border-left: 1px solid var(--istar-panel-border);
+}
+/* The drag handle sits inside the inspector's canvas-facing (left) edge; it stays inside the
+ * panel's own box so `overflow-y: auto` above doesn't clip it when it's dragged past the edge. */
+.istar-inspector-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.istar-inspector-handle:hover,
+.istar-inspector-handle:focus-visible {
+  background: var(--istar-selection);
+  opacity: 0.4;
+  outline: none;
 }
 .istar-inspector-body {
   display: flex;

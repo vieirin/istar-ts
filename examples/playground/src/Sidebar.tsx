@@ -3,9 +3,17 @@ import type { AnyIstarModel, ModelStore, PropertySchema } from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector, useIstarEditor } from '@istar-ts/react';
 import type { ReactElement } from 'react';
+import { useState } from 'react';
 import { ProtocolLab } from './lab/ProtocolLab';
 import type { LogStore } from './lab/log';
 import type { TaggedDispatcher } from './lab/tagClient';
+
+const INSPECTOR_WIDTH_STORAGE_KEY = 'istar-ts-playground:inspectorWidth';
+
+function loadInspectorWidth(): number | undefined {
+  const stored = Number(localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY));
+  return Number.isFinite(stored) && stored > 0 ? stored : undefined;
+}
 
 export function Sidebar({
   model,
@@ -37,12 +45,21 @@ export function Sidebar({
   const propertyIssues = validateModelProperties(model, schemas);
   const nameOf = (id: string): string => model.elements.get(id)?.name ?? id;
   const { select } = useIstarEditor();
+  const [inspectorWidth, setInspectorWidth] = useState(loadInspectorWidth);
+  const onInspectorWidthChange = (width: number): void => {
+    setInspectorWidth(width);
+    localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(width));
+  };
 
   return (
     <div className="pg-aside">
       <section className="pg-aside-section">
         <h2 className="pg-aside-heading">Inspector</h2>
-        <IstarInspector className="pg-inspector" />
+        <IstarInspector
+          className="pg-inspector"
+          inspectorWidth={inspectorWidth}
+          onInspectorWidthChange={onInspectorWidthChange}
+        />
       </section>
       <section className="pg-aside-section">
         <h2 className="pg-aside-heading">Protocol lab</h2>

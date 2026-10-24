@@ -7,7 +7,12 @@ Versions are published from GitHub release tags; see the release notes for full 
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
   GLSP client and the side-by-side view are disabled pending #83 and #85).
-
+- **react:** `IstarInspector`'s width is a CSS variable (`--istar-inspector-width`, default
+  340px, up from a fixed 280px) with min/max variables (`--istar-inspector-min-width` 240px,
+  `--istar-inspector-max-width` 60vw), and resizable by dragging a handle on its canvas-facing
+  edge (`role="separator"`, arrow keys step it, double-click resets it). New optional props
+  `inspectorWidth` (controlled), `defaultInspectorWidth` and `onInspectorWidthChange` let a host
+  control or persist the width; the playground persists it in `localStorage`.
 - **react:** `IstarProvider`/`IstarCanvas` accept an optional `dispatcherFor?: (surface: IstarSurface) => ActionDispatcher`
   prop (`IstarSurface = 'canvas' | 'inspector'`) so a host can tell which surface sent an action
   without a protocol change. The canvas's own handlers dispatch through `dispatcherFor('canvas')`.
