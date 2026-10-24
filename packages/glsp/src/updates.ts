@@ -15,6 +15,8 @@ import {
   ClientAction,
   ClientActionForwarder,
   ClientActionKinds,
+  ClientId,
+  ClientSessionManager,
   DeleteMarkersAction,
   EndProgressAction,
   ExportSvgAction,
@@ -46,7 +48,12 @@ import {
   UpdateModelAction,
   UpdateProgressAction,
 } from '@eclipse-glsp/server';
-import type { Action, ActionHandler, ClientSessionInitializer } from '@eclipse-glsp/server';
+import type {
+  Action,
+  ActionHandler,
+  ClientSessionInitializer,
+  ClientSessionListener,
+} from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import type { IstarModelState } from './model-state';
 
@@ -61,26 +68,36 @@ export const ISTAR_STORE_CHANGED = 'istar.storeChanged';
  * Hears the session's dispatcher and queues an update for every change this session did not
  * make (`IstarModelState.ownChange`): `updateModel` after an edit, undo, redo or load, and
  * `setDirtyState` after a save. Changes that come before the queued update is sent share it.
+ *
+ * It unsubscribes when its session is disposed, and disposes the model state then (which stops a
+ * dispatcher the session owns): on a shared store (`IstarSharedModel`) the dispatcher outlives
+ * every session.
  */
 @injectable()
 export class IstarStoreListener implements ClientSessionInitializer {
   protected readonly state: IstarModelState;
   protected readonly actions: ActionDispatcher;
   protected readonly logger: Logger;
+  protected readonly sessions: ClientSessionManager;
+  protected readonly clientId: string;
   private pending: 'model' | 'dirty' | undefined;
 
   constructor(
     @inject(ModelState) state: IstarModelState,
     @inject(ActionDispatcher) actions: ActionDispatcher,
     @inject(Logger) logger: Logger,
+    @inject(ClientSessionManager) sessions: ClientSessionManager,
+    @inject(ClientId) clientId: string,
   ) {
     this.state = state;
     this.actions = actions;
     this.logger = logger;
+    this.sessions = sessions;
+    this.clientId = clientId;
   }
 
   initialize(): void {
-    this.state.dispatcher.subscribe((action) => {
+    const unsubscribe = this.state.dispatcher.subscribe((action) => {
       if (this.state.isOwnChange) return;
       if (action.kind === 'sourceModelChanged') this.schedule('model');
       // A save made through GLSP is reported by GLSP's own save handler.
@@ -92,6 +109,14 @@ export class IstarStoreListener implements ClientSessionInitializer {
         this.schedule('dirty');
       }
     });
+    const listener: ClientSessionListener = {
+      sessionDisposed: () => {
+        unsubscribe();
+        this.state.dispose();
+        this.sessions.removeListener(listener);
+      },
+    };
+    this.sessions.addListener(listener, this.clientId);
   }
 
   /** What the queued update has to send; clears it. */

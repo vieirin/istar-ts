@@ -4,7 +4,7 @@
 import { parsePistar } from '@istar-ts/core';
 import { GLSPServerError, ModelState, SOURCE_URI_ARG } from '@eclipse-glsp/server';
 import type { RequestModelAction, SaveModelAction, SourceModelStorage } from '@eclipse-glsp/server';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
 import { IstarGlspContribution } from './contribution';
 import { PistarFiles } from './files';
 import type { IstarModelState } from './model-state';
@@ -12,7 +12,8 @@ import type { IstarModelState } from './model-state';
 /**
  * Loads the file named by `requestModel`'s `sourceUri` option with `parsePistar`, in the
  * contribution's metamodel (extended by the file's own `"metamodel"` block unless the
- * contribution turns `fileMetamodel` off), into the model state's store.
+ * contribution turns `fileMetamodel` off), into the model state's store. On a shared model
+ * (`IstarSharedModel`) it loads nothing: the host owns the model, and every session shows it.
  *
  * Saves through the dispatcher's `saveModel`, so a save from GLSP and one from any other client
  * of the dispatcher mark the same model clean (the dispatcher's `isDirty`, which
@@ -22,12 +23,12 @@ import type { IstarModelState } from './model-state';
 @injectable()
 export class IstarSourceModelStorage implements SourceModelStorage {
   protected readonly modelState: IstarModelState;
-  protected readonly files: PistarFiles;
+  protected readonly files: PistarFiles | undefined;
   protected readonly contribution: IstarGlspContribution;
 
   constructor(
     @inject(ModelState) modelState: IstarModelState,
-    @inject(PistarFiles) files: PistarFiles,
+    @inject(PistarFiles) @optional() files: PistarFiles | undefined,
     @inject(IstarGlspContribution) contribution: IstarGlspContribution,
   ) {
     this.modelState = modelState;
@@ -36,10 +37,12 @@ export class IstarSourceModelStorage implements SourceModelStorage {
   }
 
   async loadSourceModel(action: RequestModelAction): Promise<void> {
+    if (this.modelState.isShared) return;
     const uri = action.options?.[SOURCE_URI_ARG];
     if (typeof uri !== 'string') {
       throw new GLSPServerError(`requestModel needs a "${SOURCE_URI_ARG}" option`);
     }
+    if (!this.files) throw new GLSPServerError('the host binds no PistarFiles to load from');
     const text = await this.files.read(uri);
     const model = parsePistar(text, {
       metamodel: this.contribution.metamodel,

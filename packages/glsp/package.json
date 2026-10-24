@@ -93,7 +93,10 @@
     }
   },
   "devDependencies": {
+    "@eclipse-glsp/server-mcp": "2.8.0",
     "@istar-ts/dsm3-kaos": "workspace:^",
-    "@istar-ts/dsm3-nfr": "workspace:^"
+    "@istar-ts/dsm3-nfr": "workspace:^",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "vite": "^6.4.3"
   }
 }
