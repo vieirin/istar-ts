@@ -30,6 +30,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
 import { demoDiagnosticsFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
 import { rationalAgentsExtension } from './extensions/rationalAgents';
+import { createLogStore } from './lab/log';
+import { tagClient } from './lab/tagClient';
 import { Sidebar } from './Sidebar';
 
 const fixtureModules = import.meta.glob('../../../fixtures/**/*.txt', {
@@ -137,6 +139,23 @@ export default function App(): ReactElement {
   const { store, model } = useIstarStore<string, string>(() => createEmptyModel());
   const [dispatcher] = useState<ActionDispatcher<string, string>>(() =>
     createActionDispatcher(store),
+  );
+  // The protocol lab (#45): one log, tagged wrappers over `dispatcher` for each client it can
+  // tell apart. The canvas and the inspector (`@istar-ts/react`) share whatever dispatcher the
+  // provider gets, so both are tagged "UI" — see lab/tagClient.ts.
+  const [log] = useState(() => createLogStore());
+  const [uiDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'UI', log),
+  );
+  const [workerDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Worker', log),
+  );
+  const [scriptDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Script', log),
+  );
+  const labDispatchers = useMemo(
+    () => [uiDispatcher, workerDispatcher, scriptDispatcher],
+    [uiDispatcher, workerDispatcher, scriptDispatcher],
   );
   const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
@@ -309,7 +328,7 @@ export default function App(): ReactElement {
     setRemoteDemoRunning(true);
     const worker = new Worker(new URL('./remote-worker.ts', import.meta.url), { type: 'module' });
     const channel = new MessageChannel();
-    const dispose = connectDispatcher(channel.port1, dispatcher);
+    const dispose = connectDispatcher(channel.port1, workerDispatcher);
     worker.onmessage = () => {
       dispose();
       worker.terminate();
@@ -397,13 +416,21 @@ export default function App(): ReactElement {
       <div className="pg-canvas-wrap">
         <IstarCanvas
           store={store}
-          dispatcher={dispatcher}
+          dispatcher={uiDispatcher}
           extensions={active.extensions}
           palette={bar}
           colorMode={theme}
           linkShape={links}
           diagnostics={extensionId === 'mutrose' ? demoDiagnosticsFor(model) : undefined}
-          aside={<Sidebar model={model} schemas={active.schemas} />}
+          aside={
+            <Sidebar
+              model={model}
+              schemas={active.schemas}
+              log={log}
+              dispatchers={labDispatchers}
+              scriptDispatcher={scriptDispatcher}
+            />
+          }
         />
       </div>
     </div>
