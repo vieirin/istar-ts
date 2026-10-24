@@ -1,0 +1,687 @@
+/**
+ * The dispatcher: the server side of the protocol over a `ModelStore`. Operations run as one
+ * store transaction each and are rejected, model untouched, with `GoalDiagnostic`s; requests
+ * are answered from the model, its metamodel and the palette; store changes reach subscribers
+ * as `ModelSourceChangedAction`s, whoever made them.
+ */
+import {
+  DEFAULT_PALETTE,
+  ModelOperationError,
+  canLink,
+  connectResultToDiagnostic,
+  dependencyEnds,
+  inheritMetamodel,
+  inheritSourceLayout,
+  metamodelOf,
+  toPistarObject,
+  validateModel,
+  validateModelProperties,
+} from '@istar-ts/core';
+import type {
+  AnyIstarModel,
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ConnectResult,
+  CustomProperties,
+  ElementKind,
+  GoalDiagnostic,
+  IstarLink,
+  IstarModel,
+  LinkCheck,
+  LinkKind,
+  ModelChangeEvent,
+  ModelStore,
+  PistarFile,
+  PropertySchema,
+  PropertyShape,
+} from '@istar-ts/core';
+import type {
+  CheckEdgeResultAction,
+  DirtyStateChangeReason,
+  IstarAction,
+  IstarOperation,
+  RequestCheckEdgeAction,
+  RequestContextActions,
+  RequestMarkersAction,
+  RequestModelAction,
+  RequestTypeHintsAction,
+  SaveModelAction,
+  SetContextActions,
+  SetMarkersAction,
+  SetModelAction,
+  SetTypeHintsAction,
+} from './actions';
+import { isOperation, isRequestAction } from './actions';
+import { contextActionsFor, typeHintsFor } from './hints';
+import { diagnosticToMarker } from './markers';
+
+/** The response a request is answered with; `never` for other actions. */
+export type ResponseFor<A> = A extends RequestModelAction
+  ? SetModelAction
+  : A extends RequestTypeHintsAction
+    ? SetTypeHintsAction
+    : A extends RequestCheckEdgeAction
+      ? CheckEdgeResultAction
+      : A extends RequestContextActions
+        ? SetContextActions
+        : A extends RequestMarkersAction
+          ? SetMarkersAction
+          : never;
+
+/**
+ * What dispatching an action did. Plain JSON, like the actions.
+ *
+ * A rejection (`ok: false`) left the model untouched: the same model object, no undo step. Its
+ * diagnostics say why (an unknown element, a link `canLink` refuses, a guard, a property schema).
+ */
+export type ActionResult<R = never> =
+  | {
+      readonly ok: true;
+      /** Ids of the elements, then links, the action added, in model order. */
+      readonly createdIds: readonly string[];
+      /** A request's answer. */
+      readonly response?: R;
+      /** Non-error diagnostics from guards, for an operation that was applied anyway. */
+      readonly diagnostics?: readonly GoalDiagnostic[];
+    }
+  | { readonly ok: false; readonly diagnostics: readonly GoalDiagnostic[] };
+
+export type ActionListener<EK extends string = ElementKind, LK extends string = LinkKind> = (
+  action: IstarAction<EK, LK>,
+) => void;
+
+/**
+ * Sends actions and hears what the other side sends back. Implemented in-process by
+ * `createActionDispatcher`; a transport implements it over a message port.
+ */
+export interface ActionDispatcher<EK extends string = ElementKind, LK extends string = LinkKind> {
+  dispatch<A extends IstarAction<EK, LK>>(action: A): Promise<ActionResult<ResponseFor<A>>>;
+  /**
+   * Hears the actions the dispatcher sends: `ModelSourceChangedAction` after every model change,
+   * `SetDirtyStateAction` when the dirty state flips, and the notifications dispatched to it.
+   * Returns an unsubscribe function.
+   */
+  subscribe(listener: ActionListener<EK, LK>): () => void;
+}
+
+/**
+ * A host's rule, run before each operation is applied (and before each operation of a compound
+ * one, against the model as the previous ones left it). Diagnostics of severity `error` reject
+ * the operation; others are returned with the result.
+ */
+export type ActionGuard<EK extends string = ElementKind, LK extends string = LinkKind> = (
+  operation: IstarOperation<EK, LK>,
+  model: IstarModel<EK, LK>,
+) => readonly GoalDiagnostic[] | void;
+
+export interface ActionDispatcherOptions<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+> {
+  readonly guards?: readonly ActionGuard<EK, LK>[];
+  /** What `RequestContextActions` offers. Default: `DEFAULT_PALETTE` (iStar 2.0's). */
+  readonly palette?: AnyPaletteDescription;
+  /**
+   * Property schemas an operation must not break: an operation that adds an issue
+   * (`validateModelProperties`) is rejected. Their issues are also markers.
+   */
+  readonly schemas?: readonly PropertySchema<PropertyShape, string>[];
+  /** The host's diagnostics (e.g. a `DiagnosticsStore`'s `getAll`), reported as markers. */
+  readonly diagnostics?: () => readonly GoalDiagnostic[];
+  /** Writes the file for `SaveModelAction`; without it, saving is rejected. */
+  readonly save?: (file: PistarFile, action: SaveModelAction) => void | Promise<void>;
+  /** `ModelSourceChangedAction.sourceModelName`, e.g. the file name. Default `''`. */
+  readonly sourceModelName?: string;
+}
+
+export interface StoreActionDispatcher<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+> extends ActionDispatcher<EK, LK> {
+  /** True while the model differs from the one last saved (or loaded, or given at creation). */
+  isDirty(): boolean;
+  /** Stops listening to the store. */
+  dispose(): void;
+}
+
+/** Thrown inside a transaction to roll it back and reject the action. */
+class Rejection extends Error {
+  readonly diagnostics: readonly GoalDiagnostic[];
+  constructor(diagnostics: readonly GoalDiagnostic[]) {
+    super(diagnostics.map((d) => d.message).join('; '));
+    this.diagnostics = diagnostics;
+  }
+}
+
+function reject(message: string, elementId = '', code?: string): never {
+  throw new Rejection([
+    { elementId, severity: 'error', message, ...(code === undefined ? {} : { code }) },
+  ]);
+}
+
+function rejectCheck(
+  check: Extract<LinkCheck, { ok: false }>,
+  endpoints: { readonly source: string; readonly target: string },
+): never {
+  throw new Rejection([connectResultToDiagnostic(check as ConnectResult, endpoints)!]);
+}
+
+function metaOf(model: AnyIstarModel): AnyMetamodel {
+  return metamodelOf(model) as unknown as AnyMetamodel;
+}
+
+/** A model with `links` changed, as the core operations derive one. */
+function withLinks(model: AnyIstarModel, links: ReadonlyMap<string, IstarLink<string>>) {
+  return inheritMetamodel(model, inheritSourceLayout(model, { ...model, links }));
+}
+
+function createdIds(before: AnyIstarModel, after: AnyIstarModel): string[] {
+  const ids: string[] = [];
+  for (const id of after.elements.keys()) if (!before.elements.has(id)) ids.push(id);
+  for (const id of after.links.keys()) if (!before.links.has(id)) ids.push(id);
+  return ids;
+}
+
+function issueKey(d: { readonly id: string; readonly key: string; readonly message: string }) {
+  return `${d.id}\u0000${d.key}\u0000${d.message}`;
+}
+
+function linkIssueDiagnostics(model: AnyIstarModel): GoalDiagnostic[] {
+  return validateModel(model).map((issue) => ({
+    elementId: issue.linkId,
+    severity: 'error',
+    message: issue.message,
+    code: issue.code,
+  }));
+}
+
+/**
+ * A dispatcher over `store`, in-process. Hand it to a transport to serve remote clients.
+ */
+export function createActionDispatcher<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+>(
+  store: ModelStore<EK, LK>,
+  options: ActionDispatcherOptions<EK, LK> = {},
+): StoreActionDispatcher<EK, LK> {
+  const s = store as unknown as ModelStore<string, string>;
+  const guards = (options.guards ?? []) as readonly ActionGuard<string, string>[];
+  const palette = options.palette ?? (DEFAULT_PALETTE as unknown as AnyPaletteDescription);
+  const sourceModelName = options.sourceModelName ?? '';
+  const listeners = new Set<ActionListener<string, string>>();
+
+  let saved: AnyIstarModel = s.getModel();
+  let dirty = false;
+
+  const emit = (action: IstarAction<string, string>): void => {
+    for (const listener of listeners) listener(action);
+  };
+
+  const updateDirty = (reason: DirtyStateChangeReason): void => {
+    const next = s.getModel() !== saved;
+    if (next === dirty) return;
+    dirty = next;
+    emit({ kind: 'setDirtyState', isDirty: next, reason });
+  };
+
+  const REASONS: Record<ModelChangeEvent['source'], DirtyStateChangeReason> = {
+    edit: 'operation',
+    undo: 'undo',
+    redo: 'redo',
+    load: 'external',
+  };
+  const unsubscribe = s.subscribe((event) => {
+    // A load opens a file: the new model is the saved one.
+    if (event.source === 'load') saved = event.model;
+    emit({
+      kind: 'sourceModelChanged',
+      sourceModelName,
+      source: event.source,
+      changes: event.changes,
+    });
+    updateDirty(REASONS[event.source]);
+  });
+
+  // -------------------------------------------------------------------------------------------
+  // Operations
+
+  const requireElement = (id: string) =>
+    s.getModel().elements.get(id) ?? reject(`unknown element "${id}"`, id, 'unknown-element');
+
+  const runGuards = (operation: IstarOperation<string, string>, warnings: GoalDiagnostic[]) => {
+    const errors: GoalDiagnostic[] = [];
+    for (const guard of guards) {
+      for (const d of guard(operation, s.getModel()) ?? []) {
+        (d.severity === 'error' ? errors : warnings).push(d);
+      }
+    }
+    if (errors.length > 0) throw new Rejection(errors);
+  };
+
+  const apply = (operation: IstarOperation<string, string>, warnings: GoalDiagnostic[]): void => {
+    runGuards(operation, warnings);
+    const model = s.getModel();
+    const meta = metaOf(model);
+    switch (operation.kind) {
+      case 'createNode': {
+        const { elementTypeId: kind, containerId, args = {} } = operation;
+        const definition =
+          meta.elements.get(kind) ??
+          reject(`unknown element kind "${kind}" in ${meta.name}`, '', 'unknown-kind');
+        if (definition.role === 'hub') {
+          reject(`a ${definition.label} is created with its link (createEdge)`, '', 'hub-kind');
+        }
+        const container = containerId === undefined ? undefined : requireElement(containerId);
+        if (definition.category === 'node') {
+          // piStar only adds an element where its kind may be: inside an actor, or on paper.
+          if (container && definition.info?.canBeInnerElement === false) {
+            reject(`a ${definition.label} cannot be inside an actor`, containerId, 'container');
+          }
+          if (!container && definition.info?.canBeOnPaper === false) {
+            reject(`a ${definition.label} must be created inside an actor`, '', 'container');
+          }
+        }
+        const location = operation.location ?? container ?? { x: 0, y: 0 };
+        s.addElement({
+          kind,
+          x: location.x,
+          y: location.y,
+          ...(containerId === undefined ? {} : { parent: containerId }),
+          ...(args.id === undefined ? {} : { id: args.id }),
+          ...(args.name === undefined ? {} : { name: args.name }),
+          ...(args.customProperties ? { customProperties: args.customProperties } : {}),
+        });
+        return;
+      }
+      case 'createEdge': {
+        const { elementTypeId: kind, sourceElementId: source, targetElementId: target } = operation;
+        const args = operation.args ?? {};
+        const definition =
+          meta.links.get(kind) ??
+          reject(`unknown link kind "${kind}" in ${meta.name}`, '', 'unknown-kind');
+        if (definition.category === 'dependency') {
+          const dependum = args.dependum ?? {};
+          const dependumKind =
+            dependum.kind ??
+            [...meta.elements.values()].find(
+              (d) => d.category === 'node' && d.role !== 'hub' && d.info?.canBeDependum !== false,
+            )?.kind ??
+            reject(`${meta.name} has no kind that can be a dependum`, '', 'unknown-kind');
+          const result = s.addDependency({
+            depender: source,
+            dependee: target,
+            linkKind: kind,
+            dependum: {
+              kind: dependumKind,
+              ...(dependum.id === undefined ? {} : { id: dependum.id }),
+              ...(dependum.name === undefined ? {} : { name: dependum.name }),
+              ...(dependum.location ? { x: dependum.location.x, y: dependum.location.y } : {}),
+              ...(dependum.customProperties ? { customProperties: dependum.customProperties } : {}),
+            },
+            ...(args.linkIds ? { linkIds: args.linkIds } : {}),
+          });
+          if (!result.ok) rejectCheck(result, { source, target });
+          return;
+        }
+        const values = definition.info.possibleLabels;
+        if (args.value !== undefined && values && !values.includes(args.value)) {
+          reject(
+            `"${args.value}" is not a value of a ${definition.label} link (${values.join(', ')})`,
+            source,
+            'invalid-value',
+          );
+        }
+        const result = s.connect({
+          kind,
+          source,
+          target,
+          ...(args.id === undefined ? {} : { id: args.id }),
+          ...(args.value === undefined ? {} : { label: args.value }),
+          ...(args.name === undefined ? {} : { name: args.name }),
+          ...(args.customProperties ? { customProperties: args.customProperties } : {}),
+        });
+        if (!result.ok) rejectCheck(result, { source, target });
+        return;
+      }
+      case 'deleteElement': {
+        const elements: string[] = [];
+        const links: string[] = [];
+        for (const id of operation.elementIds) {
+          if (model.elements.has(id)) elements.push(id);
+          else if (model.links.has(id)) links.push(id);
+          else reject(`unknown element or link "${id}"`, id, 'unknown-element');
+        }
+        if (elements.length > 0) s.removeElements(elements);
+        // Removing elements may already have taken some of the links with them.
+        for (const id of links) if (s.getModel().links.has(id)) s.disconnect(id);
+        return;
+      }
+      case 'changeBounds': {
+        for (const { elementId, newPosition, newSize } of operation.newBounds) {
+          requireElement(elementId);
+          if (newPosition) s.moveElement(elementId, newPosition.x, newPosition.y);
+          if (newSize) {
+            s.updateElement(elementId, {
+              display: { width: newSize.width, height: newSize.height },
+            });
+          }
+        }
+        return;
+      }
+      case 'changeContainer': {
+        const { elementId, targetContainerId, location } = operation;
+        s.nestElement(elementId, targetContainerId);
+        if (location) s.moveElement(elementId, location.x, location.y);
+        return;
+      }
+      case 'reconnectEdge':
+        reconnect(operation.edgeElementId, operation.sourceElementId, operation.targetElementId);
+        return;
+      case 'applyLabelEdit': {
+        const hash = operation.labelId.indexOf('#');
+        const id = hash < 0 ? operation.labelId : operation.labelId.slice(0, hash);
+        const key = hash < 0 ? undefined : operation.labelId.slice(hash + 1);
+        if (key === undefined) {
+          if (model.elements.has(id)) s.updateElement(id, { name: operation.text });
+          else if (model.links.has(id)) s.updateLink(id, { name: operation.text });
+          else reject(`unknown element or link "${id}"`, id, 'unknown-element');
+        } else {
+          setProperties(id, { [key]: operation.text });
+        }
+        return;
+      }
+      case 'compound':
+        for (const child of operation.operationList) apply(child, warnings);
+        return;
+      case 'istar.addLeg': {
+        const { hubId, sourceElementId: source } = operation;
+        const result = s.addLeg(hubId, source, operation.args?.id ? { id: operation.args.id } : {});
+        if (!result.ok) rejectCheck(result, { source, target: hubId });
+        return;
+      }
+      case 'istar.removeLeg':
+        s.removeLeg(operation.legId);
+        return;
+      case 'istar.setCollapsed': {
+        const element = requireElement(operation.elementId);
+        if (meta.elements.get(element.kind)?.category !== 'actor') {
+          reject(`"${element.id}" is not an actor`, element.id, 'not-an-actor');
+        }
+        s.setCollapsed(element.id, operation.collapsed);
+        return;
+      }
+      case 'istar.updateDiagram': {
+        const { name, width, height, customProperties } = operation.diagram;
+        s.updateDiagram({
+          ...(name === undefined ? {} : { name }),
+          ...(width === undefined ? {} : { width }),
+          ...(height === undefined ? {} : { height }),
+          ...(customProperties === undefined ? {} : { customProperties }),
+        });
+        return;
+      }
+      case 'istar.updateProperties':
+        setProperties(operation.elementId, operation.properties);
+        return;
+      default:
+        reject(`unknown operation "${(operation as { kind: string }).kind}"`, '', 'unknown-action');
+    }
+  };
+
+  /** Sets (or, with `null`, removes) custom properties of an element or link. */
+  const setProperties = (id: string, properties: Readonly<Record<string, string | null>>) => {
+    const model = s.getModel();
+    const owner = model.elements.get(id) ?? model.links.get(id);
+    if (!owner) reject(`unknown element or link "${id}"`, id, 'unknown-element');
+    const next: Record<string, string> = { ...owner.customProperties };
+    for (const [key, value] of Object.entries(properties)) {
+      if (value === null) delete next[key];
+      else if (typeof value === 'string') next[key] = value;
+      else reject(`the value of "${key}" must be a string or null`, id, 'invalid-value');
+    }
+    const customProperties: CustomProperties | null = Object.keys(next).length > 0 ? next : null;
+    if (model.elements.has(id)) s.updateElement(id, { customProperties });
+    else s.updateLink(id, { customProperties });
+  };
+
+  /**
+   * Gives a link new ends, checked with `canLink` against the model without it. The link keeps
+   * its place in the model (and the file), its id and everything else it carries.
+   */
+  const reconnect = (id: string, source: string, target: string): void => {
+    const model = s.getModel();
+    const meta = metaOf(model);
+    const link = model.links.get(id) ?? reject(`unknown link "${id}"`, id, 'unknown-element');
+    if (link.source === source && link.target === target) return;
+    const definition = meta.links.get(link.kind);
+    const others = new Map(model.links);
+    others.delete(id);
+    const without = withLinks(model, others);
+    let check: LinkCheck;
+    if (definition?.category === 'dependency') {
+      // A dependency's link keeps its dependum end; the check is depender → dependee.
+      const dependumAtTarget = model.elements.get(link.target)?.isDependum === true;
+      const dependumId = dependumAtTarget ? link.target : link.source;
+      if ((dependumAtTarget ? target : source) !== dependumId) {
+        reject('a dependency link keeps its dependum', id, 'dependum-endpoint');
+      }
+      const ends = dependencyEnds(model, dependumId);
+      const depender = dependumAtTarget ? source : ends.depender;
+      const dependee = dependumAtTarget ? ends.dependee : target;
+      if (depender === undefined || dependee === undefined) {
+        reject('the dependency is incomplete', id, 'dependum-endpoint');
+      }
+      check = canLink(without, depender, dependee, link.kind);
+      if (!check.ok) rejectCheck(check, { source: depender, target: dependee });
+    } else {
+      // An n-ary link's end stays on its hub, and a leg can't leave a hub without legs.
+      if (definition?.role === 'end' && source !== link.source) {
+        reject('the end of an n-ary link stays on its hub', id, 'hub-target');
+      }
+      if (definition?.role === 'leg' && target !== link.target) {
+        const legs = [...model.links.values()].filter(
+          (l) => l.target === link.target && l.kind === link.kind,
+        );
+        if (legs.length === 1) {
+          reject('the last leg of an n-ary link cannot leave its hub', id, 'hub-target');
+        }
+      }
+      check = canLink(without, source, target, link.kind);
+      if (!check.ok) rejectCheck(check, { source, target });
+    }
+    s.replace(withLinks(model, new Map(model.links).set(id, { ...link, source, target })));
+  };
+
+  const runOperation = (operation: IstarOperation<string, string>): ActionResult => {
+    const before = s.getModel();
+    const warnings: GoalDiagnostic[] = [];
+    s.transaction(() => {
+      apply(operation, warnings);
+      const schemas = options.schemas;
+      if (!schemas || s.getModel() === before) return;
+      const known = new Set(validateModelProperties(before, schemas).map(issueKey));
+      const added = validateModelProperties(s.getModel(), schemas).filter(
+        (issue) => !known.has(issueKey(issue)),
+      );
+      if (added.length > 0) {
+        throw new Rejection(
+          added.map((issue) => ({
+            elementId: issue.id,
+            key: issue.key,
+            severity: 'error',
+            message: issue.message,
+            code: 'invalid-property',
+          })),
+        );
+      }
+    });
+    return {
+      ok: true,
+      createdIds: createdIds(before, s.getModel()),
+      ...(warnings.length > 0 ? { diagnostics: warnings } : {}),
+    };
+  };
+
+  // -------------------------------------------------------------------------------------------
+  // Requests
+
+  const checkEdge = (action: RequestCheckEdgeAction): CheckEdgeResultAction => {
+    const { edgeType, sourceElementId: source, targetElementId: target } = action;
+    const model = s.getModel();
+    const meta = metaOf(model);
+    const answer = (check: LinkCheck): CheckEdgeResultAction => ({
+      kind: 'checkEdgeTargetResult',
+      responseId: action.requestId,
+      isValid: check.ok,
+      edgeType,
+      sourceElementId: source,
+      ...(target === undefined ? {} : { targetElementId: target }),
+      ...(check.ok ? {} : { reason: check.reason, code: check.code }),
+    });
+    if (target !== undefined) {
+      const check = canLink(model, source, target, edgeType);
+      // `createEdge` retries reversed where piStar does (Needed-By, Qualification).
+      if (!check.ok && meta.links.get(edgeType)?.info.tryReversedWhenAdding) {
+        const reversed = canLink(model, target, source, edgeType);
+        if (reversed.ok) return answer(reversed);
+      }
+      return answer(check);
+    }
+    // No target yet: can the source start such a link at all?
+    const element = model.elements.get(source);
+    if (!element) {
+      return answer({
+        ok: false,
+        code: 'unknown-element',
+        reason: `unknown source element "${source}"`,
+      });
+    }
+    const hint = typeHintsFor(meta).edgeHints.find((h) => h.elementTypeId === edgeType);
+    if (!hint) {
+      return answer({
+        ok: false,
+        code: 'unknown-link-kind',
+        reason: `unknown link kind "${edgeType}"`,
+      });
+    }
+    if (hint.sourceElementTypeIds && !hint.sourceElementTypeIds.includes(element.kind)) {
+      return answer({
+        ok: false,
+        code: 'invalid-source',
+        reason: `a ${meta.elements.get(element.kind)?.label ?? element.kind} cannot be the source of a ${meta.links.get(edgeType)?.label ?? edgeType} link`,
+      });
+    }
+    return answer({ ok: true });
+  };
+
+  const markers = (action: RequestMarkersAction): SetMarkersAction => {
+    const model = s.getModel();
+    const diagnostics: GoalDiagnostic[] = linkIssueDiagnostics(model);
+    if (options.schemas) {
+      for (const issue of validateModelProperties(model, options.schemas)) {
+        diagnostics.push({
+          elementId: issue.id,
+          key: issue.key,
+          severity: 'error',
+          message: issue.message,
+          code: 'invalid-property',
+        });
+      }
+    }
+    diagnostics.push(...(options.diagnostics?.() ?? []));
+    const ids = action.elementsIDs.filter((id) => model.elements.has(id) || model.links.has(id));
+    const wanted = new Set(ids);
+    return {
+      kind: 'setMarkers',
+      responseId: action.requestId,
+      markers: diagnostics
+        .filter((d) => wanted.size === 0 || wanted.has(d.elementId))
+        .map(diagnosticToMarker),
+      ...(action.reason === undefined ? {} : { reason: action.reason }),
+    };
+  };
+
+  const respond = (action: IstarAction<string, string>) => {
+    const model = s.getModel();
+    switch (action.kind) {
+      case 'requestModel':
+        return { kind: 'setModel', responseId: action.requestId, newRoot: toPistarObject(model) };
+      case 'requestTypeHints':
+        return {
+          kind: 'setTypeHints',
+          responseId: action.requestId,
+          ...typeHintsFor(metaOf(model)),
+        };
+      case 'requestCheckEdge':
+        return checkEdge(action);
+      case 'requestContextActions':
+        return {
+          kind: 'setContextActions',
+          responseId: action.requestId,
+          ...contextActionsFor(palette, metaOf(model)),
+        };
+      case 'requestMarkers':
+        return markers(action);
+      default:
+        return undefined;
+    }
+  };
+
+  // -------------------------------------------------------------------------------------------
+
+  const run = async (action: IstarAction<string, string>): Promise<ActionResult<unknown>> => {
+    if (isOperation(action)) return runOperation(action);
+    if (isRequestAction(action)) return { ok: true, createdIds: [], response: respond(action) };
+    switch (action.kind) {
+      case 'glspUndo':
+        s.undo();
+        return { ok: true, createdIds: [] };
+      case 'glspRedo':
+        s.redo();
+        return { ok: true, createdIds: [] };
+      case 'saveModel': {
+        if (!options.save) reject('this host does not save models', '', 'no-save-handler');
+        const model = s.getModel();
+        await options.save(toPistarObject(model, { saveDate: new Date() }), action);
+        saved = model;
+        updateDirty('save');
+        return { ok: true, createdIds: [] };
+      }
+      case 'sourceModelChanged':
+      case 'setDirtyState':
+      case 'triggerNodeCreation':
+      case 'triggerEdgeCreation':
+      case 'deleteMarkers':
+        emit(action);
+        return { ok: true, createdIds: [] };
+      default:
+        return reject(
+          `"${action.kind}" is not an action this dispatcher handles`,
+          '',
+          'unknown-action',
+        );
+    }
+  };
+
+  return {
+    async dispatch(action) {
+      try {
+        return (await run(action as IstarAction<string, string>)) as ActionResult<never>;
+      } catch (error) {
+        if (error instanceof Rejection) return { ok: false, diagnostics: error.diagnostics };
+        if (error instanceof ModelOperationError) {
+          return { ok: false, diagnostics: [error.toDiagnostic()] };
+        }
+        throw error;
+      }
+    },
+    subscribe(listener) {
+      const l = listener as ActionListener<string, string>;
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    isDirty: () => s.getModel() !== saved,
+    dispose: unsubscribe,
+  };
+}

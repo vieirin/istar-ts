@@ -15,8 +15,21 @@ Versions are published from GitHub release tags; see the release notes for full 
   (`IstarModel<EK, LK>` with an `IstarRegistry<EK, LK>`, iStar 2.0's by default), so a KAOS, NFR or
   extended model is laid out without a cast. `modelToFlow`'s registry is optional: by default
   `registryForMetamodel(metamodelOf(model))`.
+- **actions:** the action vocabulary and dispatcher (`@istar-ts/actions`), a GLSP-protocol subset
+  over a `ModelStore`. `IstarAction` is a discriminated union on `kind` with GLSP's names and
+  shapes where they fit (`createNode`, `createEdge`, `deleteElement`, `changeBounds`,
+  `changeContainer`, `reconnectEdge`, `applyLabelEdit`, `compound`; `requestModel`/`setModel`,
+  `requestTypeHints`, `requestCheckEdge`, `requestContextActions`, `requestMarkers`, `glspUndo`,
+  `glspRedo`, `saveModel`, `setDirtyState`, `sourceModelChanged`) and iStar extras under `istar.*`
+  (`addLeg`, `removeLeg`, `setCollapsed`, `updateDiagram`, `updateProperties`).
+  `createActionDispatcher(store, { guards, palette, schemas, diagnostics, save })` runs each
+  operation as one transaction; a rejection (`canLink`, `ModelOperationError`, a guard, a property
+  schema) returns `GoalDiagnostic`s and leaves the model untouched; a success returns the ids it
+  created. Store changes reach subscribers as `sourceModelChanged`. Actions and results are plain
+  JSON (`ActionDispatcher` is the interface a transport implements). Also `typeHintsFor`,
+  `contextActionsFor`, `diagnosticToMarker`/`markerToDiagnostic`.
 
-For goal-controller#185 and istar-ts#25 (B), istar-ts#26.
+For goal-controller#185 and istar-ts#25 (A1, A2, B), istar-ts#26, istar-ts#31.
 
 ## 0.14.0
 
