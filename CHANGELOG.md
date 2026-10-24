@@ -56,6 +56,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   guard (a compiled example, `packages/actions/test/docs.test.ts`), and the limitations-by-design
   list. README sections for `packages/actions`, `packages/core` (palette, `toDiagnostic`) and
   `packages/react` (`dispatcher` prop).
+- **react:** `IstarEditor.select`/`setEditingId` also accept an updater function, as `useState`'s
+  setter does. A rejected create's rollback (`addAt`/`onConnect`'s dependency and n-ary paths) now
+  uses it, so the "still names this id" check runs against the latest state whenever React applies
+  it, not a stale snapshot read before a fast rejection — a race that could leave the inspector
+  editing an element that doesn't exist (istar-ts#63).
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31.
