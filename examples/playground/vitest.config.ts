@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
@@ -13,5 +13,7 @@ export default defineConfig({
   test: {
     name: 'playground',
     environment: 'node',
+    // The Playwright suite lives under e2e/ with its own runner (`pnpm --filter playground e2e`).
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 });
