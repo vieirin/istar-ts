@@ -23,6 +23,15 @@ Versions are published from GitHub release tags; see the release notes for full 
   a `message` plus markers. The palette comes from the contribution's `PaletteDescription`,
   `requestCheckEdge` from the dispatcher (with `canLink`'s reason), markers from its
   `requestMarkers`, and client-bound actions a client didn't list are dropped quietly.
+- **glsp:** hosts (#82). `@istar-ts/glsp/browser`: `startIstarGlspWorker` runs the server in a Web
+  Worker (the model lives there; GLSP on the worker itself, as `GLSPWebWorkerProvider` connects)
+  and `serveIstarGlsp` serves it on any `MessagePort` in the page. `@istar-ts/glsp/page`:
+  `connectWorkerDispatcher`, an istar-ts `ActionDispatcher` on the worker's model (no GLSP in the
+  page). `@istar-ts/glsp/node`: `startIstarGlspServer` on a WebSocket, `diskPistarFiles`, and an
+  opt-in MCP server (`mcp`, `@eclipse-glsp/server-mcp` 2.8.0 as an optional peer, loopback only);
+  `pnpm --filter @istar-ts/glsp serve <file>`. Shared-store hosting: a host passes its own
+  `{ store, dispatcher }` (`IstarSharedModel`) and every session, plus the host's canvas, edits
+  one model; a session's store listener now unsubscribes when the session is disposed.
 
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
