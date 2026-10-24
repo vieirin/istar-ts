@@ -29,6 +29,9 @@ importers:
 
   examples/playground:
     dependencies:
+      '@istar-ts/actions':
+        specifier: workspace:^
+        version: link:../../packages/actions
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -133,6 +136,9 @@ importers:
 
   packages/react:
     dependencies:
+      '@istar-ts/actions':
+        specifier: workspace:^
+        version: link:../actions
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../core

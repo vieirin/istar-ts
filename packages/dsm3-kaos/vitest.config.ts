@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@istar-ts/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      '@istar-ts/actions': fileURLToPath(new URL('../actions/src/index.ts', import.meta.url)),
       '@istar-ts/react': fileURLToPath(new URL('../react/src/index.ts', import.meta.url)),
     },
   },

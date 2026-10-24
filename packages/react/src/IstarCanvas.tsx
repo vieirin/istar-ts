@@ -1,4 +1,5 @@
-import { targetsLinks } from '@istar-ts/core';
+import type { ActionDispatcher, IstarAction } from '@istar-ts/actions';
+import { defaultIdGenerator, targetsLinks } from '@istar-ts/core';
 import type {
   AnyMetamodel,
   DiagnosticsStore,
@@ -76,6 +77,8 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
   readonly onChange?: (model: IstarModel<EK, LK>) => void;
   /** An existing store, for undo/redo and change events. */
   readonly store?: ModelStore<EK, LK>;
+  /** The action dispatcher the canvas and inspector send edits through (see `IstarProvider`). */
+  readonly dispatcher?: ActionDispatcher<EK, LK>;
   readonly registry?: IstarRegistry | IstarRegistry<EK, LK>;
   /** Extensions adapting the editor to another modeller (see `IstarExtension`). */
   readonly extensions?: readonly IstarExtension<EK, LK>[];
@@ -194,6 +197,7 @@ export const IstarCanvas: ForwardRefExoticComponent<
       model={props.model}
       onChange={props.onChange}
       store={props.store}
+      dispatcher={props.dispatcher}
       registry={props.registry}
       extensions={props.extensions}
       readOnly={props.readOnly}
@@ -352,7 +356,7 @@ function Diagram({
   panOnShiftScroll: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
-  const { model, registry, store, tool, readOnly, metamodel } = editor;
+  const { model, registry, store, tool, readOnly, metamodel, dispatcher, notify } = editor;
   const isActorKind = useCallback(
     (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor',
     [metamodel],
@@ -436,23 +440,40 @@ function Diagram({
     });
   }, []);
 
-  const onNodeDragStop = useCallback(
-    (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
-      store.transaction(() => {
-        for (const node of dragged) {
-          if (node.type === 'istarLinkAnchor') continue;
-          const before = graph.nodes.find((n) => n.id === node.id);
-          const element = store.getModel().elements.get(node.id);
-          if (!before || !element) continue;
-          const dx = node.position.x - before.position.x;
-          const dy = node.position.y - before.position.y;
-          // Children of a dragged actor move with it (moveElement shifts them).
-          if (element.parent && dragged.some((d) => d.id === element.parent)) continue;
-          if (dx !== 0 || dy !== 0) store.moveElement(node.id, element.x + dx, element.y + dy);
-        }
+  /** Dispatches an operation, notifying a rejection; the model is already updated synchronously
+   * by the time this returns a (pending) promise, so there's no flicker waiting for it. */
+  const run = useCallback(
+    (action: IstarAction) => {
+      void dispatcher.dispatch(action).then((result) => {
+        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
       });
     },
-    [graph, store],
+    [dispatcher, notify],
+  );
+
+  const onNodeDragStop = useCallback(
+    (_event: MouseEvent | TouchEvent, _node: IstarFlowNode, dragged: IstarFlowNode[]) => {
+      const newBounds: { elementId: string; newPosition: { x: number; y: number } }[] = [];
+      for (const node of dragged) {
+        if (node.type === 'istarLinkAnchor') continue;
+        const before = graph.nodes.find((n) => n.id === node.id);
+        const element = store.getModel().elements.get(node.id);
+        if (!before || !element) continue;
+        const dx = node.position.x - before.position.x;
+        const dy = node.position.y - before.position.y;
+        // Children of a dragged actor move with it (moveElement shifts them).
+        if (element.parent && dragged.some((d) => d.id === element.parent)) continue;
+        if (dx !== 0 || dy !== 0) {
+          newBounds.push({
+            elementId: node.id,
+            newPosition: { x: element.x + dx, y: element.y + dy },
+          });
+        }
+      }
+      // One `changeBounds` for every moved node: one undo step, as `store.transaction` gave.
+      run({ kind: 'changeBounds', newBounds });
+    },
+    [graph, run, store],
   );
 
   const addAt = useCallback(
@@ -469,22 +490,33 @@ function Diagram({
       // Actors are placed by their top-left corner, nodes centred on the click.
       const x = isActorKind(kind) ? point.x : point.x - size.width / 2;
       const y = isActorKind(kind) ? point.y : point.y - size.height / 2;
-      const element = store.addElement({
-        kind,
-        x: Math.round(x),
-        y: Math.round(y),
-        parent,
-        name: defaultNameFor(registry, kind, store.getModel()),
-        customProperties: {
-          ...defaultPropertiesFor(registry, kind, store.getModel()),
-          ...properties,
-        },
-      });
-      editor.select({ type: 'element', id: element.id });
-      editor.setEditingId(element.id);
+      // Picked here (not left to `createNode`'s default) so the element can be selected right
+      // away: the model already updated by the time `dispatch` returns (see `run`), but its
+      // result (and so the id it generated) is only available a tick later, once awaited.
+      const id = defaultIdGenerator();
+      void dispatcher
+        .dispatch({
+          kind: 'createNode',
+          elementTypeId: kind,
+          location: { x: Math.round(x), y: Math.round(y) },
+          containerId: parent,
+          args: {
+            id,
+            name: defaultNameFor(registry, kind, store.getModel()),
+            customProperties: {
+              ...defaultPropertiesFor(registry, kind, store.getModel()),
+              ...properties,
+            },
+          },
+        })
+        .then((result) => {
+          if (!result.ok) editor.notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+        });
+      editor.select({ type: 'element', id });
+      editor.setEditingId(id);
       editor.setTool(null);
     },
-    [editor, flow, isActorKind, registry, store],
+    [dispatcher, editor, flow, isActorKind, registry, store],
   );
 
   const onPaneClick = useCallback(
@@ -534,7 +566,11 @@ function Diagram({
         if (event.altKey) {
           const framed = registry.elements[clicked.kind].boundary !== false;
           if (!readOnly && framed) {
-            store.setCollapsed(clicked.id, clicked.display?.collapsed !== true);
+            run({
+              kind: 'istar.setCollapsed',
+              elementId: clicked.id,
+              collapsed: clicked.display?.collapsed !== true,
+            });
           }
           return;
         }
@@ -574,6 +610,7 @@ function Diagram({
       flowStore,
       isActorKind,
       isNodeKind,
+      run,
       readOnly,
       registry,
       store,
@@ -594,42 +631,67 @@ function Diagram({
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!tool || tool.type === 'element') return;
-      const result =
-        tool.type === 'dependency'
-          ? store.addDependency({
-              depender: connection.source,
-              dependee: connection.target,
-              dependum: { kind: tool.dependum, name: registry.elements[tool.dependum].label },
-              ...(tool.linkKind && { linkKind: tool.linkKind }),
-            })
-          : store.connect({
-              kind: tool.kind,
-              source: connection.source,
-              // Dropped on a link's anchor node: the link itself is the target.
-              target: linkIdOfAnchor(connection.target) ?? connection.target,
-              label: tool.value,
-              // A new n-ary link's properties live on its hub (DSM3's split link).
-              ...(isNary(tool.kind) && {
-                customProperties: (registry as unknown as AnyIstarRegistry).links[
-                  tool.kind
-                ]?.properties?.defaults(),
-              }),
-            });
-      if (!result.ok) {
-        editor.notify(`Invalid link: ${result.reason}`);
+      // Dropped on a link's anchor node: the link itself is the target.
+      const target = linkIdOfAnchor(connection.target) ?? connection.target;
+      const notifyIfRejected = (result: {
+        ok: boolean;
+        diagnostics?: readonly GoalDiagnostic[];
+      }) => {
+        if (!result.ok) editor.notify(`Invalid link: ${result.diagnostics?.[0]?.message ?? ''}`);
+      };
+      if (tool.type === 'dependency') {
+        // Picked here so the dependum can be selected right away; see `addAt`.
+        const dependumId = defaultIdGenerator();
+        void dispatcher
+          .dispatch({
+            kind: 'createEdge',
+            elementTypeId: tool.linkKind ?? 'istar.DependencyLink',
+            sourceElementId: connection.source,
+            targetElementId: connection.target,
+            args: {
+              dependum: {
+                kind: tool.dependum,
+                id: dependumId,
+                name: registry.elements[tool.dependum].label,
+              },
+            },
+          })
+          .then(notifyIfRejected);
+        editor.select({ type: 'element', id: dependumId });
+        editor.setEditingId(dependumId);
         return;
       }
-      if ('dependum' in result) {
-        editor.select({ type: 'element', id: result.dependum.id });
-        editor.setEditingId(result.dependum.id);
-      } else if (result.hub) {
-        // A new hub, or a leg added to one: select the hub, which stands for the whole link.
-        editor.select({ type: 'element', id: result.hub.hub.id });
-      } else {
-        editor.select({ type: 'link', id: result.link.id });
-      }
+      const nary = isNary(tool.kind);
+      // An n-ary link whose target is already a hub adds a leg to it (no new element); any
+      // other target gets a new hub, centred between source and target (`store.connect`).
+      const existingHub =
+        nary &&
+        metamodel.elements.get(store.getModel().elements.get(target)?.kind ?? '')?.role === 'hub';
+      // For a new hub, this becomes the hub's id (`createEdge`'s args.id); for a plain link,
+      // the link's id. Picked here, not left to the operation's default, so the hub or link can
+      // be selected right away; an existing hub keeps standing for its whole link.
+      const id = existingHub ? target : defaultIdGenerator();
+      void dispatcher
+        .dispatch({
+          kind: 'createEdge',
+          elementTypeId: tool.kind,
+          sourceElementId: connection.source,
+          targetElementId: target,
+          args: {
+            ...(existingHub ? {} : { id }),
+            value: tool.value,
+            // A new n-ary link's properties live on its hub (DSM3's split link).
+            ...(nary && {
+              customProperties: (registry as unknown as AnyIstarRegistry).links[
+                tool.kind
+              ]?.properties?.defaults(),
+            }),
+          },
+        })
+        .then(notifyIfRejected);
+      editor.select({ type: nary ? 'element' : 'link', id });
     },
-    [editor, isNary, registry, store, tool],
+    [dispatcher, editor, isNary, metamodel, registry, store, tool],
   );
 
   const onConnectEnd = useCallback(
@@ -682,15 +744,13 @@ function Diagram({
       nodes: IstarFlowNode[];
       edges: { id: string }[];
     }) => {
-      store.transaction(() => {
-        const ids = removedNodes.map((n) => n.id).filter((id) => store.getModel().elements.has(id));
-        if (ids.length > 0) store.removeElements(ids);
-        for (const edge of removedEdges) {
-          if (store.getModel().links.has(edge.id)) store.disconnect(edge.id);
-        }
-      });
+      const current = store.getModel();
+      const elementIds = removedNodes.map((n) => n.id).filter((id) => current.elements.has(id));
+      const linkIds = removedEdges.map((e) => e.id).filter((id) => current.links.has(id));
+      // One `deleteElement` for both: one undo step, as `store.transaction` gave.
+      run({ kind: 'deleteElement', elementIds: [...elementIds, ...linkIds] });
     },
-    [store],
+    [run, store],
   );
 
   // Undo/redo and Escape (cancel tool) while the canvas has focus.
@@ -702,14 +762,13 @@ function Diagram({
       if (event.key === 'Escape') editor.setTool(null);
       else if (mod && event.key.toLowerCase() === 'z' && !readOnly) {
         event.preventDefault();
-        if (event.shiftKey) store.redo();
-        else store.undo();
+        run({ kind: event.shiftKey ? 'glspRedo' : 'glspUndo' });
       } else if (mod && event.key.toLowerCase() === 'y' && !readOnly) {
         event.preventDefault();
-        store.redo();
+        run({ kind: 'glspRedo' });
       }
     },
-    [editor, readOnly, store],
+    [editor, readOnly, run],
   );
 
   // React Flow decides multi-selection from a ⌘ / Ctrl key state it tracks with keydown/keyup.
