@@ -190,6 +190,7 @@ describe('hub links in a model', () => {
       ok: false,
       code: 'hub-target',
       reason: 'you cannot make a Conflict link towards the hub of a Refinement link',
+      end: 'target',
     });
     expect(store.canLink(agent, 'hub', 'kaos.ResponsibilityAssignment')).toMatchObject({
       code: 'hub-target',

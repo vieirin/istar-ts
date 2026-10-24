@@ -483,6 +483,7 @@ describe('canLink with extended kinds', () => {
       ok: false,
       code: 'invalid-source',
       reason: 'the source of a Generates link must be a Planning',
+      end: 'source',
     });
     expect(store.canLink(planning, goal, 'rationalAgents.GeneratesLink')).toMatchObject({
       code: 'invalid-target',

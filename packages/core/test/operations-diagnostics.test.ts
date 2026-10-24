@@ -82,4 +82,68 @@ describe('connectResultToDiagnostic', () => {
       code: 'invalid-source',
     });
   });
+
+  test('anchors on the source for an unknown source element', () => {
+    const m = new TestModel();
+    const actor = m.add('istar.Actor');
+    const result = connect(m.model, {
+      kind: 'istar.ParticipatesInLink',
+      source: 'missing-source',
+      target: actor.id,
+    });
+    expect(result.ok).toBe(false);
+    const diagnostic = connectResultToDiagnostic(result, {
+      source: 'missing-source',
+      target: actor.id,
+    });
+    expect(diagnostic).toEqual({
+      elementId: 'missing-source',
+      severity: 'error',
+      message: (result as { reason: string }).reason,
+      code: 'unknown-element',
+    });
+  });
+
+  test('anchors on the target for an unknown target element', () => {
+    const m = new TestModel();
+    const actor = m.add('istar.Actor');
+    const result = connect(m.model, {
+      kind: 'istar.ParticipatesInLink',
+      source: actor.id,
+      target: 'missing-target',
+    });
+    expect(result.ok).toBe(false);
+    const diagnostic = connectResultToDiagnostic(result, {
+      source: actor.id,
+      target: 'missing-target',
+    });
+    expect(diagnostic).toEqual({
+      elementId: 'missing-target',
+      severity: 'error',
+      message: (result as { reason: string }).reason,
+      code: 'unknown-element',
+    });
+  });
+
+  test('an id containing the word "source" is not misattributed', () => {
+    const m = new TestModel();
+    const actor = m.add('istar.Actor');
+    const result = connect(m.model, {
+      kind: 'istar.ParticipatesInLink',
+      source: actor.id,
+      target: 'resource-1',
+    });
+    expect(result.ok).toBe(false);
+    expect((result as { reason: string }).reason).toContain('resource-1');
+    const diagnostic = connectResultToDiagnostic(result, {
+      source: actor.id,
+      target: 'resource-1',
+    });
+    expect(diagnostic).toEqual({
+      elementId: 'resource-1',
+      severity: 'error',
+      message: (result as { reason: string }).reason,
+      code: 'unknown-element',
+    });
+  });
 });
