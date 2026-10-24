@@ -72,8 +72,20 @@ Versions are published from GitHub release tags; see the release notes for full 
   was cleared. `elementActions.setDisplay` and `linkActions.setLabel`/`setName` now dispatch these
   instead of calling the store directly.
 
+- **actions:** `HANDLED_ACTION_KINDS` (`{ operations, requests, notifications }`), derived from
+  the same lists `isOperation`/`isRequestAction` use, so a host can know what
+  `createActionDispatcher` accepts without the dispatcher's own code (goal-controller#171's
+  `initialize`, istar-ts#44). `createEdge`'s `args` gains `legId`/`endId` for an n-ary kind whose
+  target isn't yet one of the kind's hubs, mirroring `linkIds` for a dependency: the new hub's leg
+  and end then take those ids instead of fresh ones, so a replayed log reproduces the model byte
+  for byte and a remote client can know the ids in advance (`core`'s `connect`/`NewLink` gain the
+  same options).
+- **playground:** the script console's kind list is `HANDLED_ACTION_KINDS.operations`, replacing
+  its own mirrored copy; the protocol lab's replay injects a new n-ary hub's recorded leg/end ids
+  too, closing the gap `replayLog.ts` used to document.
+
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
-istar-ts#31.
+istar-ts#31, istar-ts#57, istar-ts#60.
 
 ## 0.14.0
 

@@ -100,6 +100,10 @@ export interface CreateEdgeArgs<EK extends string = ElementKind> {
   readonly dependum?: DependumArgs<EK>;
   /** For a dependency kind: the ids of its two links. */
   readonly linkIds?: readonly [string, string];
+  /** For an n-ary kind whose target is not yet a hub: the id of the leg it creates. */
+  readonly legId?: string;
+  /** For an n-ary kind whose target is not yet a hub: the id of the end it creates. */
+  readonly endId?: string;
 }
 
 /**
@@ -516,7 +520,7 @@ export type IstarAction<EK extends string = ElementKind, LK extends string = Lin
   | IstarResponseAction
   | IstarNotificationAction;
 
-const OPERATION_KINDS: ReadonlySet<string> = new Set<IstarOperation['kind']>([
+const OPERATION_KIND_LIST: readonly IstarOperation['kind'][] = [
   'createNode',
   'createEdge',
   'deleteElement',
@@ -532,15 +536,59 @@ const OPERATION_KINDS: ReadonlySet<string> = new Set<IstarOperation['kind']>([
   'istar.updateProperties',
   'istar.updateDisplay',
   'istar.setLinkValue',
-]);
+];
 
-const REQUEST_KINDS: ReadonlySet<string> = new Set<IstarRequestAction['kind']>([
+const REQUEST_KIND_LIST: readonly IstarRequestAction['kind'][] = [
   'requestModel',
   'requestTypeHints',
   'requestCheckEdge',
   'requestContextActions',
   'requestMarkers',
-]);
+];
+
+/**
+ * The other actions the dispatcher accepts: `glspUndo`/`glspRedo`/`saveModel` (acted on), then
+ * the notifications it only re-emits to subscribers (`IstarNotificationAction`'s kinds).
+ */
+const NOTIFICATION_KIND_LIST: readonly (
+  | UndoAction
+  | RedoAction
+  | SaveModelAction
+  | IstarNotificationAction
+)['kind'][] = [
+  'glspUndo',
+  'glspRedo',
+  'saveModel',
+  'sourceModelChanged',
+  'setDirtyState',
+  'triggerNodeCreation',
+  'triggerEdgeCreation',
+  'deleteMarkers',
+];
+
+const OPERATION_KINDS: ReadonlySet<string> = new Set(OPERATION_KIND_LIST);
+const REQUEST_KINDS: ReadonlySet<string> = new Set(REQUEST_KIND_LIST);
+
+/**
+ * The action kinds `createActionDispatcher` accepts, grouped the way it treats them: `operations`
+ * edit the model as one undo step, `requests` get a response action, `notifications` (plus
+ * `glspUndo`/`glspRedo`/`saveModel`) are acted on or re-emitted as is. Derived from the same
+ * lists `isOperation`/`isRequestAction` use, so it can't drift from the dispatcher.
+ */
+export const HANDLED_ACTION_KINDS: {
+  readonly operations: readonly IstarOperation['kind'][];
+  readonly requests: readonly IstarRequestAction['kind'][];
+  readonly notifications: readonly (
+    | UndoAction
+    | RedoAction
+    | SaveModelAction
+    | IstarNotificationAction
+  )['kind'][];
+} = {
+  operations: OPERATION_KIND_LIST,
+  requests: REQUEST_KIND_LIST,
+  notifications: NOTIFICATION_KIND_LIST,
+};
 
 /** True for the operations (actions that edit the model). */
 export function isOperation<EK extends string, LK extends string>(

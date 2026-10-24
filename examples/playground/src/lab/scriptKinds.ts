@@ -1,31 +1,15 @@
 /**
  * The script console's kind list and per-kind JSON templates.
  *
- * The console only scripts operations (the actions that edit the model); `@istar-ts/actions`
- * knows them by its own `OPERATION_KINDS` set, but that set isn't exported (only the `isOperation`
- * predicate is) — out of scope here to change the package, so the list is mirrored, kept in the
- * order `packages/actions/src/actions.ts` declares `IstarOperation`.
+ * The console only scripts operations (the actions that edit the model); the kind list is
+ * `@istar-ts/actions`'s `HANDLED_ACTION_KINDS.operations`, so it can't drift from the dispatcher.
  */
 import type { AnyIstarModel } from '@istar-ts/core';
 import type { IstarOperation } from '@istar-ts/actions';
+import { HANDLED_ACTION_KINDS } from '@istar-ts/actions';
 
-export const SCRIPT_OPERATION_KINDS: readonly IstarOperation['kind'][] = [
-  'createNode',
-  'createEdge',
-  'deleteElement',
-  'changeBounds',
-  'changeContainer',
-  'reconnectEdge',
-  'applyLabelEdit',
-  'compound',
-  'istar.addLeg',
-  'istar.removeLeg',
-  'istar.setCollapsed',
-  'istar.updateDiagram',
-  'istar.updateProperties',
-  'istar.updateDisplay',
-  'istar.setLinkValue',
-];
+export const SCRIPT_OPERATION_KINDS: readonly IstarOperation['kind'][] =
+  HANDLED_ACTION_KINDS.operations;
 
 function elementIdAt(model: AnyIstarModel, index: number): string {
   return [...model.elements.keys()][index] ?? '<elementId>';

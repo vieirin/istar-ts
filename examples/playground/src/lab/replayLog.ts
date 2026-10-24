@@ -11,12 +11,6 @@
  * some earlier, unrelated one. Requests and notifications stay unreplayed: they don't change the
  * model.
  *
- * Gap (out of scope: no `packages/actions` change): `createEdge` of an n-ary kind, when its
- * target isn't already one of the kind's hubs, creates a new hub, leg and end
- * (`packages/core/src/operations.ts`'s `connectHub`); only the hub's id is settable
- * (`CreateEdgeArgs.id`), so a model that creates a brand-new n-ary hub this way won't replay
- * with byte-identical leg/end ids. `istar.addLeg` and dependency `createEdge` (which carry their
- * own `args.id` / `dependum.id` / `args.linkIds`) are unaffected.
  */
 import {
   type ActionDispatcher,
@@ -51,7 +45,7 @@ function countCreatedIds(
       const definition = metamodel.links.get(operation.elementTypeId);
       if (definition?.category === 'dependency') return { elements: 1, links: 2 };
       if (definition?.parts && !targetIsHub(operation, model, metamodel)) {
-        // A new hub: hub (element) + leg + end (links) — see the file comment's gap.
+        // A new hub: hub (element) + leg + end (links).
         return { elements: 1, links: 2 };
       }
       return { elements: 0, links: 1 };
@@ -116,11 +110,11 @@ function withCreatedIds(
       }
       if (definition?.parts && !targetIsHub(operation, model, metamodel)) {
         const hubId = elementIds.shift();
-        linkIds.shift();
-        linkIds.shift();
-        return hubId === undefined
+        const legId = linkIds.shift();
+        const endId = linkIds.shift();
+        return hubId === undefined || legId === undefined || endId === undefined
           ? operation
-          : { ...operation, args: { ...operation.args, id: hubId } };
+          : { ...operation, args: { ...operation.args, id: hubId, legId, endId } };
       }
       const id = linkIds.shift();
       return id === undefined ? operation : { ...operation, args: { ...operation.args, id } };
