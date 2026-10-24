@@ -42,3 +42,20 @@ dispatcher.subscribe((action) => {
 
 Every action and result is plain JSON, so an `ActionDispatcher` can live across a
 `postMessage`.
+
+## Transport
+
+`connectDispatcher`/`createRemoteDispatcher` carry an `ActionDispatcher` over a
+`MessagePort`-like object (`{ postMessage, onmessage }` — a DOM `MessagePort` or a worker fits),
+framed as JSON-RPC 2.0: a dispatch is a request (`method` = the action's `kind`, `params` = the
+action), answered with the `ActionResult` as `result`; `subscribe` events go server to client as
+notifications. A rejection (`ok: false`) is a normal result, not a JSON-RPC error — only a
+malformed frame or an unhandled exception is (`-32600`/`-32601`/`-32603`).
+
+```ts
+import { connectDispatcher, createRemoteDispatcher } from '@istar-ts/actions';
+
+const dispose = connectDispatcher(serverPort, dispatcher); // server side
+const remote = createRemoteDispatcher(clientPort); // client side, same ActionDispatcher interface
+await remote.dispatch({ kind: 'createNode', elementTypeId: 'istar.Goal' });
+```
