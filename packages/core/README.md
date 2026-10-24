@@ -461,6 +461,21 @@ toPistar(extended); // writes the "metamodel" block
   into a store (`store.load` or `store.replace`) to keep editing.
 - `pistarType` works as for any extension, so `istar.<Name>` types on disk still read.
 
+## Palette
+
+`DEFAULT_PALETTE` (`./palette`) is iStar 2.0's palette as data — the part that isn't React: a
+`PaletteDescription` keyed by element and link kind, each entry a `label`, `order`, `group`
+(entries sharing one collapse into a dropdown button) and `section` ("actors"/"elements" by
+default), plus the presets a toolbar entry creates with — an element's `properties`, a
+contribution link's `value`, a dependency's `dependum` kind. A kind missing from the
+description, or mapped to `false`, has no palette entry.
+
+This is framework-free so a host can answer "what can I add here" — GLSP's
+`RequestContextActions` — without depending on `@istar-ts/react`; `@istar-ts/actions`'
+`contextActionsFor` turns a `PaletteDescription` plus a `Metamodel` into `LabeledAction`s. The
+react package's palette registry derives its default entries from `DEFAULT_PALETTE`; icons,
+titles and components stay in react.
+
 ## Diagnostics
 
 `GoalDiagnostic` (`{ elementId, key?, severity, message, source?, range?, code?, data? }`) is the
@@ -469,6 +484,13 @@ data shape for findings about elements and links. Analysers publish them per sou
 `(elementId, key, message)`. `fromLspDiagnostics` and `fromNodeIdDiagnostics` adapt LSP and MutRoSe
 diagnostics. Diagnostics are never part of the model and never serialized. `@istar-ts/react`
 shows them as badges and in the inspector (see its README).
+
+`ModelOperationError.toDiagnostic()` turns a thrown operation error into a `GoalDiagnostic`
+(`severity: 'error'`, anchored on the `elementId` the error named, or `''` when it named none).
+`connectResultToDiagnostic(result, endpoints)` does the same for a failing `connect`/`canLink`
+result, anchored on whichever of `endpoints.source`/`endpoints.target` the failure is about.
+Both are how `@istar-ts/actions`' dispatcher turns a rejected operation into the diagnostics an
+`ActionResult` carries.
 
 ## Credits
 
