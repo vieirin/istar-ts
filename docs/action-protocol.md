@@ -31,7 +31,9 @@ n-ary kind adds a leg or a new hub), `deleteElement`, `changeBounds`, `changeCon
 a list; if one child is rejected, none is applied).
 
 **Operations** (`istar.*`): `istar.addLeg`, `istar.removeLeg`, `istar.setCollapsed`,
-`istar.updateDiagram`, `istar.updateProperties`.
+`istar.updateDiagram`, `istar.updateProperties`, `istar.updateDisplay` (an element's `display`
+patch — colour, the auto-grown height — merged like `ElementPatch.display`), `istar.setLinkValue`
+(an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it).
 
 **Requests/responses** (GLSP): `requestModel`/`setModel` (the model as piStar JSON, via
 `toPistar`), `requestTypeHints`/`setTypeHints` (shape and edge hints derived from the
@@ -159,24 +161,6 @@ single-editor use (the canvas, or one remote worker demo) and is simpler than GL
 collaboration extension, which gives each client its own stack. A host that needs per-client
 undo would need its own `ModelStore` per session; the dispatcher does not offer that today.
 
-## Known vocabulary gaps
-
-The canvas and inspector dispatch almost every edit (`packages/react/src/IstarCanvas.tsx`,
-`Inspector.tsx`), but three paths still call the store directly because no operation covers
-them yet — each tracked as its own issue, not fixed here:
-
-- [#50](https://github.com/vieirin/istar-ts/issues/50) — no operation for an element's display
-  patch (`elementActions.setDisplay`: colour, the auto-grown height); `changeBounds` only
-  carries position and size.
-- [#51](https://github.com/vieirin/istar-ts/issues/51) — no operation to change an existing
-  link's contribution value after it is created (`linkActions.setLabel`); `createEdge.args.value`
-  only applies at creation.
-- [#52](https://github.com/vieirin/istar-ts/issues/52) — `applyLabelEdit` can't clear a link's
-  name (`linkActions.setName`): `text` is always a string, and clearing a name has to remove the
-  key from the file, not write an empty one.
-
-Until these land, a remote client or a guard cannot see or block those three edits.
-
 ## Limitations, by design
 
 - No Sprotty client, no GLSP server runtime, no `@eclipse-glsp/*` dependency: compatible by
@@ -187,5 +171,3 @@ Until these land, a remote client or a guard cannot see or block those three edi
 - No modeller-specific actions or guards in istar-ts; those are an `IstarExtension` and guard
   code in the host.
 - One undo stack, not one per client (see **Undo** above).
-- Three store-direct edit paths with no operation yet: [#50](https://github.com/vieirin/istar-ts/issues/50),
-  [#51](https://github.com/vieirin/istar-ts/issues/51), [#52](https://github.com/vieirin/istar-ts/issues/52).

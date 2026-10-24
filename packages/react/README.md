@@ -218,14 +218,7 @@ export function Guarded() {
 ```
 
 A rejection (a `canLink` failure, a guard, a property schema) surfaces as the editor's notice,
-the same as a direct store rejection did; the model is untouched. Two edits have no operation and
-still write to the store directly: a link's value (the contribution make/help/hurt/break) and
-name, because clearing a link's name needs to remove the key, which `applyLabelEdit`'s `text:
-string` can't express; and an element's display patch (colour, the auto-grown height), because
-`changeBounds` only carries position and size. Tracked as
-[#50](https://github.com/vieirin/istar-ts/issues/50),
-[#51](https://github.com/vieirin/istar-ts/issues/51) and
-[#52](https://github.com/vieirin/istar-ts/issues/52); see
+the same as a direct store rejection did; the model is untouched. See
 [`docs/action-protocol.md`](https://github.com/vieirin/istar-ts/blob/main/docs/action-protocol.md)
 for the full protocol design, the GLSP mapping, and what the transport does and doesn't support
 yet.

@@ -23,6 +23,8 @@ export const SCRIPT_OPERATION_KINDS: readonly IstarOperation['kind'][] = [
   'istar.setCollapsed',
   'istar.updateDiagram',
   'istar.updateProperties',
+  'istar.updateDisplay',
+  'istar.setLinkValue',
 ];
 
 function elementIdAt(model: AnyIstarModel, index: number): string {
@@ -81,5 +83,9 @@ export function templateFor(kind: IstarOperation['kind'], model: AnyIstarModel):
       return { kind, diagram: { name: 'Untitled' } };
     case 'istar.updateProperties':
       return { kind, elementId, properties: {} };
+    case 'istar.updateDisplay':
+      return { kind, elementId, patch: { backgroundColor: '#ffffff' } };
+    case 'istar.setLinkValue':
+      return { kind, linkId, value: 'help' };
   }
 }
