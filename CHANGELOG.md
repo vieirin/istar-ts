@@ -157,6 +157,14 @@ Versions are published from GitHub release tags; see the release notes for full 
   `@istar-ts/react`. `kaosExtension`/`nfrExtension` derive their palette entries' label, order,
   section and group from them, adding titles, icons and shapes as before (palette output
   unchanged).
+- **glsp-client:** `/glsp.html` loads the stock `@eclipse-glsp/client`'s own CSS (`glsp-sprotty`,
+  sprotty's base CSS, the tool palette, decorations, toast, status overlay, codicons) plus a new
+  `istar-glsp.css` styling every concrete GModel type (`node:<kind>`/`edge:<kind>`, actor
+  containers, dependums, hubs/anchors) with colours mirroring `@istar-ts/react`'s `--istar-*`
+  theme, in light and dark (`prefers-color-scheme`) — previously nodes fell back to the SVG
+  default (`fill: black`) and edges had no stroke at all (#103). The sprotty SVG now fills
+  `.pg-glsp-diagram`, and `MountedGlspClient` gains a `fit()` method the playground calls on
+  window resize (the standalone container never re-fits on its own).
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.

@@ -54,3 +54,12 @@ body {
   position: absolute;
   inset: 0;
 }
+
+/* The sprotty root div the stock client mounts into is this very element (`mountGlspClient`
+   sets `element.id`), so only its own `svg` needs sizing to fill `.pg-glsp-canvas` (#103): the
+   stock client never sizes its SVG to its container on its own. */
+.pg-glsp-diagram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
