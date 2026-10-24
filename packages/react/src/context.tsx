@@ -79,9 +79,12 @@ export interface IstarEditor {
   readonly tool: Tool | null;
   setTool(tool: Tool | null): void;
   readonly selection: Selection;
-  select(selection: Selection): void;
+  /** Accepts a function (as `useState`'s setter does) to update against the latest selection,
+   * not a value closed over when the call was scheduled (see `rollbackOptimisticCreate`). */
+  select(selection: Selection | ((previous: Selection) => Selection)): void;
   readonly editingId: string | null;
-  setEditingId(id: string | null): void;
+  /** Also accepts a function; see `select`. */
+  setEditingId(id: string | null | ((previous: string | null) => string | null)): void;
   readonly notice: Notice | null;
   notify(message: string, tone?: Notice['tone']): void;
   dismissNotice(): void;
@@ -255,14 +258,22 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   const [rawSelection, setRawSelection] = useState<Selection>(null);
   // Stable and idempotent: re-selecting the same target keeps the same state object, so
   // listeners that report selection (like React Flow's) can't loop.
-  const select = useCallback((next: Selection) => {
-    setRawSelection((prev) =>
-      prev === next || (prev && next && prev.type === next.type && prev.id === next.id)
+  const select = useCallback((next: Selection | ((previous: Selection) => Selection)) => {
+    setRawSelection((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      return prev === resolved ||
+        (prev && resolved && prev.type === resolved.type && prev.id === resolved.id)
         ? prev
-        : next,
-    );
+        : resolved;
+    });
   }, []);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingIdState] = useState<string | null>(null);
+  const setEditingId = useCallback(
+    (next: string | null | ((previous: string | null) => string | null)) => {
+      setEditingIdState((prev) => (typeof next === 'function' ? next(prev) : next));
+    },
+    [],
+  );
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeSeq = useRef(0);
 
@@ -417,6 +428,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       notice,
       notify,
       select,
+      setEditingId,
       checkConnection,
       elementActions,
       linkActions,
