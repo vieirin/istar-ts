@@ -8,25 +8,102 @@ import type {
   PropertyType,
 } from '@istar-ts/core';
 import { CONTRIBUTION_LABELS, isLinkRef, linkTargetOf } from '@istar-ts/core';
-import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
-import { useId, useState } from 'react';
+import type {
+  KeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactElement,
+  ReactNode,
+} from 'react';
+import { useId, useRef, useState } from 'react';
 import { useIstarEditor, useOptionalIstarEditor } from './context';
 import type { InspectorProps } from './registry';
+
+/** Default inspector width in px (see `--istar-inspector-width` in styles.css). */
+const DEFAULT_INSPECTOR_WIDTH = 340;
+const MIN_INSPECTOR_WIDTH = 240;
+const MAX_INSPECTOR_WIDTH_RATIO = 0.6;
+const INSPECTOR_ARROW_KEY_STEP = 16;
+
+function clampInspectorWidth(width: number): number {
+  const maxWidth = Math.max(
+    MIN_INSPECTOR_WIDTH,
+    typeof window === 'undefined' ? Infinity : window.innerWidth * MAX_INSPECTOR_WIDTH_RATIO,
+  );
+  return Math.min(Math.max(width, MIN_INSPECTOR_WIDTH), maxWidth);
+}
 
 export interface IstarInspectorProps {
   readonly className?: string;
   /** Shown when nothing is selected. */
   readonly empty?: ReactNode;
+  /** Controls the inspector's width (px). Uncontrolled when omitted; see `defaultInspectorWidth`. */
+  readonly inspectorWidth?: number;
+  /** Initial width (px) when `inspectorWidth` isn't given, and the width a double-click on the drag handle resets to. Default `340`. */
+  readonly defaultInspectorWidth?: number;
+  /** Called with the clamped width (px) as the user drags or keys the resize handle. */
+  readonly onInspectorWidthChange?: (width: number) => void;
 }
 
 /**
  * Side panel for the selected element or link. Uses the kind's registry `inspector` if set,
  * the default inspector otherwise, and nothing when the registry sets `inspector: false`.
+ *
+ * Resizable by dragging the handle on its canvas-facing edge, or with the handle focused:
+ * arrow keys resize in steps, double-click resets to `defaultInspectorWidth`. The width is
+ * clamped between `--istar-inspector-min-width` and `--istar-inspector-max-width`.
  */
-export function IstarInspector({ className, empty }: IstarInspectorProps): ReactElement {
+export function IstarInspector({
+  className,
+  empty,
+  inspectorWidth,
+  defaultInspectorWidth,
+  onInspectorWidthChange,
+}: IstarInspectorProps): ReactElement {
   const editor = useIstarEditor();
   const { selection, model, registry, readOnly } = editor;
   const classes = `istar-inspector${className ? ` ${className}` : ''}`;
+
+  const [internalWidth, setInternalWidth] = useState(() =>
+    clampInspectorWidth(defaultInspectorWidth ?? DEFAULT_INSPECTOR_WIDTH),
+  );
+  const width = clampInspectorWidth(inspectorWidth ?? internalWidth);
+  const dragState = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const commitWidth = (next: number): void => {
+    const clamped = clampInspectorWidth(next);
+    if (inspectorWidth === undefined) setInternalWidth(clamped);
+    onInspectorWidthChange?.(clamped);
+  };
+  const onHandlePointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (event.button !== 0) return;
+    // jsdom (unlike real browsers) doesn't implement pointer capture.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragState.current = { startX: event.clientX, startWidth: width };
+  };
+  const onHandlePointerMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!dragState.current) return;
+    // The handle sits on the inspector's canvas-facing (left) edge: dragging it left grows
+    // the panel, so the delta is subtracted rather than added.
+    commitWidth(dragState.current.startWidth - (event.clientX - dragState.current.startX));
+  };
+  const onHandlePointerUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    dragState.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+  const onHandleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      commitWidth(width - INSPECTOR_ARROW_KEY_STEP);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      commitWidth(width + INSPECTOR_ARROW_KEY_STEP);
+    }
+  };
+  const onHandleDoubleClick = (): void => {
+    commitWidth(defaultInspectorWidth ?? DEFAULT_INSPECTOR_WIDTH);
+  };
 
   const element = selection?.type === 'element' ? model.elements.get(selection.id) : undefined;
   const link = selection?.type === 'link' ? model.links.get(selection.id) : undefined;
@@ -66,7 +143,20 @@ export function IstarInspector({ className, empty }: IstarInspectorProps): React
     ) : null;
   }
   return (
-    <aside className={classes} aria-label="Inspector">
+    <aside className={classes} aria-label="Inspector" style={{ width: `${width}px` }}>
+      <div
+        className="istar-inspector-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize inspector"
+        aria-valuenow={Math.round(width)}
+        tabIndex={0}
+        onPointerDown={onHandlePointerDown}
+        onPointerMove={onHandlePointerMove}
+        onPointerUp={onHandlePointerUp}
+        onKeyDown={onHandleKeyDown}
+        onDoubleClick={onHandleDoubleClick}
+      />
       {content}
     </aside>
   );
