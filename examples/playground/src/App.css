@@ -179,6 +179,99 @@ body {
   background: none;
 }
 
+.pg-lab-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.pg-lab-tab {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--istar-panel-border, #d4d4d8);
+  background: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.pg-lab-tab-active {
+  background: var(--istar-panel-border, #d4d4d8);
+}
+
+.pg-lab-log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.pg-lab-log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+}
+
+.pg-lab-log-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--istar-panel-border, #d4d4d8);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.pg-lab-log-row-rejected {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.pg-lab-log-client {
+  font-weight: 600;
+}
+
+.pg-lab-log-payload {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-lab-toggles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pg-lab-console {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pg-lab-console-input {
+  width: 100%;
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.pg-lab-console-outcome {
+  margin: 0;
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .pg-resource {
   position: relative;
 }
