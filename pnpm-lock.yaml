@@ -78,10 +78,6 @@ importers:
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../core
-    devDependencies:
-      '@istar-ts/dsm3-kaos':
-        specifier: workspace:^
-        version: link:../dsm3-kaos
 
   packages/core: {}
 

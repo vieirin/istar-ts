@@ -71,7 +71,6 @@ Versions are published from GitHub release tags; see the release notes for full 
   is `""`, instead of writing an empty string, matching what piStar writes for a link whose name
   was cleared. `elementActions.setDisplay` and `linkActions.setLabel`/`setName` now dispatch these
   instead of calling the store directly.
-
 - **actions:** `HANDLED_ACTION_KINDS` (`{ operations, requests, notifications }`), derived from
   the same lists `isOperation`/`isRequestAction` use, so a host can know what
   `createActionDispatcher` accepts without the dispatcher's own code (goal-controller#171's

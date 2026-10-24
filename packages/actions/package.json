@@ -49,8 +49,5 @@
   },
   "dependencies": {
     "@istar-ts/core": "workspace:^"
-  },
-  "devDependencies": {
-    "@istar-ts/dsm3-kaos": "workspace:^"
   }
 }
