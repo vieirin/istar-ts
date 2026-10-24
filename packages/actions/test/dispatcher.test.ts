@@ -251,6 +251,101 @@ describe('operations', () => {
     });
     expect(env.store.getModel().elements.get('g1')?.customProperties).toBeUndefined();
   });
+
+  test('applyLabelEdit on a link: an empty text removes its name, as piStar writes it', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 't',
+      targetElementId: 'g1',
+      args: { id: 'l', name: 'Original' },
+    });
+    const before = env.store.getModel();
+    const file = toPistar(before);
+    expect(file).toContain('"name": "Original"');
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'applyLabelEdit',
+      labelId: 'l',
+      text: '',
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().links.get('l')?.name).toBeUndefined();
+    expect(toPistar(env.store.getModel())).not.toContain('"name"');
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).toBe(file);
+
+    await expectRejected(env, { kind: 'applyLabelEdit', labelId: 'missing', text: 'x' });
+  });
+
+  test('istar.updateDisplay merges into display, like changeBounds for an arbitrary key', async () => {
+    const env = setup();
+    const before = env.store.getModel();
+    const file = toPistar(before);
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.updateDisplay',
+      elementId: 'g1',
+      patch: { backgroundColor: '#fff' },
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().elements.get('g1')?.display).toEqual({ backgroundColor: '#fff' });
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).toBe(file);
+
+    await expectRejected(env, {
+      kind: 'istar.updateDisplay',
+      elementId: 'missing',
+      patch: { backgroundColor: '#fff' },
+    });
+  });
+
+  test("istar.setLinkValue sets a contribution link's value, checked against its kind", async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Quality',
+      containerId: 'a',
+      args: { id: 'q' },
+    });
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.ContributionLink',
+      sourceElementId: 't',
+      targetElementId: 'q',
+      args: { id: 'c', value: 'help' },
+    });
+    const before = env.store.getModel();
+    const file = toPistar(before);
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.setLinkValue',
+      linkId: 'c',
+      value: 'hurt',
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().links.get('c')?.label).toBe('hurt');
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).toBe(file);
+
+    const [d] = await expectRejected(env, {
+      kind: 'istar.setLinkValue',
+      linkId: 'c',
+      value: 'awful',
+    });
+    expect(d).toMatchObject({ code: 'invalid-value', elementId: 'c' });
+    await expectRejected(env, { kind: 'istar.setLinkValue', linkId: 'missing', value: 'help' });
+
+    await env.dispatcher.dispatch({ kind: 'istar.setLinkValue', linkId: 'c', value: null });
+    expect(env.store.getModel().links.get('c')?.label).toBeUndefined();
+  });
 });
 
 describe('guards', () => {

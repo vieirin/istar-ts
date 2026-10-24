@@ -363,22 +363,16 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
           elementId: id,
           properties: patchToProperties(patch),
         }),
-      // No operation carries an arbitrary display patch (colour, the auto-grown height from
-      // ElementIssuesBadge/label-fit): `changeBounds` only moves or resizes. Stays on the store.
-      setDisplay: (patch) => store.updateElement(id, { display: patch }),
+      setDisplay: (patch) => run({ kind: 'istar.updateDisplay', elementId: id, patch }),
       remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
     }),
-    [run, store],
+    [run],
   );
 
   const linkActions = useCallback(
     (id: string): LinkActions => ({
-      // No operation sets an existing link's value (the contribution make/help/hurt/break):
-      // `createEdge.args.value` only applies at creation. Stays on the store.
-      setLabel: (label) => store.updateLink(id, { label: label ?? null }),
-      // `applyLabelEdit.text` is always a string; clearing a link's name needs `null` (removing
-      // the key, not writing `""`), which the operation can't express. Stays on the store.
-      setName: (name) => store.updateLink(id, { name: name ?? null }),
+      setLabel: (label) => run({ kind: 'istar.setLinkValue', linkId: id, value: label ?? null }),
+      setName: (name) => run({ kind: 'applyLabelEdit', labelId: id, text: name ?? '' }),
       setProperties: (patch) =>
         run({
           kind: 'istar.updateProperties',
@@ -387,7 +381,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
         }),
       remove: () => run({ kind: 'deleteElement', elementIds: [id] }),
     }),
-    [run, store],
+    [run],
   );
 
   const editor = useMemo<IstarEditor>(

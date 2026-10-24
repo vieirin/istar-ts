@@ -384,8 +384,11 @@ export function createActionDispatcher<
         const key = hash < 0 ? undefined : operation.labelId.slice(hash + 1);
         if (key === undefined) {
           if (model.elements.has(id)) s.updateElement(id, { name: operation.text });
-          else if (model.links.has(id)) s.updateLink(id, { name: operation.text });
-          else reject(`unknown element or link "${id}"`, id, 'unknown-element');
+          // A link's name is optional; an empty text removes it, matching what piStar writes
+          // for a link whose name was cleared (fileManager.js only writes `name` when truthy).
+          else if (model.links.has(id)) {
+            s.updateLink(id, { name: operation.text === '' ? null : operation.text });
+          } else reject(`unknown element or link "${id}"`, id, 'unknown-element');
         } else {
           setProperties(id, { [key]: operation.text });
         }
@@ -424,6 +427,26 @@ export function createActionDispatcher<
       case 'istar.updateProperties':
         setProperties(operation.elementId, operation.properties);
         return;
+      case 'istar.updateDisplay':
+        requireElement(operation.elementId);
+        s.updateElement(operation.elementId, { display: operation.patch });
+        return;
+      case 'istar.setLinkValue': {
+        const { linkId, value } = operation;
+        const link =
+          model.links.get(linkId) ?? reject(`unknown link "${linkId}"`, linkId, 'unknown-element');
+        const definition = meta.links.get(link.kind);
+        const values = definition?.info.possibleLabels;
+        if (value !== null && values && !values.includes(value)) {
+          reject(
+            `"${value}" is not a value of a ${definition.label} link (${values.join(', ')})`,
+            linkId,
+            'invalid-value',
+          );
+        }
+        s.updateLink(linkId, { label: value });
+        return;
+      }
       default:
         reject(`unknown operation "${(operation as { kind: string }).kind}"`, '', 'unknown-action');
     }

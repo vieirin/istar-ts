@@ -212,4 +212,51 @@ describe('a custom dispatcher prop', () => {
     // The rejected action never created the dependum.
     expect(store.getModel().elements.size).toBe(3);
   });
+
+  test('elementActions.setDisplay and linkActions.setLabel/setName dispatch, not the store directly', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const quality = store.addElement({
+      kind: 'istar.Quality',
+      x: 10,
+      y: 10,
+      parent: actor.id,
+    });
+    const task = store.addElement({ kind: 'istar.Task', x: 100, y: 10, parent: actor.id });
+    const link = store.connect({
+      kind: 'istar.ContributionLink',
+      source: task.id,
+      target: quality.id,
+      label: 'help',
+      name: 'Original',
+    });
+    if (!link.ok) throw new Error('setup failed');
+
+    const kinds: string[] = [];
+    const dispatcher = recordingDispatcher(createActionDispatcher(store), kinds);
+    const editorRef: { current?: IstarEditor } = {};
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store} dispatcher={dispatcher}>
+          <Grab onEditor={(e) => (editorRef.current = e)} />
+        </IstarProvider>
+      </div>,
+    );
+
+    act(() =>
+      editorRef.current!.elementActions(quality.id).setDisplay({ backgroundColor: '#fff' }),
+    );
+    expect(kinds).toContain('istar.updateDisplay');
+    expect(store.getModel().elements.get(quality.id)?.display).toEqual({
+      backgroundColor: '#fff',
+    });
+
+    act(() => editorRef.current!.linkActions(link.link.id).setLabel('hurt'));
+    expect(kinds).toContain('istar.setLinkValue');
+    expect(store.getModel().links.get(link.link.id)?.label).toBe('hurt');
+
+    act(() => editorRef.current!.linkActions(link.link.id).setName(undefined));
+    expect(kinds).toContain('applyLabelEdit');
+    expect(store.getModel().links.get(link.link.id)?.name).toBeUndefined();
+  });
 });

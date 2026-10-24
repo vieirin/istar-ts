@@ -43,9 +43,7 @@ Versions are published from GitHub release tags; see the release notes for full 
   (default: one `createActionDispatcher` makes over the store). The canvas's drag, create,
   connect, delete and undo/redo handlers, and the inspector's rename/delete/custom-property
   setters (`elementActions`/`linkActions`, unchanged as the typed facade), now dispatch through
-  it instead of calling the store directly; a rejection surfaces through `notify`. A link's value
-  (contribution make/help/hurt/break) and name, and an element's display patch (colour, the
-  auto-grown height), have no operation yet and stay on the store (istar-ts#50, #51, #52).
+  it instead of calling the store directly; a rejection surfaces through `notify`.
   Creating a kind that can't be an inner element inside an actor is now refused with a
   notification, instead of the silent nested create `addElement` allowed before (`createNode`
   checks `canBeInnerElement`/`canBeOnPaper`, as `core`'s path did not); a rejected create or
@@ -64,6 +62,15 @@ Versions are published from GitHub release tags; see the release notes for full 
   uses it, so the "still names this id" check runs against the latest state whenever React applies
   it, not a stale snapshot read before a fast rejection — a race that could leave the inspector
   editing an element that doesn't exist (istar-ts#63).
+- **actions:** two more operations close the remaining gaps between the dispatcher and the react
+  facade (istar-ts#50, #51, #52): `istar.updateDisplay { elementId, patch }` merges into an
+  element's `display` (colour, the auto-grown height), as `ElementPatch.display` does; and
+  `istar.setLinkValue { linkId, value }` sets an existing link's contribution value
+  (make/help/hurt/break), checked against the link kind's `possibleLabels` as `createEdge.args.value`
+  is at creation (`null` clears it). `applyLabelEdit` on a link now removes its `name` when `text`
+  is `""`, instead of writing an empty string, matching what piStar writes for a link whose name
+  was cleared. `elementActions.setDisplay` and `linkActions.setLabel`/`setName` now dispatch these
+  instead of calling the store directly.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31.

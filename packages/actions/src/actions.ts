@@ -163,7 +163,10 @@ export interface ReconnectEdgeOperation extends Operation {
 
 /**
  * Sets an element's or link's name (`labelId` = its id), or one of its custom properties
- * (`labelId` = `"<id>#<key>"`).
+ * (`labelId` = `"<id>#<key>"`). An element's name is written as-is (`text`, including `""`, as
+ * piStar always keeps the key); a link's name is removed from the file when `text` is `""`, as
+ * piStar does for a link whose name was cleared (`fileManager.js` only writes `name` when it is
+ * truthy).
  */
 export interface ApplyLabelEditOperation extends Operation {
   readonly kind: 'applyLabelEdit';
@@ -228,6 +231,29 @@ export interface UpdatePropertiesOperation extends Operation {
   readonly properties: Readonly<Record<string, string | null>>;
 }
 
+/**
+ * Merges into an element's `display` (colour, the auto-grown height from a label fit): a key set
+ * to `undefined` is removed, the rest is written as-is. Same semantics as `ElementPatch.display`
+ * (`@istar-ts/core`), which this forwards to.
+ */
+export interface UpdateDisplayOperation extends Operation {
+  readonly kind: 'istar.updateDisplay';
+  readonly elementId: string;
+  readonly patch: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Sets an existing link's contribution value (`label` in the save file), e.g. a Contribution
+ * link's make/help/hurt/break. `null` clears it. Rejected when the link's kind has no
+ * `possibleLabels`, or `value` is not one of them (as `createEdge.args.value` is checked at
+ * creation).
+ */
+export interface SetLinkValueOperation extends Operation {
+  readonly kind: 'istar.setLinkValue';
+  readonly linkId: string;
+  readonly value: string | null;
+}
+
 /** Every operation, keyed by `kind`. */
 export type IstarOperation<EK extends string = ElementKind, LK extends string = LinkKind> =
   | CreateNodeOperation<EK>
@@ -242,7 +268,9 @@ export type IstarOperation<EK extends string = ElementKind, LK extends string = 
   | RemoveLegOperation
   | SetCollapsedOperation
   | UpdateDiagramOperation
-  | UpdatePropertiesOperation;
+  | UpdatePropertiesOperation
+  | UpdateDisplayOperation
+  | SetLinkValueOperation;
 
 // ---------------------------------------------------------------------------------------------
 // Model
@@ -502,6 +530,8 @@ const OPERATION_KINDS: ReadonlySet<string> = new Set<IstarOperation['kind']>([
   'istar.setCollapsed',
   'istar.updateDiagram',
   'istar.updateProperties',
+  'istar.updateDisplay',
+  'istar.setLinkValue',
 ]);
 
 const REQUEST_KINDS: ReadonlySet<string> = new Set<IstarRequestAction['kind']>([

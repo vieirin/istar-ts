@@ -30,9 +30,10 @@ dispatcher.subscribe((action) => {
 
 - **Operations** (one undo step each): `createNode`, `createEdge` (a dependency creates its
   dependum and two links), `deleteElement`, `changeBounds`, `changeContainer`, `reconnectEdge`,
-  `applyLabelEdit` (`"<id>"` for a name, `"<id>#<key>"` for a custom property), `compound`, and
-  `istar.addLeg`, `istar.removeLeg`, `istar.setCollapsed`, `istar.updateDiagram`,
-  `istar.updateProperties`.
+  `applyLabelEdit` (`"<id>"` for a name, `"<id>#<key>"` for a custom property; an empty name on a
+  link removes it), `compound`, and `istar.addLeg`, `istar.removeLeg`, `istar.setCollapsed`,
+  `istar.updateDiagram`, `istar.updateProperties`, `istar.updateDisplay` (an element's `display`
+  patch), `istar.setLinkValue` (an existing link's contribution value).
 - **Requests**: `requestModel` (the piStar file), `requestTypeHints` (from the metamodel),
   `requestCheckEdge` (`canLink`), `requestContextActions` (the palette, `DEFAULT_PALETTE` unless
   the `palette` option says otherwise), `requestMarkers` (link and property issues, and the host's
