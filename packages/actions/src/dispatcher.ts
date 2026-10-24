@@ -340,6 +340,8 @@ export function createActionDispatcher<
           ...(args.value === undefined ? {} : { label: args.value }),
           ...(args.name === undefined ? {} : { name: args.name }),
           ...(args.customProperties ? { customProperties: args.customProperties } : {}),
+          ...(args.legId === undefined ? {} : { legId: args.legId }),
+          ...(args.endId === undefined ? {} : { endId: args.endId }),
         });
         if (!result.ok) rejectCheck(result, { source, target });
         return;

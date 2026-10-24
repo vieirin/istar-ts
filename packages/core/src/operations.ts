@@ -358,11 +358,16 @@ export interface NewLink<K extends string = LinkKind> {
   readonly source: string;
   /** An element id, or a link id for kinds whose rules target links. */
   readonly target: string;
+  /** The new link's id (for an n-ary kind whose target is not yet a hub: the new hub's). */
   readonly id?: string;
   /** Contribution value: make, help, hurt or break. */
   readonly label?: string;
   readonly name?: string;
   readonly customProperties?: CustomProperties;
+  /** For an n-ary kind whose target is not yet a hub: the id of the leg it creates. */
+  readonly legId?: string;
+  /** For an n-ary kind whose target is not yet a hub: the id of the end it creates. */
+  readonly endId?: string;
 }
 
 export interface ConnectOptions extends OperationContext {
@@ -415,7 +420,8 @@ export function connectResultToDiagnostic<
  * With an n-ary kind (`arity: 'n'`), a `target` that is one of the kind's hubs gets a new leg
  * from `source` (see `addLeg`). Any other target gets a new hub, centred between source and
  * target, with a leg from `source` and an end to `target`. `input.id` and `customProperties`
- * then go to the hub, and `label` and `name` to the end.
+ * then go to the hub, `label` and `name` to the end, and `legId`/`endId` (default fresh ids) to
+ * the leg and end.
  */
 export function connect<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -492,8 +498,8 @@ function connectHub<EK extends string, LK extends string>(
   const to = requireElement(m, target);
   const createId = options.createId ?? defaultIdGenerator;
   const hubId = input.id ?? createId();
-  const legId = createId();
-  const endId = createId();
+  const legId = input.legId ?? createId();
+  const endId = input.endId ?? createId();
   for (const [i, id] of [hubId, legId, endId].entries()) {
     if (m.elements.has(id) || m.links.has(id) || [hubId, legId, endId].indexOf(id) !== i) {
       throw new ModelOperationError(`id "${id}" is already in use`, id);
