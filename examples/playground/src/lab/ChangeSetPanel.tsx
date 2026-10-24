@@ -64,6 +64,10 @@ export function ChangeSetPanel({
   return (
     <div className="pg-lab-agent">
       <p className="pg-lab-agent-goal">Goal: {plan.goal}</p>
+      <p className="pg-lab-hint">
+        The plan's steps use fixed ids, so applying it a second time is rejected as a whole — a good
+        demo of a refused compound.
+      </p>
       <ol className="pg-lab-agent-steps">
         {plan.steps.map((step, index) => {
           const entry = previewByStep.get(step);

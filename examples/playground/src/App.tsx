@@ -169,9 +169,14 @@ export default function App(): ReactElement {
   const [scriptDispatcher] = useState(() =>
     tagClient(dispatcher as unknown as ActionDispatcher, 'Script', log),
   );
+  // The pseudo-agent change set (#47) gets its own client tag: #42's lesson is that every
+  // kind of sender shows up on its own row in the log, not lumped in with the script console.
+  const [agentDispatcher] = useState(() =>
+    tagClient(dispatcher as unknown as ActionDispatcher, 'Agent', log),
+  );
   const labDispatchers = useMemo(
-    () => [uiDispatcher, workerDispatcher, scriptDispatcher],
-    [uiDispatcher, workerDispatcher, scriptDispatcher],
+    () => [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
+    [uiDispatcher, workerDispatcher, scriptDispatcher, agentDispatcher],
   );
   const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
@@ -449,7 +454,7 @@ export default function App(): ReactElement {
               onToggleGuards={onToggleGuards}
               guardDescription={DEMO_GUARD_DESCRIPTION}
               guards={guardsEnabled ? [DEMO_GUARD] : []}
-              agentDispatcher={scriptDispatcher}
+              agentDispatcher={agentDispatcher}
             />
           }
         />
