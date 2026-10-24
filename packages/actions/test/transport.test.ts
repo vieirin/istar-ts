@@ -1,17 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { ISTAR_2_0, createModelStore } from '@istar-ts/core';
-import type {
-  ActionDispatcher,
-  IstarAction,
-  MessagePortLike,
-  ModelSourceChangedAction,
-} from '../src';
+import type { ActionDispatcher, IstarAction, ModelSourceChangedAction } from '../src';
 import { connectDispatcher, createActionDispatcher, createRemoteDispatcher } from '../src';
-
-/** A real `MessagePort` structurally fits `MessagePortLike`; its DOM typing is just stricter. */
-function asPortLike(port: MessagePort): MessagePortLike {
-  return port as unknown as MessagePortLike;
-}
 
 let next = 0;
 const createId = (): string => `id${++next}`;
@@ -28,8 +18,8 @@ function setup() {
 
   const server = createActionDispatcher(store);
   const { port1, port2 } = new MessageChannel();
-  const dispose = connectDispatcher(asPortLike(port1), server);
-  const client: ActionDispatcher = createRemoteDispatcher(asPortLike(port2));
+  const dispose = connectDispatcher(port1, server);
+  const client: ActionDispatcher = createRemoteDispatcher(port2);
   return { store, server, client, port1, port2, dispose };
 }
 

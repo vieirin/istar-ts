@@ -54,11 +54,17 @@ export type ActionMessage = JsonRpcRequest | JsonRpcNotification | JsonRpcSucces
 
 /**
  * Structurally what a DOM `MessagePort`, a worker's `self`, or any two-way `postMessage` channel
- * gives us: enough to send and receive `ActionMessage`s, nothing DOM-specific.
+ * gives us: enough to send and receive `ActionMessage`s, nothing DOM-specific. Generic over the
+ * event type `onmessage` is handed (`MessageEvent` for a real port, inferred at the call site),
+ * so a real `MessagePort` or `Worker` fits without a cast: `strictFunctionTypes` checks a
+ * property-typed handler's parameter invariantly, so pinning it to a narrower `{ data: unknown }`
+ * here would reject `MessagePort`'s own, wider `onmessage` type.
  */
-export interface MessagePortLike {
+export interface MessagePortLike<
+  E extends { readonly data: unknown } = { readonly data: unknown },
+> {
   postMessage(data: unknown): void;
-  onmessage: ((ev: { data: unknown }) => void) | null;
+  onmessage: ((ev: E) => unknown) | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,15 +86,16 @@ function errorMessage(id: JsonRpcId, code: number, message: string): JsonRpcErro
  * exception `dispatch` itself doesn't catch answers `-32603` (internal error). Returns a
  * disposer that stops forwarding subscriber events and detaches the port's `onmessage`.
  */
-export function connectDispatcher<EK extends string = ElementKind, LK extends string = LinkKind>(
-  port: MessagePortLike,
-  dispatcher: ActionDispatcher<EK, LK>,
-): () => void {
+export function connectDispatcher<
+  EK extends string = ElementKind,
+  LK extends string = LinkKind,
+  E extends { readonly data: unknown } = { readonly data: unknown },
+>(port: MessagePortLike<E>, dispatcher: ActionDispatcher<EK, LK>): () => void {
   const unsubscribe = dispatcher.subscribe((action) => {
     port.postMessage({ jsonrpc: JSONRPC_VERSION, method: action.kind, params: action });
   });
 
-  port.onmessage = (ev) => {
+  port.onmessage = (ev: E) => {
     const message = ev.data;
     if (!isRecord(message) || message.jsonrpc !== JSONRPC_VERSION) return;
     const { id, method, params } = message;
@@ -135,7 +142,8 @@ export function connectDispatcher<EK extends string = ElementKind, LK extends st
 export function createRemoteDispatcher<
   EK extends string = ElementKind,
   LK extends string = LinkKind,
->(port: MessagePortLike): ActionDispatcher<EK, LK> {
+  E extends { readonly data: unknown } = { readonly data: unknown },
+>(port: MessagePortLike<E>): ActionDispatcher<EK, LK> {
   let nextId = 0;
   const pending = new Map<
     JsonRpcId,
@@ -143,7 +151,7 @@ export function createRemoteDispatcher<
   >();
   const listeners = new Set<ActionListener<EK, LK>>();
 
-  port.onmessage = (ev) => {
+  port.onmessage = (ev: E) => {
     const message = ev.data;
     if (!isRecord(message) || message.jsonrpc !== JSONRPC_VERSION) return;
     const { id, method, params, result, error } = message;
