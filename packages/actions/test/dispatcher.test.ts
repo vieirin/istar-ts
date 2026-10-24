@@ -318,13 +318,21 @@ describe('property schemas', () => {
 
 describe('requests', () => {
   test('requestModel answers with the piStar file', async () => {
-    const env = setup();
-    const result = await env.dispatcher.dispatch({ kind: 'requestModel', requestId: 'r1' });
-    expect(result).toEqual({
-      ok: true,
-      createdIds: [],
-      response: { kind: 'setModel', responseId: 'r1', newRoot: toPistarObject(env.model) },
-    });
+    // Pinned: requestModel and toPistarObject below each call `new Date()` for saveDate, and a
+    // tick between the two would flake the comparison.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:00Z'));
+    try {
+      const env = setup();
+      const result = await env.dispatcher.dispatch({ kind: 'requestModel', requestId: 'r1' });
+      expect(result).toEqual({
+        ok: true,
+        createdIds: [],
+        response: { kind: 'setModel', responseId: 'r1', newRoot: toPistarObject(env.model) },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('requestTypeHints answers from the metamodel', async () => {
