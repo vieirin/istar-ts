@@ -27,7 +27,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   schema) returns `GoalDiagnostic`s and leaves the model untouched; a success returns the ids it
   created. Store changes reach subscribers as `sourceModelChanged`. Actions and results are plain
   JSON (`ActionDispatcher` is the interface a transport implements). Also `typeHintsFor`,
-  `contextActionsFor`, `diagnosticToMarker`/`markerToDiagnostic`.
+  `contextActionsFor`, `diagnosticToMarker`/`markerToDiagnostic`. `connectDispatcher`/
+  `createRemoteDispatcher` carry an `ActionDispatcher` over a `MessagePort`-like object
+  (`{ postMessage, onmessage }`), framed as JSON-RPC 2.0: a dispatch is a request
+  (`method` = the action's `kind`), `subscribe` events go server to client as notifications, and
+  only a transport/protocol fault is a JSON-RPC error — a rejection stays a normal result.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B), istar-ts#26, istar-ts#31.
 
