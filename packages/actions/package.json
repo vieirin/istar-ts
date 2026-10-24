@@ -1,0 +1,53 @@
+{
+  "name": "@istar-ts/actions",
+  "version": "0.0.0-development",
+  "description": "Action types and dispatch for istar-ts model stores: framework-free, depends only on @istar-ts/core.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "istar",
+    "istar2",
+    "goal-model",
+    "actions",
+    "pistar"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieirin/istar-ts.git",
+    "directory": "packages/actions"
+  },
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "prepack": "cp ../../LICENSE . && pnpm build"
+  },
+  "dependencies": {
+    "@istar-ts/core": "workspace:^"
+  }
+}
