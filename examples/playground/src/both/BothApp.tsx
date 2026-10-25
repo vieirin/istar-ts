@@ -174,7 +174,7 @@ export function BothApp(): ReactElement {
   return (
     <div className="pg-both">
       <header className="pg-both-toolbar">
-        <a className="pg-both-back" href="/">
+        <a className="pg-both-back" href="./">
           ← istar-ts examples
         </a>
         <p className="pg-both-note">
