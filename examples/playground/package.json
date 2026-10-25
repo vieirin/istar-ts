@@ -19,6 +19,7 @@
     "@istar-ts/dsm3-kaos": "workspace:^",
     "@istar-ts/dsm3-nfr": "workspace:^",
     "@istar-ts/glsp": "workspace:^",
+    "@istar-ts/gmodel": "workspace:^",
     "@istar-ts/react": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@xyflow/react": "^12.12.0",

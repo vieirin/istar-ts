@@ -16,7 +16,7 @@ import { useCanvasOptions } from './canvas-options';
 import { useIstarEditor } from './context';
 import { ElementIssuesBadge } from './ElementIssuesBadge';
 import type { IstarFlowEdge } from './layout';
-import { ACTOR_SYMBOL_OFFSET, linkAnchorId } from './layout';
+import { ACTOR_SYMBOL_OFFSET } from './layout';
 import { ACTOR_RADIUS } from './shapes';
 import type { Anchor, Point } from './link-geometry';
 import { linkMidpoint, linkPath, pointAlong } from './link-geometry';
@@ -127,16 +127,11 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
   const targetNode = useInternalNode(target);
   // A link that targets a link ends on that link's live middle, so it follows while the
   // target link's nodes are dragged (the anchor node only moves once the drag is committed).
-  const targetLink = data?.targetLinkId ? model.links.get(data.targetLinkId) : undefined;
+  const targetLink = data?.targetLinkEnds;
   const targetLinkSource = useInternalNode(targetLink?.source ?? '');
-  const targetLinkTarget = useInternalNode(
-    targetLink
-      ? model.links.has(targetLink.target)
-        ? linkAnchorId(targetLink.target)
-        : targetLink.target
-      : '',
-  );
-  const link = data ? model.links.get(data.linkId) : undefined;
+  const targetLinkTarget = useInternalNode(targetLink?.target ?? '');
+  // The link as the GModel carries it (see `layout.ts`), not the model's.
+  const link = data?.link;
   if (!sourceNode || !targetNode || !link) return null;
 
   const vertices = link.display?.vertices ?? [];
@@ -146,7 +141,7 @@ export const IstarEdge: ComponentType<EdgeProps<IstarFlowEdge>> = memo(function 
           center: linkMidpoint(
             anchorOf(targetLinkSource),
             anchorOf(targetLinkTarget),
-            targetLink.display?.vertices ?? [],
+            targetLink.vertices,
             linkShape,
           ),
           width: 0,

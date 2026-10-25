@@ -1,24 +1,58 @@
 /**
- * Converts an `IstarModel` into React Flow nodes and edges.
+ * React Flow nodes and edges, derived from the GModel (`@istar-ts/gmodel`'s
+ * `modelToGModelSchema`), the graph `@istar-ts/glsp`'s server sends its clients (#143, #165).
+ * Both clients draw that one graph, so they can't disagree on geometry or structure.
  *
- * Model coordinates are absolute (as in piStar files). React Flow child nodes are positioned
- * relative to their parent, so each actor's boundary is computed first and inner elements are
- * offset from its top-left corner.
+ * GModel children are positioned relative to their actor, as React Flow's are relative to their
+ * `parentId`, so a child's position carries over unchanged. Kinds are read from `args.kind`,
+ * never from the GModel type, so a contribution's type overrides can't lose them.
+ *
+ * Where each field the canvas draws comes from:
+ * - from the GModel: the node and edge structure (which elements are drawn, nesting, collapsed
+ *   actors' hidden elements and links, links on links), every element's box, names (labels), a
+ *   link's value and name (labels), its vertices (`routingPoints`), and every element's and
+ *   link's kind, `customProperties`, `display` and `extra` (`args`), which the node and edge
+ *   components get as the `element`/`link` they draw (`ElementNodeData.element`,
+ *   `IstarEdgeData.link`);
+ * - from the registry, the presentation tier: components, label components, line styles,
+ *   frameless actors (`boundary: false`, drawn at the kind's size), and where on a link its
+ *   anchor sits (the middle of the link as React draws it, border to border and smooth through
+ *   vertices, so links that target it end on the drawn line);
+ * - from the model, by id: only what edits, i.e. the inspector and the canvas's own handlers
+ *   (drag, resize, create, connect), which change the model through the dispatcher.
  */
 import type {
+  AnyMetamodel,
   Box,
   ElementKind,
   IstarElement,
   IstarLink,
   IstarModel,
   LinkKind,
+  Size,
 } from '@istar-ts/core';
 import { ACTOR_PADDING, actorBounds, metamodelOf } from '@istar-ts/core';
+import type {
+  GEdgeSchema,
+  GGraphSchema,
+  GLabelSchema,
+  GModelSizeOverrides,
+  GNodeSchema,
+} from '@istar-ts/gmodel';
+import {
+  isGEdgeSchema,
+  isGLabelSchema,
+  isGNodeSchema,
+  labelId,
+  linkAnchorId as gmodelLinkAnchorId,
+  modelToGModelSchema,
+  valueLabelId,
+} from '@istar-ts/gmodel';
 import type { Edge, Node } from '@xyflow/react';
 import type { Anchor, Point } from './link-geometry';
 import { linkMidpoint } from './link-geometry';
-import type { IstarRegistry } from './registry';
-import { elementSize, registryForMetamodel } from './registry';
+import type { AnyIstarRegistry, IstarRegistry } from './registry';
+import { registryForMetamodel } from './registry';
 import { ACTOR_RADIUS } from './shapes';
 
 export type { Box };
@@ -27,13 +61,21 @@ export { ACTOR_PADDING };
 /** Actor symbol circle: centred at (20, 20) from the boundary's top-left, radius 40. */
 export const ACTOR_SYMBOL_OFFSET = 20;
 
-export type ActorNodeData = {
+export type ElementNodeData = {
   elementId: string;
+  /**
+   * The element as the GModel carries it: `kind`, `customProperties`, `display` and `extra`
+   * from its `args`, `name` from its label, `parent` from its GModel parent, `isDependum` from
+   * its `dependum` class, and `x`/`y` the absolute top-left of its drawn box (for an actor, its
+   * boundary's corner). The node components draw this, not the model's element.
+   */
+  element: IstarElement;
+};
+export type ActorNodeData = ElementNodeData & {
   collapsed: boolean;
   /** Drawn without a boundary: just the kind's component at its own size (see `boundary`). */
   frameless?: boolean;
 };
-export type ElementNodeData = { elementId: string };
 export type ActorFlowNode = Node<ActorNodeData, 'istarActor'>;
 export type ElementFlowNode = Node<ElementNodeData, 'istarElement'>;
 /** The middle of a link that other links target (DSM3's `virtualTarget`); see `linkAnchorId`. */
@@ -41,10 +83,27 @@ export type LinkAnchorNodeData = { linkId: string };
 export type LinkAnchorFlowNode = Node<LinkAnchorNodeData, 'istarLinkAnchor'>;
 export type IstarFlowNode = ActorFlowNode | ElementFlowNode | LinkAnchorFlowNode;
 
+/** The drawn ends of the link a link targets, so the edge can follow its live middle. */
+export interface TargetLinkEnds {
+  /** Flow node ids: elements, or the anchor of the link that link targets in turn. */
+  readonly source: string;
+  readonly target: string;
+  readonly vertices: readonly Point[];
+}
+
 export type IstarEdgeData = {
   linkId: string;
   /** The link this one points at, for links that target links (NFR's Argument). */
   targetLinkId?: string;
+  /**
+   * The link as the GModel carries it: `kind`, `customProperties`, `display` and `extra` from
+   * its `args`, `label` and `name` from its value and name labels, and `source`/`target` its
+   * drawn ends (a collapsed actor stands for its hidden elements; `target` is the link it
+   * targets, for a link on a link). The edge components draw this, not the model's link.
+   */
+  link: IstarLink<string>;
+  /** For a link on a link: the drawn ends of `targetLinkId`. */
+  targetLinkEnds?: TargetLinkEnds;
 };
 export type IstarFlowEdge = Edge<IstarEdgeData, 'istar'>;
 
@@ -70,12 +129,10 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
  * Actor `display.width`/`height` are the last saved expanded size in piStar files — using them
  * as the floor would leave empty space after children move inward.
  *
- * A thin wrapper over core's `actorBounds` (the shared geometry with `@istar-ts/glsp`'s
- * `modelToGModel`), kept under its old name and signature for compatibility. `children` is
- * unused: `actorBounds` finds the same elements itself (by parent id and category), since
- * `modelToFlow`'s precomputed list was only a lookup shortcut, not a different set. `registry`
- * is still used, as `defaultSizeOf`, so a registry that overrides a kind's size (independently
- * of the metamodel) keeps the boundary it drew before this wrapped core's geometry.
+ * A thin wrapper over core's `actorBounds` (the geometry `@istar-ts/gmodel` lays actors out
+ * with), kept under its old name and signature for compatibility. `children` is unused:
+ * `actorBounds` finds the same elements itself (by parent id and category). `registry` is used
+ * as `defaultSizeOf`, as the canvas passes its sizes to the GModel (`registrySizes`).
  */
 export function actorBoundary<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -114,52 +171,142 @@ export function linkIdOfAnchor(nodeId: string): string | undefined {
 export const ACTOR_SYMBOL_CLASS = 'istar-actor-symbol';
 
 /**
- * The model's React Flow nodes and edges, laid out with `registry`: by default the one
- * `registryForMetamodel` builds for the model's metamodel, so extended kinds have their sizes.
+ * The registry's size of every element kind, for `modelToGModelSchema`'s `sizes`: the GModel
+ * then lays elements and actor boundaries out at the sizes the registry draws (#154), which is
+ * also what a GLSP server given the same contribution sends.
  */
-export function modelToFlow<EK extends string = ElementKind, LK extends string = LinkKind>(
-  model: IstarModel<EK, LK>,
-  registry: IstarRegistry<EK, LK> = registryForMetamodel(metamodelOf(model)),
+export function registrySizes<EK extends string, LK extends string>(
+  registry: IstarRegistry<EK, LK>,
+): GModelSizeOverrides {
+  const sizes: Record<string, Size> = {};
+  for (const [kind, config] of Object.entries((registry as unknown as AnyIstarRegistry).elements)) {
+    sizes[kind] = config.size;
+  }
+  return sizes;
+}
+
+/** The text of `node`'s label child `id`, if it has one. */
+function labelText(node: GNodeSchema | GEdgeSchema, id: string): string | undefined {
+  for (const child of node.children) {
+    if (child.id === id && isGLabelSchema(child)) return (child as GLabelSchema).text;
+  }
+  return undefined;
+}
+
+/** An element as its GModel node carries it (`ElementNodeData.element`). */
+function elementOf(
+  node: GNodeSchema,
+  at: { x: number; y: number },
+  parent: string | undefined,
+): IstarElement {
+  const args = node.args!;
+  const element: IstarElement<string> = {
+    id: node.id,
+    kind: args.kind,
+    name: labelText(node, labelId(node.id)) ?? '',
+    x: at.x,
+    y: at.y,
+    ...(parent !== undefined ? { parent } : {}),
+    ...(node.cssClasses.includes('dependum') ? { isDependum: true } : {}),
+    ...(args.customProperties ? { customProperties: args.customProperties } : {}),
+    ...(args.display ? { display: args.display } : {}),
+    ...(args.extra ? { extra: args.extra } : {}),
+  };
+  // Components take `IstarElement` (iStar 2.0's kinds) whatever the metamodel, as before.
+  return element as IstarElement;
+}
+
+/**
+ * React Flow's nodes and edges for a GModel, drawn with `registry` (by default the one
+ * `registryForMetamodel` builds for `metamodel`). `metamodel` is the model's: it says which kinds
+ * are actors, so actors of extended kinds are actors too.
+ *
+ * - Every GModel element node becomes an `istarActor` (actor kinds) or `istarElement` node
+ *   (hubs included); its GModel children become React Flow children (`parentId`), at the same
+ *   relative position. `collapsed` and `dependum` classes map onto the node data and classes.
+ * - Every GModel edge becomes an `istar` edge; one that ends on a link anchor ends on the
+ *   `istarLinkAnchor` node of the link it targets (`targetLinkId`).
+ * - Every GModel link anchor becomes an `istarLinkAnchor` node (`linkAnchorId`), placed on the
+ *   middle of its link as the canvas draws it (see the module comment).
+ */
+export function gmodelToFlow(
+  schema: GGraphSchema,
+  metamodel: AnyMetamodel,
+  registry: IstarRegistry<string, string> | AnyIstarRegistry = registryForMetamodel(metamodel),
 ): FlowGraph {
-  // Categories come from the model's metamodel, so extended actor kinds are actors too.
-  const metamodel = metamodelOf(model);
-  const isActorKind = (kind: EK): boolean => metamodel.elements.get(kind)?.category === 'actor';
-  const isDependencyKind = (kind: LK): boolean =>
-    metamodel.links.get(kind)?.category === 'dependency';
+  const elements = (registry as AnyIstarRegistry).elements;
+  const isActorKind = (kind: string): boolean => metamodel.elements.get(kind)?.category === 'actor';
   const nodes: IstarFlowNode[] = [];
   const origins = new Map<string, { x: number; y: number }>();
-  const children = new Map<string, IstarElement<EK>[]>();
-  for (const element of model.elements.values()) {
-    if (element.parent !== undefined && !isActorKind(element.kind)) {
-      const list = children.get(element.parent) ?? [];
-      list.push(element);
-      children.set(element.parent, list);
-    }
-  }
+  /** Drawn element boxes, absolute, for placing anchors. */
+  const anchorsOf = new Map<string, Anchor>();
 
-  /** Hidden element id → the collapsed actor standing in for it. */
-  const collapsedInto = new Map<string, string>();
-
-  // Parents must precede their children in React Flow's node array.
-  for (const actor of model.elements.values()) {
-    if (!isActorKind(actor.kind)) continue;
-    const inner = children.get(actor.id) ?? [];
-    const collapsed = actor.display?.collapsed === true;
-    const frameless = registry.elements[actor.kind].boundary === false;
-    // Like framed actors, frameless ones ignore any saved `display` size: the kind's size wins.
-    const box = frameless
-      ? { x: actor.x, y: actor.y, ...registry.elements[actor.kind].size }
-      : collapsed
-        ? { x: actor.x, y: actor.y, width: 60, height: 60 }
-        : actorBoundary(model, registry, actor, inner);
-    origins.set(actor.id, { x: box.x, y: box.y });
+  const elementNode = (node: GNodeSchema, parent: { id: string; x: number; y: number } | null) => {
+    const at = parent
+      ? { x: parent.x + node.position.x, y: parent.y + node.position.y }
+      : { x: node.position.x, y: node.position.y };
+    const { width, height } = node.size;
+    origins.set(node.id, at);
+    anchorsOf.set(node.id, {
+      center: { x: at.x + width / 2, y: at.y + height / 2 },
+      width,
+      height,
+    });
+    const dependum = node.cssClasses.includes('dependum');
     nodes.push({
-      id: actor.id,
+      id: node.id,
+      type: 'istarElement',
+      ...(parent ? { parentId: parent.id } : {}),
+      position: { x: node.position.x, y: node.position.y },
+      width,
+      height,
+      data: { elementId: node.id, element: elementOf(node, at, parent?.id) },
+      zIndex: 1,
+      className: `istar-node istar-node-element${dependum ? ' istar-node-dependum' : ''}`,
+    });
+  };
+
+  const graphNodes = schema.children.filter(isGNodeSchema) as GNodeSchema[];
+  const anchorNodes = new Set<string>();
+  // Parents precede their children in React Flow's node array, as the GModel nests them.
+  for (const node of graphNodes) {
+    if (!node.args) {
+      anchorNodes.add(node.id);
+      continue;
+    }
+    const kind = node.args.kind;
+    if (!isActorKind(kind)) {
+      elementNode(node, null);
+      continue;
+    }
+    const collapsed = node.cssClasses.includes('collapsed');
+    const frameless = elements[kind]?.boundary === false;
+    // Like framed actors, frameless ones ignore any saved `display` size: the kind's size wins.
+    const size = frameless ? elements[kind]!.size : node.size;
+    const at = { x: node.position.x, y: node.position.y };
+    origins.set(node.id, at);
+    anchorsOf.set(
+      node.id,
+      frameless
+        ? { center: { x: at.x + size.width / 2, y: at.y + size.height / 2 }, ...size }
+        : {
+            center: { x: at.x + ACTOR_SYMBOL_OFFSET, y: at.y + ACTOR_SYMBOL_OFFSET },
+            radius: ACTOR_RADIUS,
+            ...size,
+          },
+    );
+    nodes.push({
+      id: node.id,
       type: 'istarActor',
-      position: { x: box.x, y: box.y },
-      width: box.width,
-      height: box.height,
-      data: { elementId: actor.id, collapsed, ...(frameless && { frameless }) },
+      position: at,
+      width: size.width,
+      height: size.height,
+      data: {
+        elementId: node.id,
+        element: elementOf(node, at, undefined),
+        collapsed,
+        ...(frameless && { frameless }),
+      },
       zIndex: 0,
       className: 'istar-node istar-node-actor',
       // Only the actor symbol (the circle) selects the actor, and drags it while something is
@@ -169,179 +316,123 @@ export function modelToFlow<EK extends string = ElementKind, LK extends string =
       selectable: false,
       dragHandle: `.${ACTOR_SYMBOL_CLASS}`,
     });
-    for (const child of inner) {
-      if (collapsed) collapsedInto.set(child.id, actor.id);
-      const size = elementSize(registry, child);
-      origins.set(child.id, { x: child.x, y: child.y });
-      nodes.push({
-        id: child.id,
-        type: 'istarElement',
-        parentId: actor.id,
-        position: { x: child.x - box.x, y: child.y - box.y },
-        width: size.width,
-        height: size.height,
-        hidden: collapsed,
-        data: { elementId: child.id },
-        zIndex: 1,
-        className: 'istar-node istar-node-element',
-      });
+    for (const child of node.children) {
+      if (isGNodeSchema(child) && child.args) elementNode(child, { id: node.id, ...at });
     }
   }
 
-  for (const element of model.elements.values()) {
-    if (isActorKind(element.kind)) continue;
-    if (element.parent !== undefined && model.elements.has(element.parent)) continue;
-    const size = elementSize(registry, element);
-    origins.set(element.id, { x: element.x, y: element.y });
-    nodes.push({
-      id: element.id,
-      type: 'istarElement',
-      position: { x: element.x, y: element.y },
-      width: size.width,
-      height: size.height,
-      data: { elementId: element.id },
-      zIndex: 1,
-      className: `istar-node istar-node-element${element.isDependum ? ' istar-node-dependum' : ''}`,
-    });
+  // The GModel's anchors, by the link they sit on.
+  const gmodelEdges = schema.children.filter(isGEdgeSchema) as GEdgeSchema[];
+  const anchored = new Set<string>();
+  /** GModel anchor id → the link it sits on. */
+  const anchorLink = new Map<string, string>();
+  for (const edge of gmodelEdges) {
+    const id = gmodelLinkAnchorId(edge.id);
+    if (anchorNodes.has(id)) {
+      anchored.add(edge.id);
+      anchorLink.set(id, edge.id);
+    }
   }
 
   const edges: IstarFlowEdge[] = [];
   const edgeById = new Map<string, IstarFlowEdge>();
-  for (const link of model.links.values()) {
-    const edge = linkToEdge(link, collapsedInto, isDependencyKind(link.kind));
-    if (edge) {
-      edges.push(edge);
-      edgeById.set(link.id, edge);
+  for (const edge of gmodelEdges) {
+    const kind = edge.args.kind;
+    const targetLinkId = anchorLink.get(edge.targetId);
+    const label = labelText(edge, valueLabelId(edge.id));
+    const name = labelText(edge, labelId(edge.id));
+    const link: IstarLink<string> = {
+      id: edge.id,
+      kind,
+      source: edge.sourceId,
+      target: targetLinkId ?? edge.targetId,
+      ...(label !== undefined ? { label } : {}),
+      ...(name !== undefined ? { name } : {}),
+      ...(edge.args.customProperties ? { customProperties: edge.args.customProperties } : {}),
+      ...(edge.args.display ? { display: edge.args.display } : {}),
+      ...(edge.args.extra ? { extra: edge.args.extra } : {}),
+    };
+    const flowEdge: IstarFlowEdge = {
+      id: edge.id,
+      type: 'istar',
+      source: edge.sourceId,
+      target: targetLinkId !== undefined ? linkAnchorId(targetLinkId) : edge.targetId,
+      data: { linkId: edge.id, ...(targetLinkId !== undefined ? { targetLinkId } : {}), link },
+      zIndex: 1,
+      // `istar.OrRefinementLink` → `istar-edge-OrRefinementLink`; namespaced extension kinds
+      // likewise drop their namespace.
+      className: `istar-edge istar-edge-${kind.slice(kind.indexOf('.') + 1)}`,
+    };
+    edges.push(flowEdge);
+    edgeById.set(edge.id, flowEdge);
+  }
+  for (const edge of edges) {
+    const targetLinkId = edge.data!.targetLinkId;
+    const target = targetLinkId === undefined ? undefined : edgeById.get(targetLinkId);
+    if (target) {
+      edge.data!.targetLinkEnds = {
+        source: target.source,
+        target: target.target,
+        vertices: target.data!.link.display?.vertices ?? [],
+      };
     }
   }
-  if (edges.some((edge) => model.links.has(edge.target))) {
-    return withLinkAnchors(model, nodes, edges, edgeById, origins);
-  }
-  return { nodes, edges, origins };
-}
 
-/**
- * Links that target links end on an anchor node at the middle of the link they point at, as
- * DSM3-goals draws them. A link whose target link isn't drawn (hidden by a collapsed actor) is
- * hidden too. Only models with such links take this path, so iStar layouts are unaffected.
- */
-function withLinkAnchors(
-  model: IstarModel<string, string>,
-  nodes: IstarFlowNode[],
-  edges: IstarFlowEdge[],
-  edgeById: Map<string, IstarFlowEdge>,
-  origins: Map<string, { x: number; y: number }>,
-): FlowGraph {
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const anchors = new Map<string, LinkAnchorFlowNode>();
-  const visiting = new Set<string>();
-
-  const anchorOfNode = (id: string): Anchor | undefined => {
-    const node = nodeById.get(id);
-    const origin = origins.get(id) ?? (node && { x: node.position.x, y: node.position.y });
-    if (!node || !origin) return undefined;
-    const width = node.width ?? 0;
-    const height = node.height ?? 0;
-    if (node.type === 'istarActor' && !node.data.frameless) {
-      const center = { x: origin.x + ACTOR_SYMBOL_OFFSET, y: origin.y + ACTOR_SYMBOL_OFFSET };
-      return { center, radius: ACTOR_RADIUS, width, height };
-    }
-    return { center: { x: origin.x + width / 2, y: origin.y + height / 2 }, width, height };
-  };
-
-  /** The anchor node on the middle of drawn link `linkId`, created on first use. */
-  const anchorFor = (linkId: string): LinkAnchorFlowNode | undefined => {
-    const existing = anchors.get(linkId);
-    if (existing) return existing;
+  // Anchors on the middle of their links as drawn; a link on a link ends on that link's anchor,
+  // so chains resolve on demand.
+  const placed = new Map<string, Anchor | null>();
+  const anchorAt = (linkId: string): Anchor | null => {
+    const known = placed.get(linkId);
+    if (known !== undefined) return known;
+    placed.set(linkId, null);
     const edge = edgeById.get(linkId);
-    if (!edge || visiting.has(linkId)) return undefined;
-    visiting.add(linkId);
-    const source = anchorOfNode(edge.source);
-    // A link that itself targets a link ends on that link's anchor.
-    const target = edge.data?.targetLinkId
-      ? pointAnchor(anchorFor(edge.data.targetLinkId))
-      : anchorOfNode(edge.target);
-    visiting.delete(linkId);
-    if (!source || !target) return undefined;
-    const vertices = model.links.get(linkId)?.display?.vertices ?? [];
-    const middle = linkMidpoint(source, target, vertices);
-    const half = LINK_ANCHOR_SIZE / 2;
-    const anchor: LinkAnchorFlowNode = {
-      id: linkAnchorId(linkId),
+    const source = edge && anchorsOf.get(edge.source);
+    const targetLinkId = edge?.data!.targetLinkId;
+    const target =
+      edge && (targetLinkId === undefined ? anchorsOf.get(edge.target) : anchorAt(targetLinkId));
+    if (!edge || !source || !target) return null;
+    const middle = linkMidpoint(source, target, edge.data!.link.display?.vertices ?? []);
+    const point: Anchor = { center: { x: middle.x, y: middle.y }, width: 0, height: 0 };
+    placed.set(linkId, point);
+    return point;
+  };
+  const half = LINK_ANCHOR_SIZE / 2;
+  for (const edge of edges) {
+    if (!anchored.has(edge.id)) continue;
+    const middle = anchorAt(edge.id);
+    if (!middle) continue;
+    const position = { x: middle.center.x - half, y: middle.center.y - half };
+    const id = linkAnchorId(edge.id);
+    origins.set(id, { ...position });
+    nodes.push({
+      id,
       type: 'istarLinkAnchor',
-      position: { x: middle.x - half, y: middle.y - half },
+      position,
       width: LINK_ANCHOR_SIZE,
       height: LINK_ANCHOR_SIZE,
-      data: { linkId },
+      data: { linkId: edge.id },
       draggable: false,
       selectable: false,
       connectable: true,
       zIndex: 2,
       className: 'istar-node istar-link-anchor',
-    };
-    anchors.set(linkId, anchor);
-    nodeById.set(anchor.id, anchor);
-    origins.set(anchor.id, { ...anchor.position });
-    return anchor;
-  };
-
-  // Retarget links that point at links, outermost last, so chains resolve.
-  const retargeted = new Map<string, IstarFlowEdge | null>();
-  const retarget = (edge: IstarFlowEdge): IstarFlowEdge | null => {
-    const done = retargeted.get(edge.id);
-    if (done !== undefined) return done;
-    if (!model.links.has(edge.target)) return edge;
-    const targetLinkId = edge.target;
-    const targetEdge = edgeById.get(targetLinkId);
-    const resolvedTarget = targetEdge && retarget(targetEdge);
-    if (resolvedTarget) edgeById.set(targetLinkId, resolvedTarget);
-    const anchor = resolvedTarget ? anchorFor(targetLinkId) : undefined;
-    const next: IstarFlowEdge | null = anchor
-      ? { ...edge, target: anchor.id, data: { linkId: edge.id, targetLinkId } }
-      : null;
-    retargeted.set(edge.id, next);
-    if (next) edgeById.set(edge.id, next);
-    return next;
-  };
-  const out: IstarFlowEdge[] = [];
-  for (const edge of edges) {
-    const next = retarget(edge);
-    if (next) out.push(next);
+    });
   }
-  return { nodes: [...nodes, ...anchors.values()], edges: out, origins };
+  return { nodes, edges, origins };
 }
 
-/** A point as an anchor: links end exactly on it. */
-function pointAnchor(node: LinkAnchorFlowNode | undefined): Anchor | undefined {
-  if (!node) return undefined;
-  const half = LINK_ANCHOR_SIZE / 2;
-  const center: Point = { x: node.position.x + half, y: node.position.y + half };
-  return { center, width: 0, height: 0 };
-}
-
-function linkToEdge(
-  link: IstarLink<string>,
-  collapsedInto: Map<string, string>,
-  isDependency: boolean,
-): IstarFlowEdge | null {
-  let { source, target } = link;
-  const hiddenSource = collapsedInto.get(source);
-  const hiddenTarget = collapsedInto.get(target);
-  if (hiddenSource || hiddenTarget) {
-    // Like piStar's collapse: dependency links are re-anchored on the actor, others are hidden.
-    if (!isDependency) return null;
-    source = hiddenSource ?? source;
-    target = hiddenTarget ?? target;
-  }
-  return {
-    id: link.id,
-    type: 'istar',
-    source,
-    target,
-    data: { linkId: link.id },
-    zIndex: 1,
-    // `istar.OrRefinementLink` → `istar-edge-OrRefinementLink`; namespaced extension kinds
-    // likewise drop their namespace.
-    className: `istar-edge istar-edge-${link.kind.slice(link.kind.indexOf('.') + 1)}`,
-  };
+/**
+ * The model's React Flow nodes and edges, laid out with `registry`: by default the one
+ * `registryForMetamodel` builds for the model's metamodel, so extended kinds have their sizes.
+ *
+ * @deprecated Use `gmodelToFlow(modelToGModelSchema(model, { sizes: registrySizes(registry) }),
+ * metamodelOf(model), registry)`, which this wraps; it will be removed in the next release.
+ */
+export function modelToFlow<EK extends string = ElementKind, LK extends string = LinkKind>(
+  model: IstarModel<EK, LK>,
+  registry: IstarRegistry<EK, LK> = registryForMetamodel(metamodelOf(model)),
+): FlowGraph {
+  const metamodel = metamodelOf(model) as unknown as AnyMetamodel;
+  const schema = modelToGModelSchema(model, { sizes: registrySizes(registry) });
+  return gmodelToFlow(schema, metamodel, registry as unknown as AnyIstarRegistry);
 }

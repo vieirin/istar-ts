@@ -48,6 +48,7 @@
   "dependencies": {
     "@istar-ts/actions": "workspace:^",
     "@istar-ts/core": "workspace:^",
+    "@istar-ts/gmodel": "workspace:^",
     "@xyflow/react": "^12.12.0"
   },
   "peerDependencies": {

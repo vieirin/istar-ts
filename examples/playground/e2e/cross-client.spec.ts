@@ -90,6 +90,91 @@ async function open(page: Page): Promise<GLSPApp> {
   return new GLSPApp({ type: 'page', page });
 }
 
+/** An element's box in model coordinates, and whether its size is read from the DOM. */
+interface ModelBox {
+  readonly x: number;
+  readonly y: number;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+/**
+ * Every element's box in the React pane, in model coordinates: React Flow renders each node at
+ * its absolute position (`translate(Xpx, Ypx)`), sized by its `width`/`height` styles.
+ */
+function reactBoxes(page: Page): Promise<Record<string, ModelBox>> {
+  return page.evaluate(() => {
+    const boxes: Record<string, ModelBox> = {};
+    const nodes = document.querySelectorAll<HTMLElement>('.pg-both-react .react-flow__node');
+    for (const node of nodes) {
+      if (node.classList.contains('react-flow__node-istarLinkAnchor')) continue;
+      const [, x, y] = node.style.transform.match(/translate\((-?[\d.]+)px, *(-?[\d.]+)px\)/)!;
+      boxes[node.dataset.id!] = {
+        x: Number(x),
+        y: Number(y),
+        width: parseFloat(node.style.width),
+        height: parseFloat(node.style.height),
+      };
+    }
+    return boxes;
+  });
+}
+
+/**
+ * Every element's box in the GLSP pane, in model coordinates: Sprotty positions a node by a
+ * `translate(x, y)` relative to its parent node. The size is read from a rect of the node's
+ * size (an actor's boundary, a goal) or, for path shapes, from the name label the GModel
+ * centres on the box; a collapsed actor (just its symbol) has its position compared only.
+ */
+function glspBoxes(page: Page): Promise<Record<string, ModelBox>> {
+  return page.evaluate(() => {
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- runs in the page, which sees no outer scope
+    const isNode = (el: Element): boolean => {
+      const type = el.getAttribute('data-svg-metadata-type') ?? '';
+      return type.startsWith('node:') && type !== 'node:link-anchor';
+    };
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- runs in the page, which sees no outer scope
+    const translate = (el: Element): [number, number] => {
+      const match = (el.getAttribute('transform') ?? '').match(
+        /translate\((-?[\d.e-]+)[ ,]+(-?[\d.e-]+)\)/,
+      );
+      return match ? [Number(match[1]), Number(match[2])] : [0, 0];
+    };
+    const boxes: Record<string, ModelBox> = {};
+    const nodes = document.querySelectorAll('.pg-both-glsp-diagram [data-svg-metadata-type]');
+    for (const node of nodes) {
+      if (!isNode(node)) continue;
+      let [x, y] = translate(node);
+      for (let up = node.parentElement; up; up = up.parentElement) {
+        if (!isNode(up)) continue;
+        const [dx, dy] = translate(up);
+        x += dx;
+        y += dy;
+      }
+      // The view draws an actor's boundary and a goal as a rect of the node's size; a path shape
+      // scales its path instead, but the GModel centres an element's name label on its box.
+      const rect = node.querySelector(
+        ':scope > rect.istar-glsp-actor-boundary, :scope > rect.sprotty-node',
+      );
+      const circle = node.querySelector(':scope > circle.sprotty-node');
+      const label = node.querySelector(':scope > [data-svg-metadata-type="label"]');
+      let sized = {};
+      if (rect) {
+        sized = {
+          width: Number(rect.getAttribute('width')),
+          height: Number(rect.getAttribute('height')),
+        };
+      } else if (!circle && label) {
+        const [cx, cy] = translate(label);
+        sized = { width: 2 * cx, height: 2 * cy };
+      }
+      const id = node.id.slice(node.id.lastIndexOf('_') + 1);
+      boxes[id] = { x, y, ...sized };
+    }
+    return boxes;
+  });
+}
+
 function logRows(page: Page): Locator {
   return page.locator('.pg-lab-log-row');
 }
@@ -114,6 +199,27 @@ test.describe('cross-client: React Flow and the stock GLSP client on one model',
   // default 1600 viewport, each pane's ~800px leaves the GLSP tool palette's default layout
   // overlapping the "piStar tool" actor's clickable area, so node-creation clicks there hang.
   test.use({ viewport: { width: 3200, height: 1000 } });
+
+  test('every element has the same box in both panes (#165)', async ({ page }) => {
+    await open(page);
+    // Both panes draw the one GModel the server sends (#143): the same elements, at the same
+    // model positions and sizes. Polled, as the GLSP pane may still be applying its model.
+    await expect(async () => {
+      const react = await reactBoxes(page);
+      const glsp = await glspBoxes(page);
+      expect(Object.keys(react).toSorted()).toEqual(Object.keys(glsp).toSorted());
+      expect(Object.keys(react).length).toBeGreaterThan(0);
+      for (const [id, box] of Object.entries(glsp)) {
+        const mine = react[id]!;
+        expect(mine.x, `x of ${id}`).toBeCloseTo(box.x, 3);
+        expect(mine.y, `y of ${id}`).toBeCloseTo(box.y, 3);
+        if (box.width !== undefined) {
+          expect(mine.width, `width of ${id}`).toBeCloseTo(box.width, 3);
+          expect(mine.height, `height of ${id}`).toBeCloseTo(box.height!, 3);
+        }
+      }
+    }).toPass();
+  });
 
   test('creates in GLSP; the React canvas and the action log see it as "GLSP"', async ({
     page,

@@ -6,6 +6,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "7e9169a3-7901-4c68-adb2-5dc3d807f0f9",
+          "kind": "istar.AndRefinementLink",
+          "source": "957b91c5-107f-43e9-a930-5bc310a468fd",
+          "target": "13643c2b-981b-406a-88a0-4882b115d534",
+        },
         "linkId": "7e9169a3-7901-4c68-adb2-5dc3d807f0f9",
       },
       "id": "7e9169a3-7901-4c68-adb2-5dc3d807f0f9",
@@ -17,6 +23,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "e5e3e35d-fa38-4d6c-98cd-adaf34102f66",
+          "kind": "istar.NeededByLink",
+          "source": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+          "target": "957b91c5-107f-43e9-a930-5bc310a468fd",
+        },
         "linkId": "e5e3e35d-fa38-4d6c-98cd-adaf34102f66",
       },
       "id": "e5e3e35d-fa38-4d6c-98cd-adaf34102f66",
@@ -28,6 +40,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "a30978a7-dba0-4872-8399-fb3d7ef45bd4",
+          "kind": "istar.AndRefinementLink",
+          "source": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+          "target": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+        },
         "linkId": "a30978a7-dba0-4872-8399-fb3d7ef45bd4",
       },
       "id": "a30978a7-dba0-4872-8399-fb3d7ef45bd4",
@@ -39,6 +57,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "0f5451b7-e3a7-4774-8fde-d2d6189916f6",
+          "kind": "istar.AndRefinementLink",
+          "source": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+          "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+        },
         "linkId": "0f5451b7-e3a7-4774-8fde-d2d6189916f6",
       },
       "id": "0f5451b7-e3a7-4774-8fde-d2d6189916f6",
@@ -50,6 +74,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "bbbb2d44-8cef-4dc4-a886-0a3533f99f61",
+          "kind": "istar.AndRefinementLink",
+          "source": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+          "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+        },
         "linkId": "bbbb2d44-8cef-4dc4-a886-0a3533f99f61",
       },
       "id": "bbbb2d44-8cef-4dc4-a886-0a3533f99f61",
@@ -61,6 +91,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "f4fd2b17-f08b-484c-ac02-1830a7b6e628",
+          "kind": "istar.AndRefinementLink",
+          "source": "bd829b59-9477-4034-8c71-6388e7ec002b",
+          "target": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+        },
         "linkId": "f4fd2b17-f08b-484c-ac02-1830a7b6e628",
       },
       "id": "f4fd2b17-f08b-484c-ac02-1830a7b6e628",
@@ -72,6 +108,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "dd947672-422c-434c-a925-61f625b97935",
+          "kind": "istar.AndRefinementLink",
+          "source": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+          "target": "bd829b59-9477-4034-8c71-6388e7ec002b",
+        },
         "linkId": "dd947672-422c-434c-a925-61f625b97935",
       },
       "id": "dd947672-422c-434c-a925-61f625b97935",
@@ -83,6 +125,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "b2a7fd41-40ca-421f-b8aa-a158630c76d6",
+          "kind": "istar.AndRefinementLink",
+          "source": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+          "target": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+        },
         "linkId": "b2a7fd41-40ca-421f-b8aa-a158630c76d6",
       },
       "id": "b2a7fd41-40ca-421f-b8aa-a158630c76d6",
@@ -94,6 +142,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "95336e0f-1d4b-4c09-adc0-1c7b4215c9ce",
+          "kind": "istar.AndRefinementLink",
+          "source": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+          "target": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+        },
         "linkId": "95336e0f-1d4b-4c09-adc0-1c7b4215c9ce",
       },
       "id": "95336e0f-1d4b-4c09-adc0-1c7b4215c9ce",
@@ -105,6 +159,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "6e3df9d5-114b-4e19-8945-d71ccc474f39",
+          "kind": "istar.NeededByLink",
+          "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+          "target": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+        },
         "linkId": "6e3df9d5-114b-4e19-8945-d71ccc474f39",
       },
       "id": "6e3df9d5-114b-4e19-8945-d71ccc474f39",
@@ -116,6 +176,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "9f190d6a-5e8c-49dd-9ac8-622af3e40877",
+          "kind": "istar.NeededByLink",
+          "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+          "target": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+        },
         "linkId": "9f190d6a-5e8c-49dd-9ac8-622af3e40877",
       },
       "id": "9f190d6a-5e8c-49dd-9ac8-622af3e40877",
@@ -127,6 +193,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "e46f0d75-5879-43ce-b55a-cc5e93f85116",
+          "kind": "istar.NeededByLink",
+          "source": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+          "target": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+        },
         "linkId": "e46f0d75-5879-43ce-b55a-cc5e93f85116",
       },
       "id": "e46f0d75-5879-43ce-b55a-cc5e93f85116",
@@ -138,6 +210,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "36e75e89-6276-4ab7-b4fb-9cbac4cff59f",
+          "kind": "istar.NeededByLink",
+          "source": "3275f38f-f106-4963-93f1-32d52f21b234",
+          "target": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+        },
         "linkId": "36e75e89-6276-4ab7-b4fb-9cbac4cff59f",
       },
       "id": "36e75e89-6276-4ab7-b4fb-9cbac4cff59f",
@@ -149,6 +227,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "97161c7a-cc30-4348-9c6a-39d157a8f971",
+          "kind": "istar.AndRefinementLink",
+          "source": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+          "target": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+        },
         "linkId": "97161c7a-cc30-4348-9c6a-39d157a8f971",
       },
       "id": "97161c7a-cc30-4348-9c6a-39d157a8f971",
@@ -160,6 +244,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "a293103d-6f43-46e3-99aa-bce1209d1c7b",
+          "kind": "istar.NeededByLink",
+          "source": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+          "target": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+        },
         "linkId": "a293103d-6f43-46e3-99aa-bce1209d1c7b",
       },
       "id": "a293103d-6f43-46e3-99aa-bce1209d1c7b",
@@ -171,6 +261,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "8e3a4cb0-4139-4ce4-adfe-ba83a84d7a38",
+          "kind": "istar.AndRefinementLink",
+          "source": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+          "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+        },
         "linkId": "8e3a4cb0-4139-4ce4-adfe-ba83a84d7a38",
       },
       "id": "8e3a4cb0-4139-4ce4-adfe-ba83a84d7a38",
@@ -182,6 +278,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "4461d736-2e78-4145-b1b3-a0c38bf4c060",
+          "kind": "istar.AndRefinementLink",
+          "source": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+          "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+        },
         "linkId": "4461d736-2e78-4145-b1b3-a0c38bf4c060",
       },
       "id": "4461d736-2e78-4145-b1b3-a0c38bf4c060",
@@ -193,6 +295,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "86d11413-fa6f-4633-970d-798a21799bb9",
+          "kind": "istar.AndRefinementLink",
+          "source": "66324349-e871-4e05-8e37-57385305a601",
+          "target": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+        },
         "linkId": "86d11413-fa6f-4633-970d-798a21799bb9",
       },
       "id": "86d11413-fa6f-4633-970d-798a21799bb9",
@@ -204,6 +312,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "dd1398b2-51f3-49fb-812a-be88af53d8df",
+          "kind": "istar.AndRefinementLink",
+          "source": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+          "target": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+        },
         "linkId": "dd1398b2-51f3-49fb-812a-be88af53d8df",
       },
       "id": "dd1398b2-51f3-49fb-812a-be88af53d8df",
@@ -215,6 +329,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "76d4fff3-16fe-4df7-b7f3-60b8f22f9b5d",
+          "kind": "istar.AndRefinementLink",
+          "source": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+          "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+        },
         "linkId": "76d4fff3-16fe-4df7-b7f3-60b8f22f9b5d",
       },
       "id": "76d4fff3-16fe-4df7-b7f3-60b8f22f9b5d",
@@ -226,6 +346,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "fb23110b-2405-47d7-acf6-7f82fe5b0f1c",
+          "kind": "istar.AndRefinementLink",
+          "source": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+          "target": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+        },
         "linkId": "fb23110b-2405-47d7-acf6-7f82fe5b0f1c",
       },
       "id": "fb23110b-2405-47d7-acf6-7f82fe5b0f1c",
@@ -237,6 +363,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "e6932d15-f3b5-412f-b112-5b393d7e47a9",
+          "kind": "istar.AndRefinementLink",
+          "source": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+          "target": "66324349-e871-4e05-8e37-57385305a601",
+        },
         "linkId": "e6932d15-f3b5-412f-b112-5b393d7e47a9",
       },
       "id": "e6932d15-f3b5-412f-b112-5b393d7e47a9",
@@ -248,6 +380,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "51d7c37f-e2c0-4960-92d3-f61837d9df7e",
+          "kind": "istar.NeededByLink",
+          "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+          "target": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+        },
         "linkId": "51d7c37f-e2c0-4960-92d3-f61837d9df7e",
       },
       "id": "51d7c37f-e2c0-4960-92d3-f61837d9df7e",
@@ -259,6 +397,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "c0e92f41-86eb-4253-acc4-35529041ac70",
+          "kind": "istar.NeededByLink",
+          "source": "9036eb53-fda4-4e42-968f-9865107e6927",
+          "target": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+        },
         "linkId": "c0e92f41-86eb-4253-acc4-35529041ac70",
       },
       "id": "c0e92f41-86eb-4253-acc4-35529041ac70",
@@ -270,6 +414,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "e911bff9-5154-4d5a-a70c-506c05cdb646",
+          "kind": "istar.NeededByLink",
+          "source": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+          "target": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+        },
         "linkId": "e911bff9-5154-4d5a-a70c-506c05cdb646",
       },
       "id": "e911bff9-5154-4d5a-a70c-506c05cdb646",
@@ -281,6 +431,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-NeededByLink",
       "data": {
+        "link": {
+          "id": "46ea3615-d9d9-4e00-bd05-c11149affe10",
+          "kind": "istar.NeededByLink",
+          "source": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+          "target": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+        },
         "linkId": "46ea3615-d9d9-4e00-bd05-c11149affe10",
       },
       "id": "46ea3615-d9d9-4e00-bd05-c11149affe10",
@@ -292,6 +448,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-OrRefinementLink",
       "data": {
+        "link": {
+          "id": "ecbd54e4-7f19-4839-984e-f55341841134",
+          "kind": "istar.OrRefinementLink",
+          "source": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+          "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+        },
         "linkId": "ecbd54e4-7f19-4839-984e-f55341841134",
       },
       "id": "ecbd54e4-7f19-4839-984e-f55341841134",
@@ -303,6 +465,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-OrRefinementLink",
       "data": {
+        "link": {
+          "id": "6c39f39b-4ce3-4703-8a31-a5d35e88b18d",
+          "kind": "istar.OrRefinementLink",
+          "source": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+          "target": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+        },
         "linkId": "6c39f39b-4ce3-4703-8a31-a5d35e88b18d",
       },
       "id": "6c39f39b-4ce3-4703-8a31-a5d35e88b18d",
@@ -314,6 +482,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "5e2f2e86-e887-475e-9463-a075f78dbfd9",
+          "kind": "istar.AndRefinementLink",
+          "source": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+          "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+        },
         "linkId": "5e2f2e86-e887-475e-9463-a075f78dbfd9",
       },
       "id": "5e2f2e86-e887-475e-9463-a075f78dbfd9",
@@ -325,6 +499,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "15bd1088-bce2-4e2c-bf40-03b0c6e08205",
+          "kind": "istar.AndRefinementLink",
+          "source": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+          "target": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+        },
         "linkId": "15bd1088-bce2-4e2c-bf40-03b0c6e08205",
       },
       "id": "15bd1088-bce2-4e2c-bf40-03b0c6e08205",
@@ -336,6 +516,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "ede08639-c9b8-45af-963e-4e8527ac20b3",
+          "kind": "istar.AndRefinementLink",
+          "source": "13643c2b-981b-406a-88a0-4882b115d534",
+          "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+        },
         "linkId": "ede08639-c9b8-45af-963e-4e8527ac20b3",
       },
       "id": "ede08639-c9b8-45af-963e-4e8527ac20b3",
@@ -347,6 +533,12 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-edge istar-edge-AndRefinementLink",
       "data": {
+        "link": {
+          "id": "2f90ae5e-dc0a-4a78-bfee-1942c23c9934",
+          "kind": "istar.AndRefinementLink",
+          "source": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+          "target": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+        },
         "linkId": "2f90ae5e-dc0a-4a78-bfee-1942c23c9934",
       },
       "id": "2f90ae5e-dc0a-4a78-bfee-1942c23c9934",
@@ -361,6 +553,16 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
       "className": "istar-node istar-node-actor",
       "data": {
         "collapsed": false,
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "id": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "kind": "istar.Actor",
+          "name": "Lab Sample Logistics",
+          "x": 49,
+          "y": 52,
+        },
         "elementId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       },
       "dragHandle": ".istar-actor-symbol",
@@ -378,10 +580,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 51.53334045410156,
+            "width": 155.25,
+          },
+          "id": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
+          "kind": "istar.Goal",
+          "name": "G0: Provide Sample Delivery [G1#G2]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 254,
+          "y": 79,
+        },
         "elementId": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
       },
       "height": 51.53334045410156,
-      "hidden": false,
       "id": "faf8b81d-3cb3-486a-9e70-1e88dca62a4e",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -395,10 +611,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 51.53334045410156,
+            "width": 143.25,
+          },
+          "id": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
+          "kind": "istar.Goal",
+          "name": "G3: Pickup Sample",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 229,
+          "y": 365,
+        },
         "elementId": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
       },
       "height": 51.53334045410156,
-      "hidden": false,
       "id": "9cf43e0a-fd72-4fb4-a748-1fe34d434279",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -412,10 +642,29 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "sampleLoaded",
+            "maintain": "sampleLoaded",
+            "monitor": "true",
+            "type": "maintain",
+          },
+          "display": {
+            "backgroundColor": "#5AEEFA",
+            "height": 47.53334045410156,
+            "width": 108.25,
+          },
+          "id": "13643c2b-981b-406a-88a0-4882b115d534",
+          "kind": "istar.Goal",
+          "name": "G1: Monitor Sample Track System",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 78,
+          "y": 219,
+        },
         "elementId": "13643c2b-981b-406a-88a0-4882b115d534",
       },
       "height": 47.53334045410156,
-      "hidden": false,
       "id": "13643c2b-981b-406a-88a0-4882b115d534",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -429,10 +678,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R0=true",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 52.80000305175781,
+            "width": 118,
+          },
+          "id": "957b91c5-107f-43e9-a930-5bc310a468fd",
+          "kind": "istar.Task",
+          "name": "T1: Process Lab Sample Delivery Request",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 70,
+          "y": 325,
+        },
         "elementId": "957b91c5-107f-43e9-a930-5bc310a468fd",
       },
       "height": 52.80000305175781,
-      "hidden": false,
       "id": "957b91c5-107f-43e9-a930-5bc310a468fd",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -446,10 +711,27 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initialValue": "true",
+            "type": "bool",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+            "height": 43.80000305175781,
+            "width": 101,
+          },
+          "id": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
+          "kind": "istar.Resource",
+          "name": "R0: Hospital Delivery Service",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 78,
+          "y": 427,
+        },
         "elementId": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
       },
       "height": 43.80000305175781,
-      "hidden": false,
       "id": "4ac2fd9b-1743-483e-8b58-67c14918b62c",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -463,10 +745,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 50.80000305175781,
+            "width": 116,
+          },
+          "id": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
+          "kind": "istar.Goal",
+          "name": "G4: Load sample to deliver",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 460,
+          "y": 364,
+        },
         "elementId": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
       },
       "height": 50.80000305175781,
-      "hidden": false,
       "id": "d0ee4661-b198-41e7-8e62-0f3a6d9fb003",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -480,10 +776,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 73.80000305175781,
+            "width": 140,
+          },
+          "id": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
+          "kind": "istar.Goal",
+          "name": "G2: Deliver Sample and Pickup Sample if Needed [G13;G6]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 444,
+          "y": 208,
+        },
         "elementId": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
       },
       "height": 73.80000305175781,
-      "hidden": false,
       "id": "388d2239-d5f3-477b-ba42-b5dc79fdc312",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -497,10 +807,25 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>50&R2=true",
+            "sideEffect": "sampleLoaded=true",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+          },
+          "id": "e2dc9033-4edf-4cdf-961a-1de17647e463",
+          "kind": "istar.Task",
+          "name": "T3: Pickup Task",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 350,
+          "y": 635,
+        },
         "elementId": "e2dc9033-4edf-4cdf-961a-1de17647e463",
       },
       "height": 36,
-      "hidden": false,
       "id": "e2dc9033-4edf-4cdf-961a-1de17647e463",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -514,10 +839,27 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>30",
+            "sideEffect": "sampleLoaded=false",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 45.80000305175781,
+            "width": 116,
+          },
+          "id": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
+          "kind": "istar.Task",
+          "name": "T7: Delivery Task",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 968,
+          "y": 635,
+        },
         "elementId": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
       },
       "height": 45.80000305175781,
-      "hidden": false,
       "id": "17ebf01d-8e2d-40fa-98bd-5dc42793bb9c",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -531,10 +873,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initialValue": "true",
+            "initialv": "",
+            "type": "bool",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+          },
+          "id": "3275f38f-f106-4963-93f1-32d52f21b234",
+          "kind": "istar.Resource",
+          "name": "R2: Sample",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 351,
+          "y": 723,
+        },
         "elementId": "3275f38f-f106-4963-93f1-32d52f21b234",
       },
       "height": 35,
-      "hidden": false,
       "id": "3275f38f-f106-4963-93f1-32d52f21b234",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -548,10 +906,28 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initial": "100",
+            "initialValue": "100",
+            "lowerBound": "0",
+            "type": "int",
+            "upperBound": "100",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+          },
+          "id": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
+          "kind": "istar.Resource",
+          "name": "R1: Battery",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 215,
+          "y": 739,
+        },
         "elementId": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
       },
       "height": 35,
-      "hidden": false,
       "id": "f408e0ed-5b87-4e82-9465-08cc2e466e33",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -565,10 +941,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 54.80000305175781,
+            "width": 144,
+          },
+          "id": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
+          "kind": "istar.Goal",
+          "name": "G5: Approach Nurse and Pickup Sample [G7;G8;G9]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 213,
+          "y": 435,
+        },
         "elementId": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
       },
       "height": 54.80000305175781,
-      "hidden": false,
       "id": "b1915cd5-5cb0-4a81-860a-d2b4c047be55",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -582,10 +972,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 51.80000305175781,
+            "width": 112,
+          },
+          "id": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
+          "kind": "istar.Goal",
+          "name": "G7: Approach the Nurse",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 71,
+          "y": 525,
+        },
         "elementId": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
       },
       "height": 51.80000305175781,
-      "hidden": false,
       "id": "9486cfdf-1823-4a44-bb83-fcaf2d382eb9",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -599,10 +1003,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 52.80000305175781,
+            "width": 124,
+          },
+          "id": "bd829b59-9477-4034-8c71-6388e7ec002b",
+          "kind": "istar.Goal",
+          "name": "G9: Pickup Sample",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 338,
+          "y": 522,
+        },
         "elementId": "bd829b59-9477-4034-8c71-6388e7ec002b",
       },
       "height": 52.80000305175781,
-      "hidden": false,
       "id": "bd829b59-9477-4034-8c71-6388e7ec002b",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -616,10 +1034,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 50.30000305175781,
+            "width": 126,
+          },
+          "id": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
+          "kind": "istar.Goal",
+          "name": "G8: Scan Sample Barcode",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 199,
+          "y": 526,
+        },
         "elementId": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
       },
       "height": 50.30000305175781,
-      "hidden": false,
       "id": "96ef10d1-d155-498f-91dd-b1dfb35cee7f",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -633,10 +1065,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>60",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 47.80000305175781,
+            "width": 116,
+          },
+          "id": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
+          "kind": "istar.Task",
+          "name": "T2: Navigate to Nurse Position",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 59,
+          "y": 627,
+        },
         "elementId": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
       },
       "height": 47.80000305175781,
-      "hidden": false,
       "id": "f85b14f9-a321-4552-bcc3-3a0e8d907e7b",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -650,10 +1098,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=20",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 43.80000305175781,
+            "width": 111,
+          },
+          "id": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
+          "kind": "istar.Task",
+          "name": "T3: Barcode Scanner Service",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 205,
+          "y": 632,
+        },
         "elementId": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
       },
       "height": 43.80000305175781,
-      "hidden": false,
       "id": "3e14f0c4-a941-404c-841c-7cb5c035ed43",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -667,10 +1131,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 54.30000305175781,
+            "width": 126,
+          },
+          "id": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
+          "kind": "istar.Goal",
+          "name": "G6: Deliver Sample to Lab [G10;G11;G12]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 756,
+          "y": 294,
+        },
         "elementId": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
       },
       "height": 54.30000305175781,
-      "hidden": false,
       "id": "42b3e936-7bd5-479f-8296-e69e33fe26b5",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -684,10 +1162,27 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R2=true",
+            "sideEffect": "sampleLoaded=true",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 42.80000305175781,
+            "width": 109,
+          },
+          "id": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
+          "kind": "istar.Task",
+          "name": "T2: Load Sample Manually",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 469,
+          "y": 437,
+        },
         "elementId": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
       },
       "height": 42.80000305175781,
-      "hidden": false,
       "id": "6e8641d3-a0cf-4b51-9a0e-15506838fcaf",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -701,10 +1196,25 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initialValue": "true",
+            "type": "bool",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+          },
+          "id": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
+          "kind": "istar.Resource",
+          "name": "R2: Sample",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 484,
+          "y": 522,
+        },
         "elementId": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
       },
       "height": 35,
-      "hidden": false,
       "id": "ddc8ce6c-3945-4493-8ab5-36bccc4fe798",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -718,10 +1228,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 52.80000305175781,
+            "width": 116,
+          },
+          "id": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
+          "kind": "istar.Goal",
+          "name": "G10: Approach the Lab",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 601,
+          "y": 521,
+        },
         "elementId": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
       },
       "height": 52.80000305175781,
-      "hidden": false,
       "id": "cfbbc515-e447-4f3e-b8f2-f9381f6ca85d",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -735,10 +1259,24 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "display": {
+            "height": 51.80000305175781,
+            "width": 111,
+          },
+          "id": "66324349-e871-4e05-8e37-57385305a601",
+          "kind": "istar.Goal",
+          "name": "G12: Give sample to Robotic Arm",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 1010,
+          "y": 563,
+        },
         "elementId": "66324349-e871-4e05-8e37-57385305a601",
       },
       "height": 51.80000305175781,
-      "hidden": false,
       "id": "66324349-e871-4e05-8e37-57385305a601",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -752,10 +1290,29 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "sampleLoaded",
+            "maintain": "analysisEnded",
+            "monitor": "true",
+            "type": "maintain",
+          },
+          "display": {
+            "backgroundColor": "#5AEEFA",
+            "height": 51.80000305175781,
+            "width": 132,
+          },
+          "id": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
+          "kind": "istar.Goal",
+          "name": "G11: Monitor Sample Data [T5;T6]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 773,
+          "y": 539,
+        },
         "elementId": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
       },
       "height": 51.80000305175781,
-      "hidden": false,
       "id": "95e5c95b-12ae-486a-8edb-08b0d1cc0bcd",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -769,10 +1326,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R1>=50",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 46.80000305175781,
+            "width": 105,
+          },
+          "id": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
+          "kind": "istar.Task",
+          "name": "T4: Navigate to Lab Position",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 563,
+          "y": 623,
+        },
         "elementId": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
       },
       "height": 46.80000305175781,
-      "hidden": false,
       "id": "9efd5de5-25d8-4fb7-b56a-dc6d8f5974a2",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -786,10 +1359,26 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "sample=true",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 48.80000305175781,
+            "width": 109,
+          },
+          "id": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
+          "kind": "istar.Task",
+          "name": "T5: Track Sample Location",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 678,
+          "y": 628,
+        },
         "elementId": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
       },
       "height": 48.80000305175781,
-      "hidden": false,
       "id": "29c511ad-ee4d-40ad-97cf-bfaf32b0d9b8",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -803,10 +1392,27 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "assertion": "R2=true",
+            "sideEffect": "analysisEnded=true",
+          },
+          "display": {
+            "backgroundColor": "#FAC0AF",
+            "height": 52.80000305175781,
+            "width": 104,
+          },
+          "id": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
+          "kind": "istar.Task",
+          "name": "T6: Monitor Sample Temperature",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 864,
+          "y": 624,
+        },
         "elementId": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
       },
       "height": 52.80000305175781,
-      "hidden": false,
       "id": "6f548fbb-378c-4dd8-8379-bfa6d4644704",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -820,10 +1426,28 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initial": "100",
+            "initialValue": "100",
+            "lowerBound": "0",
+            "type": "int",
+            "upperBound": "100",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+          },
+          "id": "9036eb53-fda4-4e42-968f-9865107e6927",
+          "kind": "istar.Resource",
+          "name": "R1: Battery",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 786,
+          "y": 807,
+        },
         "elementId": "9036eb53-fda4-4e42-968f-9865107e6927",
       },
       "height": 35,
-      "hidden": false,
       "id": "9036eb53-fda4-4e42-968f-9865107e6927",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -837,10 +1461,25 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+            "initialValue": "true",
+            "type": "bool",
+          },
+          "display": {
+            "backgroundColor": "#FAF383",
+          },
+          "id": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
+          "kind": "istar.Resource",
+          "name": "R2: Sample",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 788,
+          "y": 704,
+        },
         "elementId": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
       },
       "height": 35,
-      "hidden": false,
       "id": "9bb14d75-a5ad-47c1-9d66-2c38bfc506fa",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
@@ -854,10 +1493,20 @@ exports[`modelToFlow(labSamples) is unchanged 1`] = `
     {
       "className": "istar-node istar-node-element",
       "data": {
+        "element": {
+          "customProperties": {
+            "Description": "",
+          },
+          "id": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
+          "kind": "istar.Goal",
+          "name": "G13: Prepare sample [G3|G4]",
+          "parent": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
+          "x": 470,
+          "y": 301,
+        },
         "elementId": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
       },
       "height": 35,
-      "hidden": false,
       "id": "e1d797d6-5d27-4b65-a6fd-7ce9597c007a",
       "parentId": "b6393948-d0f2-43de-bc18-44a91c5fd86b",
       "position": {
