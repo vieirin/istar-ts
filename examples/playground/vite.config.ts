@@ -74,6 +74,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, '../../packages/glsp/src/nfr.ts'),
       },
       {
+        find: '@istar-ts/glsp/page',
+        replacement: path.resolve(rootDir, '../../packages/glsp/src/page.ts'),
+      },
+      {
         find: '@istar-ts/glsp/browser',
         replacement: path.resolve(rootDir, '../../packages/glsp/src/browser.ts'),
       },

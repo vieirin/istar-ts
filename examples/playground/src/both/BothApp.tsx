@@ -3,7 +3,8 @@
  * one `ModelStore` and one dispatcher (#74 S4, #85). The GLSP server runs in this page
  * (`serveIstarGlsp`, over an in-page `MessageChannel`), on the canvas's own store and
  * dispatcher — the route `packages/glsp`'s README recommends for this exact page, since
- * `<IstarCanvas>` needs a local store and the worker route would leave it with none.
+ * the canvas renders the very store the GLSP server edits. `?server=worker` is the other route
+ * (`WorkerBothApp`): the model in a worker, the canvas on a mirror of it.
  *
  * One dispatcher, wrapped twice for the protocol lab's log (`tagClient`, as `App.tsx` does for
  * "Canvas"/"Inspector"): "React" for the canvas's edits, "GLSP" for the ones the GLSP operation
