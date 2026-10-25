@@ -241,7 +241,7 @@ asks for it, its URL returned as `initialize`'s `mcpServer.url` (port 0, a free 
 Off by default. `@eclipse-glsp/server-mcp` is an optional peer dependency pinned to `2.8.0`:
 upstream marks it `@experimental` (framework-notes §5, §8).
 
-`serveIstarGlsp` takes the same option (`mcp: true`, or `{ route, name }`) for an MCP server
+`serveIstarGlsp` takes the same option (`mcp: true`, or `{ route, name, ... }`) for an MCP server
 **in the page**, on server-mcp's `WebMcpServerLauncher` (#126 D1; supersedes the "browser
 launchers have no MCP" line, #86). It has no socket: an MCP SDK client reaches it through
 `server.mcp.fetch`, which hands each request to the launcher in the same realm. No Service
@@ -286,8 +286,64 @@ await client.callTool({ name: 'create-nodes', arguments: { sessionId: server.ses
 - `server.mcp.handleRequest(request)` is the launcher's Fetch-shaped entry point, for a host's
   own listener. Requests are handled one at a time, as server-mcp's `BrowserMcpRequestContext`
   requires.
-- `startIstarGlspWorker` has no MCP yet: the server would sit in the worker, behind
-  server-mcp's `McpWorkerBridge` (`docs/agent/verification.md` §5).
+- `startIstarGlspWorker({ mcp: true })` serves MCP from the worker, behind server-mcp's
+  `McpWorkerBridge`; the page reaches it with `connectWorkerMcp` (`@istar-ts/glsp/page`, #134).
+
+### Host tools and context providers
+
+A host plugs in what the agent needs beyond the metamodel (free-text help, a notation, pooled
+values, an external validator) through two more `mcp` options, the same on every launcher
+(`startIstarGlspServer`, `serveIstarGlsp`, `startIstarGlspWorker`), #175. Both are
+`@istar-ts/actions` types — opaque data plus a handler, nothing dialect-specific — so the same
+values also go to `@istar-ts/agent` (its README, "Host extensions"). **Host tools need zod 4.2
+or later** (`z.fromJSONSchema`): the `zod` peer range is `^4.2.0`, and with an older zod
+registering a host tool fails with an error saying so:
+
+```ts
+import type { HostContextProvider, HostTool } from '@istar-ts/actions';
+
+const notation: HostContextProvider = {
+  name: 'notation-help',
+  title: 'Goal notation',
+  text: 'Assertions are written ...', // or (model) => string | Promise<string>
+};
+const stamp: HostTool = {
+  name: 'stamp',
+  description: 'Stamps an element.',
+  inputSchema: {
+    type: 'object',
+    properties: { elementId: { type: 'string' } },
+    required: ['elementId'],
+  },
+  async handler({ elementId }, { dispatcher }) {
+    const result = await dispatcher.dispatch({
+      kind: 'istar.updateProperties',
+      elementId: elementId as string,
+      properties: { Stamp: 'yes' },
+    });
+    return result.ok ? { ok: true, content: 'Stamped.' } : result; // a refusal, typed
+  },
+};
+serveIstarGlsp({ shared, mcp: { hostTools: [stamp], context: [notation] } });
+```
+
+- **`hostTools`** become session-scoped diagram tools, added to the same `configureToolHandlers`
+  multi-binding as the istar tools (framework-notes §5), so `tools/list` lists them next to
+  `set-properties` with `sessionId` added to their `inputSchema` (a JSON Schema object, turned
+  into the zod schema server-mcp validates with by `z.fromJSONSchema`: zod 4.2 or later). A
+  handler gets the session's dispatcher and `getModel()`: its edits go through the host's guards
+  and schemas, onto the session's one undo stack (the MCP `undo` tool takes them back). It
+  answers `{ ok: true, content }` (a string as is, anything else as JSON text) or
+  `{ ok: false, diagnostics }`, which becomes the same `{ code: 'rejected', diagnostics }` tool
+  error as a rejected operation. `readOnly: true` sets `readOnlyHint` (`@istar-ts/agent`'s
+  Propose mode then never makes the call a review step) and hands the handler a dispatcher that
+  only takes requests (anything else is refused with `read-only-tool`). For an edit of several
+  operations, dispatch one `compound`: it is applied, or refused, whole.
+- **`context`** providers become session-scoped resources,
+  `glsp://diagrams/{sessionId}/context/<name>` (text read when asked for, from the session's
+  model for a function), unless `resource: false`. server-mcp's default `dataMode: 'tools'`
+  lists a resource as a tool of its name instead; `@istar-ts/glsp` marks such tools
+  `readOnlyHint: true`. `mcp: { dataMode: 'resources' }` serves them as MCP resources.
 
 ## Decorators
 

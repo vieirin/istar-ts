@@ -4,6 +4,7 @@
  * A backend is either an MCP client (`createMcpToolRegistry`) or the `@istar-ts/actions`
  * dispatcher (`createActionToolRegistry`); the loop does not care which.
  */
+import type { IstarAction } from '@istar-ts/actions';
 import { ModelOperationError } from '@istar-ts/core';
 import type { GoalDiagnostic } from '@istar-ts/core';
 
@@ -34,11 +35,20 @@ export interface ToolSpec {
 }
 
 /**
+ * The actions a host tool (`@istar-ts/actions`' `HostTool`) dispatched and the dispatcher
+ * accepted, in order, on backend B: what `createActionChangeSet`'s `apply` replays for its call.
+ * Never shown to the model.
+ */
+interface Dispatched {
+  readonly dispatched?: readonly IstarAction<string, string>[];
+}
+
+/**
  * What a tool call did, in the shape of `@istar-ts/actions`' `ActionResult`: a refusal carries
  * typed `GoalDiagnostic`s (code, message, elementId) the model can repair against.
  */
 export type ToolResult =
-  | {
+  | ({
       readonly ok: true;
       /** What the model reads back. */
       readonly content: JsonValue;
@@ -46,8 +56,8 @@ export type ToolResult =
       readonly createdIds?: readonly string[];
       /** Non-error diagnostics (warnings from guards) for a call that was applied anyway. */
       readonly diagnostics?: readonly GoalDiagnostic[];
-    }
-  | { readonly ok: false; readonly diagnostics: readonly GoalDiagnostic[] };
+    } & Dispatched)
+  | ({ readonly ok: false; readonly diagnostics: readonly GoalDiagnostic[] } & Dispatched);
 
 export interface ToolCallOptions {
   readonly signal?: AbortSignal;

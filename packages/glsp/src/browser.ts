@@ -42,7 +42,7 @@ import { ISTAR_GLSP } from './contribution';
 import type { PistarFiles } from './files';
 import { memoryPistarFiles } from './files';
 import type { IstarGlspHostOptions, IstarMcpBaseOptions } from './host';
-import { createIstarServerModules, createIstarSharedModel } from './host';
+import { createIstarServerModules, createIstarSharedModel, mcpServerConfig } from './host';
 import { istarMcpDispatcher, withMcpServer } from './mcp';
 import { istarMcpDiagramModule } from './mcp-tools';
 import type { IstarSharedModel } from './model-state';
@@ -204,8 +204,8 @@ function serveOnPort(
   }
 
   const config = options.mcp === true ? {} : options.mcp;
-  const route = config.route ?? '/mcp';
-  const loaded = mcpModules({ route, name: config.name ?? 'istar-glsp' });
+  const { route } = mcpServerConfig(config);
+  const loaded = mcpModules(config);
   let closing = false;
   const done = loaded.then(
     (mcp) => (closing ? undefined : start(mcp)),
@@ -295,7 +295,8 @@ interface McpModules {
  * session), from `@eclipse-glsp/server-mcp`, loaded only when asked for: as the Node launcher
  * wires them, with a launcher that reports when it has started.
  */
-async function mcpModules(config: Required<IstarMcpBaseOptions>): Promise<McpModules> {
+async function mcpModules(options: IstarMcpBaseOptions): Promise<McpModules> {
+  const config = mcpServerConfig(options);
   const mcp = await import('@eclipse-glsp/server-mcp/browser.js');
   const z = await import('zod/v4');
   let resolveStarted!: (handler: (request: Request) => Promise<Response>) => void;
@@ -329,7 +330,7 @@ async function mcpModules(config: Required<IstarMcpBaseOptions>): Promise<McpMod
   }
   return {
     server: new IstarBrowserMcpServerModule(),
-    diagram: new (istarMcpDiagramModule(mcp, z))(),
+    diagram: new (istarMcpDiagramModule(mcp, z, options))(),
     started,
   };
 }
@@ -444,7 +445,7 @@ export async function startIstarGlspWorker(
   for (const port of ports.splice(0)) serve(port);
 
   const mcp = bridgeScope
-    ? await workerMcpModules(mcpConfig(options.mcp ?? false), bridgeScope.target)
+    ? await workerMcpModules(options.mcp === true ? {} : options.mcp || {}, bridgeScope.target)
     : undefined;
 
   const server = serveIstarGlsp(glsp, {
@@ -457,12 +458,6 @@ export async function startIstarGlspWorker(
     modules: [...(options.modules ?? []), ...(mcp ? [mcp.server] : [])],
   });
   return { shared, closed: server.closed };
-}
-
-/** `options.mcp === true ? {} : options.mcp`'s defaults, as `serveOnPort` applies them. */
-function mcpConfig(mcp: boolean | IstarBrowserMcpOptions): Required<IstarMcpBaseOptions> {
-  const config = typeof mcp === 'object' ? mcp : {};
-  return { route: config.route ?? '/mcp', name: config.name ?? 'istar-glsp' };
 }
 
 /**
@@ -511,7 +506,7 @@ interface WorkerMcpModules {
  * so it reaches the launcher over `postMessage` (`connectWorkerMcp`), not a function call.
  */
 async function workerMcpModules(
-  config: Required<IstarMcpBaseOptions>,
+  options: IstarMcpBaseOptions,
   scope: {
     addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
     removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
@@ -521,6 +516,7 @@ async function workerMcpModules(
   const mcp = await import('@eclipse-glsp/server-mcp/browser.js');
   const z = await import('zod/v4');
   const bridge = new mcp.McpWorkerBridge(scope);
+  const config = mcpServerConfig(options);
   class IstarWebMcpServerLauncher extends mcp.WebMcpServerLauncher {
     override async initializeServer(
       server: GLSPServer,
@@ -545,7 +541,7 @@ async function workerMcpModules(
   }
   return {
     server: new IstarWorkerMcpServerModule(),
-    diagram: new (istarMcpDiagramModule(mcp, z))(),
+    diagram: new (istarMcpDiagramModule(mcp, z, options))(),
   };
 }
 

@@ -128,7 +128,7 @@
     "@istar-ts/dsm3-kaos": "workspace:^",
     "@istar-ts/dsm3-nfr": "workspace:^",
     "@eclipse-glsp/server-mcp": "2.8.0",
-    "zod": "^4.0.0"
+    "zod": "^4.2.0"
   },
   "peerDependenciesMeta": {
     "@istar-ts/dsm3-kaos": {
@@ -150,6 +150,6 @@
     "@istar-ts/dsm3-nfr": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "vite": "^6.4.3",
-    "zod": "^4.0.0"
+    "zod": "^4.2.0"
   }
 }

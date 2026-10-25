@@ -7,12 +7,18 @@
  * since OpenAI-compatible APIs only accept `[a-zA-Z0-9_-]`); its arguments are the action's
  * fields without `kind` (and without a request's `requestId`).
  */
-import { HANDLED_ACTION_KINDS, createActionDispatcher } from '@istar-ts/actions';
+import {
+  HANDLED_ACTION_KINDS,
+  createActionDispatcher,
+  hostToolContext,
+  isRequestAction,
+} from '@istar-ts/actions';
 import type {
   ActionDispatcher,
   ActionDispatcherOptions,
   ActionGuard,
   ActionResult,
+  HostTool,
   IstarAction,
   IstarOperation,
 } from '@istar-ts/actions';
@@ -479,6 +485,49 @@ export interface ActionToolRegistryOptions {
   readonly exclude?: readonly string[];
   /** Ids for creates that name none. Default: UUIDs. */
   readonly createId?: IdGenerator;
+  /**
+   * The host's own tools (#175), listed after the action tools and called with the dispatcher
+   * (read-only ones: requests only) and `getModel`.
+   */
+  readonly hostTools?: readonly HostTool[];
+  /** The model the dispatcher edits (e.g. `store.getModel`), for `hostTools`. Required with them. */
+  readonly getModel?: () => AnyIstarModel;
+}
+
+/**
+ * A call of a host tool over `dispatcher`, recording the actions it dispatched that were
+ * accepted (`ToolResult.dispatched`, which a change set replays), requests left out.
+ */
+async function callHostTool(
+  tool: HostTool,
+  args: JsonValue,
+  dispatcher: ActionDispatcher<string, string>,
+  getModel: () => AnyIstarModel,
+  signal: AbortSignal | undefined,
+): Promise<ToolResult> {
+  if (args !== null && !isFields(args)) {
+    return toolRefusal('the arguments must be a JSON object', 'invalid-arguments');
+  }
+  const dispatched: IstarAction<string, string>[] = [];
+  const recording: ActionDispatcher<string, string> = {
+    async dispatch(action) {
+      const result = await dispatcher.dispatch(action);
+      if (result.ok && !isRequestAction(action)) dispatched.push(action);
+      return result;
+    },
+    subscribe: (listener) => dispatcher.subscribe(listener),
+  };
+  const recorded = () => (dispatched.length > 0 ? { dispatched } : {});
+  try {
+    const result = await tool.handler(
+      args ?? {},
+      hostToolContext(tool, recording, getModel, signal),
+    );
+    if (!result.ok) return { ok: false, diagnostics: result.diagnostics, ...recorded() };
+    return { ok: true, content: (result.content ?? null) as JsonValue, ...recorded() };
+  } catch (error) {
+    return { ...errorToToolResult(error), ...recorded() };
+  }
 }
 
 /** A backend-B registry: also turns a call into the action it dispatches. */
@@ -515,6 +564,23 @@ export function createActionToolRegistry<
       ...(READ_ONLY_KINDS.has(kind) ? { readOnly: true } : {}),
     });
   }
+  const hostTools = new Map<string, HostTool>();
+  for (const tool of options.hostTools ?? []) {
+    if (kindByName.has(tool.name) || hostTools.has(tool.name)) {
+      throw new TypeError(`host tool "${tool.name}" is named like another tool`);
+    }
+    hostTools.set(tool.name, tool);
+    specs.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema,
+      ...(tool.readOnly ? { readOnly: true } : {}),
+    });
+  }
+  const { getModel } = options;
+  if (hostTools.size > 0 && !getModel) {
+    throw new TypeError('createActionToolRegistry: hostTools need getModel');
+  }
   let requests = 0;
 
   const toAction: ActionToolRegistry['toAction'] = (name, args) => {
@@ -542,7 +608,9 @@ export function createActionToolRegistry<
       if (kind === undefined || !isFields(args)) return args;
       return pinIds({ ...args }, kind, metamodel, createId) as JsonValue;
     },
-    async call(name, args) {
+    async call(name, args, callOptions) {
+      const tool = hostTools.get(name);
+      if (tool) return callHostTool(tool, args, dispatcher, getModel!, callOptions?.signal);
       const action = toAction(name, args);
       if ('ok' in action) return action;
       try {
@@ -563,7 +631,7 @@ export interface ActionChangeSetOptions<
 >
   extends
     Pick<ActionDispatcherOptions<EK, LK>, 'guards' | 'schemas' | 'palette' | 'diagnostics'>,
-    Omit<ActionToolRegistryOptions, 'metamodel'> {
+    Omit<ActionToolRegistryOptions, 'metamodel' | 'getModel'> {
   /** Where the reviewed change set is applied, as one `compound`. */
   readonly dispatcher: ActionDispatcher<EK, LK>;
   /** The live model a dry run copies (e.g. `store.getModel`). */
@@ -586,19 +654,24 @@ function operationsOf(
   const done: IstarOperation[] = [];
   const undone: IstarOperation[] = [];
   for (const entry of entries) {
-    // A refused call changed nothing in the dry run; dropping it reproduces the dry run.
-    if (!entry.result.ok) continue;
-    const action = registry.toAction(entry.name, entry.args);
-    if ('ok' in action) continue;
-    if (action.kind === 'glspUndo') {
-      const last = done.pop();
-      if (last) undone.push(last);
-    } else if (action.kind === 'glspRedo') {
-      const next = undone.pop();
-      if (next) done.push(next);
-    } else if (!READ_ONLY_KINDS.has(action.kind)) {
-      done.push(action as IstarOperation);
-      undone.length = 0;
+    // A host tool's call is what it dispatched; any other call is its own action, unless it was
+    // refused: a refused call changed nothing in the dry run, so dropping it reproduces the run.
+    let actions: readonly IstarAction<string, string>[] = entry.result.dispatched ?? [];
+    if (!entry.result.dispatched && entry.result.ok) {
+      const action = registry.toAction(entry.name, entry.args);
+      if (!('ok' in action)) actions = [action as IstarAction<string, string>];
+    }
+    for (const action of actions) {
+      if (action.kind === 'glspUndo') {
+        const last = done.pop();
+        if (last) undone.push(last);
+      } else if (action.kind === 'glspRedo') {
+        const next = undone.pop();
+        if (next) done.push(next);
+      } else if (!READ_ONLY_KINDS.has(action.kind)) {
+        done.push(action as IstarOperation);
+        undone.length = 0;
+      }
     }
   }
   return done;
@@ -625,10 +698,11 @@ export function createActionChangeSet<
   } = options;
   const dispatcher = live as unknown as ActionDispatcher<string, string>;
   const guards = liveGuards as readonly ActionGuard<string, string>[] | undefined;
-  const registryFor = (target: ActionDispatcher<string, string>, model: AnyIstarModel) =>
+  const registryFor = (target: ActionDispatcher<string, string>, model: () => AnyIstarModel) =>
     createActionToolRegistry(target, {
       ...tools,
-      metamodel: metamodelOf(model) as unknown as AnyMetamodel,
+      metamodel: metamodelOf(model()) as unknown as AnyMetamodel,
+      getModel: model,
     });
   return {
     openScratch(): ScratchSession {
@@ -642,10 +716,10 @@ export function createActionChangeSet<
         ...(palette ? { palette } : {}),
         ...(diagnostics ? { diagnostics } : {}),
       });
-      return { registry: registryFor(scratch, store.getModel()), close: () => scratch.dispose() };
+      return { registry: registryFor(scratch, store.getModel), close: () => scratch.dispose() };
     },
     async apply(entries) {
-      const operationList = operationsOf(registryFor(dispatcher, getModel()), entries);
+      const operationList = operationsOf(registryFor(dispatcher, getModel), entries);
       if (operationList.length === 0)
         return { ok: true, content: { createdIds: [] }, createdIds: [] };
       const result = await dispatcher.dispatch({

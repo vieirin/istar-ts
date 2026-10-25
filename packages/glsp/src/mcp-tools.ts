@@ -14,16 +14,14 @@ import type {
 } from '@eclipse-glsp/server';
 import type {
   AbstractMcpDiagramModule,
-  AbstractMcpDiagramToolHandler,
   ElementIdentitySchema,
   MarkdownMcpModelSerializer,
-  McpDiagramScopedInputSchema,
+  McpDiagramResourceHandlerConstructor,
   McpDiagramToolHandlerConstructor,
   McpModelSerializer,
   McpToolResult,
   ModifyNodesInput,
   ModifyNodesMcpToolHandler,
-  OperationMcpDiagramToolHandler,
   elementId,
   requestActionOrFail,
 } from '@eclipse-glsp/server-mcp/browser.js';
@@ -33,6 +31,8 @@ import type { interfaces } from 'inversify';
 import type { IstarModelState } from './model-state';
 import { modelIdOf } from './translate';
 import { rejectedToolResult } from './mcp';
+import type { IstarMcpHostBase, IstarMcpHostExtensions } from './mcp-host';
+import { hostContextHandlers, hostToolHandlers } from './mcp-host';
 
 /** `ModelState` is `IstarModelState` in every session the diagram module's classes run in. */
 function istarStateOf(state: ModelState): IstarModelState {
@@ -44,11 +44,8 @@ function propertyCount(properties: Readonly<Record<string, unknown>>): string {
 }
 
 /** The `@eclipse-glsp/server-mcp` and `zod` pieces these tools build on, held loosely like `mcp.ts`'s. */
-export interface IstarMcpToolsBase {
+export interface IstarMcpToolsBase extends IstarMcpHostBase {
   readonly AbstractMcpDiagramModule: typeof AbstractMcpDiagramModule;
-  readonly AbstractMcpDiagramToolHandler: typeof AbstractMcpDiagramToolHandler;
-  readonly OperationMcpDiagramToolHandler: typeof OperationMcpDiagramToolHandler;
-  readonly McpDiagramScopedInputSchema: typeof McpDiagramScopedInputSchema;
   readonly ElementIdentitySchema: typeof ElementIdentitySchema;
   readonly elementId: typeof elementId;
   readonly McpElementsNotFoundError: new (missingIds: readonly string[]) => Error;
@@ -60,12 +57,16 @@ export interface IstarMcpToolsBase {
 /**
  * `istarMcpDiagramModule(mcp, z)`'s diagram module class, with `set-properties`, `set-link-value`
  * and `check-edge` added to server-mcp's default tool set — the same `configureToolHandlers`
- * extension point `docs/glsp/framework-notes.md` §5 describes for every adopter tool.
+ * extension point `docs/glsp/framework-notes.md` §5 describes for every adopter tool. A host's
+ * `hostTools` and `context` (#175) are added to the same tool and resource multi-bindings.
  */
 export function istarMcpDiagramModule(
   mcp: IstarMcpToolsBase,
   z: typeof ZodV4,
+  host: IstarMcpHostExtensions = {},
 ): interfaces.Newable<AbstractMcpDiagramModule> {
+  const hostTools = hostToolHandlers(mcp, z, host.hostTools ?? []);
+  const hostResources = hostContextHandlers(mcp, host.context ?? []);
   const SetPropertiesInputSchema = mcp.McpDiagramScopedInputSchema.extend({
     elementId: mcp.elementId.describe('Id of the element or link to set properties on.'),
     properties: z
@@ -311,6 +312,14 @@ export function istarMcpDiagramModule(
       binding.add(SetLinkValueMcpToolHandler);
       binding.add(CheckEdgeMcpToolHandler);
       binding.rebind(mcp.ModifyNodesMcpToolHandler, IstarModifyNodesMcpToolHandler);
+      for (const handler of hostTools) binding.add(handler);
+    }
+
+    protected override configureResourceHandlers(
+      binding: InstanceMultiBinding<McpDiagramResourceHandlerConstructor>,
+    ): void {
+      super.configureResourceHandlers(binding);
+      for (const handler of hostResources) binding.add(handler);
     }
   }
   return IstarMcpDiagramModule;

@@ -68,11 +68,37 @@ refusal. Two backends:
   with `.` as `_` (`istar_setLinkValue`). Element and link kinds in the schemas come from the
   metamodel. `requestModel` answers without layout (actors, elements, dependums, links).
 
+## Host extensions
+
+A host gives the agent what isn't in the metamodel — type definitions, a notation, pooled
+values, an external validator — as `@istar-ts/actions`' `HostContextProvider`s and
+`HostTool`s (#175): opaque data plus a handler, so nothing here knows the host's domain, and the
+same values work on both backends (see `@istar-ts/glsp`'s README, "Host tools and context
+providers", for the types and an example).
+
+- **Context**: `runAgent({ ..., context: providers, getModel: store.getModel })` appends one
+  section per provider to the system prompt, after `system` (`DEFAULT_SYSTEM_PROMPT` by default,
+  never forked): `## title` (default the name), then its text, read at the start of the run
+  (from `getModel()` for a provider whose text is a function; without `getModel` such a provider
+  throws). `prompt: false` leaves a provider out. `systemPromptWith(system, providers, getModel)`
+  builds the same prompt for a host that drives a `ChatClient` itself. On backend A,
+  `@istar-ts/glsp`'s launchers also serve the providers as MCP resources (or, in server-mcp's
+  default `dataMode`, read-only tools).
+- **Tools, backend A**: register them on the launcher (`mcp: { hostTools }`): `tools/list`
+  lists them with their `readOnlyHint`, so `createMcpToolRegistry` offers them like any other
+  tool, `sessionId` bound.
+- **Tools, backend B**: `createActionToolRegistry(dispatcher, { hostTools, getModel })` lists
+  them after the action tools (`readOnly` as declared) and calls the handler with the dispatcher
+  and `getModel` — read-only tools get one that takes requests only. `createActionChangeSet`
+  takes `hostTools` too: the scratch run records what a host tool dispatched and the dispatcher
+  accepted (`ToolResult.dispatched`, never shown to the model), and `apply` replays exactly
+  that in the one `compound`.
+
 ## Approval
 
 - **Propose (default).** `changeSet: ChangeSetTarget`. A run opens a scratch copy of the live
   model and sends every call there; the edits are collected, with their dry-run results, into
-  `AgentRun.changeSet`. Read-only calls run straight away (on the scratch copy, so the model
+  `AgentRun.changeSet`. Read-only calls (a host tool declared `readOnly` included) run straight away (on the scratch copy, so the model
   sees what it has proposed so far) and are not part of the change set. `createActionChangeSet`
   copies the model as `parsePistar(toPistar(model))` (never the live store), keeps the host's
   guards and schemas, and `apply` dispatches the reviewed entries as one `compound`. Refused
