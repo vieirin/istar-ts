@@ -23,11 +23,6 @@ export default defineConfig({
       },
     },
   },
-  // Every `new Worker(url, { type: 'module' })` in this app (glsp/worker.ts, remote-worker.ts) is
-  // an ES module worker; the agent drawer's lazy chunk (#131) makes Rollup share a common chunk
-  // with one of them, which needs `worker.format: 'es'` too (the default `'iife'` rejects
-  // code-split output).
-  worker: { format: 'es' },
   resolve: {
     alias: [
       {
