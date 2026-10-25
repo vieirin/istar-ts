@@ -21,6 +21,8 @@ import { ISTAR_MCP_SESSION_ID, serveIstarGlsp } from '../src/browser';
 import { fixture } from './fixtures';
 
 const AGENT = 'fcf67803-5e5a-4bae-8690-1f12af4446d6';
+// welcome.txt: a task inside AGENT, away from both the origin and AGENT's own x/y (530, 55).
+const AGENT_TASK = 'f9035e8c-0294-44a8-a93e-85a349d2f21a';
 const welcome = fixture('pistar/welcome.txt').text;
 const cleanup: Array<() => unknown> = [];
 
@@ -98,7 +100,7 @@ describe('serveIstarGlsp with mcp, headless', () => {
     const model = shared.store.getModel();
     expect(model.elements.size).toBe(before.elements.size + 1);
     const created = [...model.elements.values()].find((e) => !before.elements.has(e.id));
-    expect(created).toMatchObject({ kind: 'istar.Goal', parent: AGENT });
+    expect(created).toMatchObject({ kind: 'istar.Goal', parent: AGENT, x: 300, y: 300 });
   });
 
   test('an operation a guard rejects answers the tool call with an error', async () => {
@@ -148,6 +150,98 @@ describe('serveIstarGlsp with mcp, headless', () => {
       arguments: { sessionId: server.sessionId },
     });
     expect(query.isError).toBeFalsy();
+  });
+
+  // #158: create-nodes' `position` is documented as absolute diagram coordinates; it already
+  // lands exactly there (the `create-nodes creates the node...` test above asserts `x`/`y`
+  // against AGENT's own non-zero origin). This covers the same contract without a container.
+  test('create-nodes without a containerId creates the node at the given absolute position', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    const before = shared.store.getModel();
+    const result = await mcp.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: server.sessionId,
+        nodes: [{ elementTypeId: 'node:istar.Actor', position: { x: 120, y: 90 } }],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const model = shared.store.getModel();
+    const created = [...model.elements.values()].find((e) => !before.elements.has(e.id));
+    expect(created).toMatchObject({ kind: 'istar.Actor', x: 120, y: 90 });
+  });
+
+  // #158: the default `MarkdownMcpModelSerializer` reports a `GNode`'s `position` straight from
+  // the GModel tree, which is relative to an actor's boundary for its children — `IstarMcpModelSerializer`
+  // reads the model's own (always absolute) x/y instead.
+  test('query-elements reports a nested element’s absolute model position, not its GModel-relative one', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    const task = shared.store.getModel().elements.get(AGENT_TASK)!;
+    const result = await mcp.callTool({
+      name: 'query-elements',
+      arguments: { sessionId: server.sessionId, elementIds: [AGENT_TASK] },
+    });
+    expect(result.isError).toBeFalsy();
+    const elements = (
+      result.structuredContent as { elements: Array<{ type: string; position: unknown }> }
+    ).elements;
+    const reported = elements.find((e) => e.type !== 'label')!;
+    expect(reported).toMatchObject({ position: { x: task.x, y: task.y } });
+  });
+
+  // #158: `modify-nodes` documents `position` as parent-relative, matching `query-elements` —
+  // but every agent-facing coordinate is absolute instead (`IstarModifyNodesMcpToolHandler`
+  // converts it to parent-relative before building the `ChangeBoundsOperation`).
+  test('modify-nodes moves a nested element to the given absolute position', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    const result = await mcp.callTool({
+      name: 'modify-nodes',
+      // The alias service falls back to the real id verbatim when it was never aliased.
+      arguments: {
+        sessionId: server.sessionId,
+        nodes: [{ elementId: AGENT_TASK, position: { x: 600, y: 400 } }],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(shared.store.getModel().elements.get(AGENT_TASK)).toMatchObject({ x: 600, y: 400 });
+  });
+
+  // #158's actual repro: query an element's position, then create a new one there with the same
+  // containerId — the agent's flow from the screenshot.
+  test('create-nodes at a position read back from query-elements lands exactly there', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    const before = shared.store.getModel();
+    const query = await mcp.callTool({
+      name: 'query-elements',
+      arguments: { sessionId: server.sessionId, elementIds: [AGENT_TASK] },
+    });
+    const elements = (
+      query.structuredContent as {
+        elements: Array<{ type: string; position: { x: number; y: number } }>;
+      }
+    ).elements;
+    const reported = elements.find((e) => e.type !== 'label')!;
+    const result = await mcp.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: server.sessionId,
+        nodes: [
+          { elementTypeId: 'node:istar.Goal', position: reported.position, containerId: AGENT },
+        ],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const model = shared.store.getModel();
+    const created = [...model.elements.values()].find((e) => !before.elements.has(e.id));
+    expect(created).toMatchObject({
+      kind: 'istar.Goal',
+      x: reported.position.x,
+      y: reported.position.y,
+    });
   });
 });
 

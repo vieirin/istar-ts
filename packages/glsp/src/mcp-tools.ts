@@ -6,15 +6,23 @@
  * installed.
  */
 import type { GoalDiagnostic } from '@istar-ts/core';
-import { ActionDispatcher, RequestCheckEdgeAction } from '@eclipse-glsp/server';
-import type { CheckEdgeResultAction, InstanceMultiBinding, ModelState } from '@eclipse-glsp/server';
+import { ActionDispatcher, GNode, ModelState, RequestCheckEdgeAction } from '@eclipse-glsp/server';
+import type {
+  BindingTarget,
+  CheckEdgeResultAction,
+  InstanceMultiBinding,
+} from '@eclipse-glsp/server';
 import type {
   AbstractMcpDiagramModule,
   AbstractMcpDiagramToolHandler,
   ElementIdentitySchema,
+  MarkdownMcpModelSerializer,
   McpDiagramScopedInputSchema,
   McpDiagramToolHandlerConstructor,
+  McpModelSerializer,
   McpToolResult,
+  ModifyNodesInput,
+  ModifyNodesMcpToolHandler,
   OperationMcpDiagramToolHandler,
   elementId,
   requestActionOrFail,
@@ -45,6 +53,8 @@ export interface IstarMcpToolsBase {
   readonly elementId: typeof elementId;
   readonly McpElementsNotFoundError: new (missingIds: readonly string[]) => Error;
   readonly requestActionOrFail: typeof requestActionOrFail;
+  readonly MarkdownMcpModelSerializer: typeof MarkdownMcpModelSerializer;
+  readonly ModifyNodesMcpToolHandler: typeof ModifyNodesMcpToolHandler;
 }
 
 /**
@@ -239,7 +249,60 @@ export function istarMcpDiagramModule(
   }
   decorate(injectable(), CheckEdgeMcpToolHandler);
 
+  /**
+   * Every agent-facing coordinate is absolute model coordinates (#158): `create-nodes`' own
+   * `position` already is, but the default `MarkdownMcpModelSerializer` reports a `GNode`'s
+   * `position` straight from the GModel tree — which `gmodel.ts` builds relative to an actor's
+   * boundary for its children, for rendering. An element's model `x`/`y` (what `createNode`
+   * actually writes) is absolute regardless of nesting, so reading it back here, instead of the
+   * GModel position, is both simpler and exact. Ids not in the model (a label's `_label`/
+   * `_value` suffix, a link's `_anchor`) are left as the base class reports them: a label's
+   * position is relative to its owning node by design, not a diagram coordinate.
+   */
+  class IstarMcpModelSerializer extends mcp.MarkdownMcpModelSerializer {
+    @inject(ModelState) protected istarModelState!: ModelState;
+
+    protected override combinePositionAndSize(element: Record<string, unknown>): void {
+      const id = typeof element.id === 'string' ? element.id : undefined;
+      const modelElement =
+        id === undefined ? undefined : istarStateOf(this.istarModelState).model.elements.get(id);
+      if (modelElement) element.position = { x: modelElement.x, y: modelElement.y };
+      super.combinePositionAndSize(element);
+    }
+  }
+  decorate(injectable(), IstarMcpModelSerializer);
+
+  /**
+   * `modify-nodes` documents `position` as parent-relative (matching `query-elements`' own
+   * convention and plain `ChangeBoundsOperation`), but #158 makes every agent-facing coordinate
+   * absolute instead — so a position is converted to parent-relative here, before building the
+   * operation `translateOperation`'s `changeBounds` still expects relative-to-parent (the stock
+   * client's drag-move genuinely sends that). An actor is always a direct child of the root, so
+   * its own GModel position is already absolute; that's the only origin a node's position is
+   * ever relative to.
+   */
+  class IstarModifyNodesMcpToolHandler extends mcp.ModifyNodesMcpToolHandler {
+    protected override createResult(input: ModifyNodesInput): Promise<McpToolResult> {
+      const nodes = input.nodes.map((node) => {
+        if (!node.position) return node;
+        const realId = this.aliasService.lookup(node.elementId);
+        const element = this.modelState.index.find(realId);
+        const origin = element?.parent instanceof GNode ? element.parent.position : { x: 0, y: 0 };
+        return {
+          ...node,
+          position: { x: node.position.x - origin.x, y: node.position.y - origin.y },
+        };
+      });
+      return super.createResult({ ...input, nodes });
+    }
+  }
+  decorate(injectable(), IstarModifyNodesMcpToolHandler);
+
   class IstarMcpDiagramModule extends mcp.AbstractMcpDiagramModule {
+    protected override bindModelSerializer(): BindingTarget<McpModelSerializer> {
+      return IstarMcpModelSerializer;
+    }
+
     protected override configureToolHandlers(
       binding: InstanceMultiBinding<McpDiagramToolHandlerConstructor>,
     ): void {
@@ -247,6 +310,7 @@ export function istarMcpDiagramModule(
       binding.add(SetPropertiesMcpToolHandler);
       binding.add(SetLinkValueMcpToolHandler);
       binding.add(CheckEdgeMcpToolHandler);
+      binding.rebind(mcp.ModifyNodesMcpToolHandler, IstarModifyNodesMcpToolHandler);
     }
   }
   return IstarMcpDiagramModule;

@@ -27,7 +27,7 @@ import { actorBounds, metamodelOf } from '@istar-ts/core';
 import { typeHintsFor } from '@istar-ts/actions';
 import { GEdge, GGraph, GLabel, GNode } from '@eclipse-glsp/server';
 import type { GModelElement } from '@eclipse-glsp/server';
-import type { GModelTypeOverrides } from './types';
+import type { GModelSizeOverrides, GModelTypeOverrides } from './types';
 import { LINK_ANCHOR_TYPE, gmodelTypes } from './types';
 
 /** A collapsed actor's box, as the React canvas draws it. */
@@ -55,6 +55,12 @@ export function linkAnchorId(linkId: string): string {
 export interface ModelToGModelOptions {
   /** Kind → GModel type overrides (see `gmodelTypes`). */
   readonly types?: GModelTypeOverrides;
+  /**
+   * Kind → size overrides, for a host whose `@istar-ts/react` registry draws a kind at a size
+   * other than the metamodel's own default (a contribution's `sizes`, #154). Falls back to the
+   * metamodel's size for any kind not listed.
+   */
+  readonly sizes?: GModelSizeOverrides;
 }
 
 interface Box extends Point, Size {}
@@ -112,8 +118,10 @@ export function modelToGModel<EK extends string, LK extends string>(
   };
   const isActor = (element: IstarElement<string>): boolean =>
     metamodel.elements.get(element.kind)?.category === 'actor';
+  const defaultSizeOf = (kind: string): Size =>
+    options.sizes?.[kind] ?? metamodel.elements.get(kind)?.size ?? { width: 0, height: 0 };
   const sizeOf = (element: IstarElement<string>): Size => {
-    const base = metamodel.elements.get(element.kind)?.size ?? { width: 0, height: 0 };
+    const base = defaultSizeOf(element.kind);
     const { width, height } = element.display ?? {};
     return {
       width: typeof width === 'number' ? width : base.width,
@@ -154,7 +162,7 @@ export function modelToGModel<EK extends string, LK extends string>(
     const collapsed = actor.display?.collapsed === true;
     const box: Box = collapsed
       ? { x: actor.x, y: actor.y, ...COLLAPSED_ACTOR_SIZE }
-      : actorBounds(model, actor.id, metamodel);
+      : actorBounds(model, actor.id, metamodel, defaultSizeOf);
     boxes.set(actor.id, box);
     const builder = GNode.builder()
       .id(actor.id)

@@ -60,14 +60,26 @@
     "prepack": "cp ../../LICENSE . && pnpm build"
   },
   "dependencies": {
-    "@istar-ts/core": "workspace:^",
-    "@istar-ts/react": "workspace:^"
+    "@istar-ts/core": "workspace:^"
   },
   "peerDependencies": {
+    "@istar-ts/react": "workspace:^",
     "react": "^18.2.0 || ^19.0.0",
     "react-dom": "^18.2.0 || ^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "@istar-ts/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@istar-ts/react": "workspace:^",
     "@istar-ts/actions": "workspace:^",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
