@@ -4,18 +4,18 @@ exports[`metamodelContextText(KAOS) > is deterministic and matches a snapshot 1`
 "# kaos metamodel
 
 ## Node kinds
-- kaos.BehavioralGoal (Behavioral Goal) [on paper]
+- kaos.BehavioralGoal (Behavioral Goal) [on paper] — A prescriptive statement of an objective the system-to-be must meet, with a clear-cut criterion for whether it is satisfied (van Lamsweerde 2009; KAOS Tutorial glossary, 'Goal'). Unlike a Softgoal, it can be objectively judged met or not.
   properties: Type (string), Category (string), Source (string), Priority (string), Issue (string), FormalSpec (string), FitCriterion (string), Stability (string)
-- kaos.Softgoal (Softgoal) [on paper]
+- kaos.Softgoal (Softgoal) [on paper] — A goal-like objective with no clear-cut satisfaction criterion, satisficed to a sufficient degree rather than strictly met (van Lamsweerde 2009; cf. the NFR Framework's softgoal). Use it instead of a Behavioral Goal for qualities such as usability or performance that admit degrees.
   properties: Type (string), Category (string), Source (string), Priority (string), Issue (string), FormalSpec (string), FitCriterion (string), Stability (string)
-- kaos.Agent (Agent) [on paper]
-- kaos.EnvironmentAgent (Environment Agent) [on paper]
-- kaos.DomainProperty (Domain Property) [on paper]
+- kaos.Agent (Agent) [on paper] — An active object that performs operations to achieve goals, whether part of the software-to-be or of its environment (KAOS Tutorial glossary, 'Agent').
+- kaos.EnvironmentAgent (Environment Agent) [on paper] — An Agent that lies in the environment of the software-to-be rather than inside it — a human, organisation or external system the goal model depends on but does not control (KAOS Tutorial glossary, 'Agent', 'Environment').
+- kaos.DomainProperty (Domain Property) [on paper] — A descriptive assertion about the environment — a domain invariant that always holds (e.g. a physical law) or a hypothesis assumed to hold — used in a Refinement to justify how the subgoals entail the goal they refine (KAOS Tutorial glossary, 'Domain Property').
   properties: Kind (string)?, FormalSpec (string)?
 
 ## Link kinds
-- kaos.RefinementLink (Refinement) [n-ary, via a hub]: node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
-- kaos.ResponsibilityAssignment (Responsibility Assignment): node link, kaos.Agent, kaos.EnvironmentAgent → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
-- kaos.Conflict (Conflict): node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
+- kaos.RefinementLink (Refinement) [n-ary, via a hub]: node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty — Links a goal, softgoal or domain property to the subgoals whose conjunction is meant to entail it (KAOS Tutorial glossary, 'Refinement'; van Lamsweerde 2009): the sources join at a hub (AND-refinement); several hubs on the same target are alternative, OR-related refinements.
+- kaos.ResponsibilityAssignment (Responsibility Assignment): node link, kaos.Agent, kaos.EnvironmentAgent → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty — Assigns an Agent or Environment Agent the responsibility of achieving a goal, turning it into a requirement or expectation (KAOS Tutorial glossary, 'Responsibility', 'Requirement', 'Expectation').
+- kaos.Conflict (Conflict): node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty — Marks two elements as conflicting: under some boundary condition they cannot be achieved together (KAOS Tutorial glossary, 'Conflict').
   properties: BoundaryCondition (string)"
 `;

@@ -14,15 +14,6 @@ import { metamodelOf } from '@istar-ts/core';
 import { isHub, ofCategory, union } from './hints';
 import type { HostContextProvider } from './host';
 
-/** A kind definition the way #241 may extend it, read defensively until that field lands. */
-interface MaybeDescribed {
-  readonly description?: string;
-}
-
-function descriptionOf(definition: object): string | undefined {
-  return (definition as MaybeDescribed).description;
-}
-
 export interface MetamodelPropertyContext {
   readonly key: string;
   readonly type: string;
@@ -116,7 +107,7 @@ export function metamodelContext(
     elements.push({
       kind: definition.kind,
       label: definition.label,
-      ...(descriptionOf(definition) ? { description: descriptionOf(definition) } : {}),
+      ...(definition.description !== undefined ? { description: definition.description } : {}),
       category: definition.category,
       ...(definition.info
         ? {
@@ -141,7 +132,7 @@ export function metamodelContext(
     links.push({
       kind: definition.kind,
       label: definition.label,
-      ...(descriptionOf(definition) ? { description: descriptionOf(definition) } : {}),
+      ...(definition.description !== undefined ? { description: definition.description } : {}),
       category: definition.category,
       sources: rules ? union(metamodel, rules.sources) : builtIn,
       targets: rules ? union(metamodel, rules.targets) : builtIn,
@@ -173,7 +164,7 @@ function flags(element: MetamodelElementContext): string {
 }
 
 function elementLine(element: MetamodelElementContext): string[] {
-  const description = element.description ? `: ${element.description}` : '';
+  const description = element.description ? ` — ${element.description}` : '';
   return [
     `- ${element.kind} (${element.label})${flags(element)}${description}`,
     ...propertiesLine(element.properties),
@@ -183,7 +174,7 @@ function elementLine(element: MetamodelElementContext): string[] {
 function linkLine(link: MetamodelLinkContext): string[] {
   const arity = link.arity === 'n' ? ' [n-ary, via a hub]' : '';
   const values = link.values ? `; values: ${link.values.join(', ')}` : '';
-  const description = link.description ? `: ${link.description}` : '';
+  const description = link.description ? ` — ${link.description}` : '';
   return [
     `- ${link.kind} (${link.label})${arity}: ${link.category} link, ` +
       `${link.sources.join(', ')} → ${link.targets.join(', ')}${values}${description}`,

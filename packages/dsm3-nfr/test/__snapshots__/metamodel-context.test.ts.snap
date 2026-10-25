@@ -4,14 +4,14 @@ exports[`metamodelContextText(NFR) > is deterministic and matches a snapshot 1`]
 "# nfr metamodel
 
 ## Node kinds
-- nfr.NFR (NFR softgoal) [on paper]
-- nfr.Operationalization (Operationalization) [on paper]
-- nfr.Claim (Claim) [on paper]
+- nfr.NFR (NFR softgoal) [on paper] — A non-functional requirement treated as a softgoal: an objective (e.g. security, performance) with no clear-cut satisfaction criterion, judged "satisficed" by a preponderance of positive over negative evidence rather than strictly proven (Chung, Nixon, Yu & Mylopoulos 2000).
+- nfr.Operationalization (Operationalization) [on paper] — A concrete design or implementation decision — an "operationalizing softgoal" — put forward as a way to satisfice one or more NFR softgoals (Chung et al. 2000).
+- nfr.Claim (Claim) [on paper] — A justification softgoal recording the rationale for a Contribution or Correlation judgement; it argues for a link via an Argument rather than contributing to other softgoals itself (Chung et al. 2000).
 
 ## Link kinds
-- nfr.AndRefinementLink (And-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization
-- nfr.OrRefinementLink (Or-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization
-- nfr.ContributionLink (Contribution): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown
-- nfr.CorrelationLink (Correlation): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown
-- nfr.ArgumentLink (Argument): node link, nfr.Claim → nfr.AndRefinementLink, nfr.OrRefinementLink, nfr.ContributionLink, nfr.CorrelationLink, nfr.ArgumentLink"
+- nfr.AndRefinementLink (And-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization — Decomposes a softgoal or operationalization into sub-elements that must all be satisficed for the parent to be satisficed (Chung et al. 2000).
+- nfr.OrRefinementLink (Or-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization — Decomposes a softgoal or operationalization into alternative sub-elements, any one of which suffices to satisfice the parent (Chung et al. 2000).
+- nfr.ContributionLink (Contribution): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown — Expresses how satisficing one softgoal or operationalization affects another, labelled with a strength and polarity: "++"/"+" (sufficient/partial positive) or "– –"/"–" (sufficient/partial negative), plus "some+"/"some-" for unquantified partial evidence and "unknown" for an undetermined effect (Chung et al. 2000).
+- nfr.CorrelationLink (Correlation): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown — Like a Contribution, but records a side-effect relationship the modeller observes between two softgoals rather than one deliberately designed in (Chung et al. 2000).
+- nfr.ArgumentLink (Argument): node link, nfr.Claim → nfr.AndRefinementLink, nfr.OrRefinementLink, nfr.ContributionLink, nfr.CorrelationLink, nfr.ArgumentLink — Links a Claim to the Contribution or Correlation link it justifies (Chung et al. 2000)."
 `;

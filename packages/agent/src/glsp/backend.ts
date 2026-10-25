@@ -94,7 +94,11 @@ async function connectMcp(
 ): Promise<McpConnection> {
   const server = serveIstarGlsp({
     shared: { store: store as never, dispatcher: dispatcher as never },
-    mcp: { hostTools: host.hostTools, context: host.context, metamodelContext: host.metamodelContext },
+    mcp: {
+      hostTools: host.hostTools,
+      context: host.context,
+      metamodelContext: host.metamodelContext,
+    },
     contributions: [contribution],
   });
   const client = new Client({ name: 'istar-ts-agent-glsp', version: '1.0.0' });
