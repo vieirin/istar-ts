@@ -65,13 +65,30 @@ import type { IstarModelState } from './model-state';
 export const ISTAR_STORE_CHANGED = 'istar.storeChanged';
 
 /**
+ * `ModelSubmissionHandler` debounces live validation by 100ms (`liveValidationDelay`) after
+ * every submission, with no public hook to cancel the pending timer. A session disposed inside
+ * that window still fires the debounced validation into its now-stopped `ActionQueue`
+ * (`DefaultActionDispatcher.dispatch` rejects with "ActionQueue is stopped"), an unhandled
+ * rejection — not just a test-teardown race, real clients closing mid-debounce hit this too
+ * (#116). `cancelPendingLiveValidation` reaches the (protected, but same-module) timer so a
+ * session's dispose can stop it before it fires.
+ */
+@injectable()
+export class IstarModelSubmissionHandler extends ModelSubmissionHandler {
+  cancelPendingLiveValidation(): void {
+    this.debouncedLiveValidation?.cancel();
+  }
+}
+
+/**
  * Hears the session's dispatcher and queues an update for every change this session did not
  * make (`IstarModelState.ownChange`): `updateModel` after an edit, undo, redo or load, and
  * `setDirtyState` after a save. Changes that come before the queued update is sent share it.
  *
- * It unsubscribes when its session is disposed, and disposes the model state then (which stops a
- * dispatcher the session owns): on a shared store (`IstarSharedModel`) the dispatcher outlives
- * every session.
+ * It unsubscribes when its session is disposed, cancels any live validation still debouncing
+ * (`IstarModelSubmissionHandler`), and disposes the model state then (which stops a dispatcher
+ * the session owns): on a shared store (`IstarSharedModel`) the dispatcher outlives every
+ * session.
  */
 @injectable()
 export class IstarStoreListener implements ClientSessionInitializer {
@@ -80,6 +97,7 @@ export class IstarStoreListener implements ClientSessionInitializer {
   protected readonly logger: Logger;
   protected readonly sessions: ClientSessionManager;
   protected readonly clientId: string;
+  protected readonly submission: IstarModelSubmissionHandler;
   private pending: 'model' | 'dirty' | undefined;
 
   constructor(
@@ -88,12 +106,14 @@ export class IstarStoreListener implements ClientSessionInitializer {
     @inject(Logger) logger: Logger,
     @inject(ClientSessionManager) sessions: ClientSessionManager,
     @inject(ClientId) clientId: string,
+    @inject(ModelSubmissionHandler) submission: IstarModelSubmissionHandler,
   ) {
     this.state = state;
     this.actions = actions;
     this.logger = logger;
     this.sessions = sessions;
     this.clientId = clientId;
+    this.submission = submission;
   }
 
   initialize(): void {
@@ -112,6 +132,7 @@ export class IstarStoreListener implements ClientSessionInitializer {
     const listener: ClientSessionListener = {
       sessionDisposed: () => {
         unsubscribe();
+        this.submission.cancelPendingLiveValidation();
         this.state.dispose();
         this.sessions.removeListener(listener);
       },

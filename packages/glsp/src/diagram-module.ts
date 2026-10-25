@@ -10,6 +10,7 @@ import type {
   InstanceMultiBinding,
   LabelEditValidator,
   ModelState,
+  ModelSubmissionHandler,
   ModelValidator,
   MultiBinding,
   OperationHandlerConstructor,
@@ -33,6 +34,7 @@ import {
 } from './tools';
 import {
   IstarClientActionForwarder,
+  IstarModelSubmissionHandler,
   IstarStoreChangedHandler,
   IstarStoreListener,
 } from './updates';
@@ -120,6 +122,11 @@ export class IstarDiagramModule extends DiagramModule {
 
   protected override bindModelValidator(): BindingTarget<ModelValidator> {
     return IstarModelValidator;
+  }
+
+  /** `IstarModelSubmissionHandler`, so a session's dispose can cancel its live validation. */
+  protected override bindModelSubmissionHandler(): BindingTarget<ModelSubmissionHandler> {
+    return IstarModelSubmissionHandler;
   }
 
   protected override bindLabelEditValidator(): BindingTarget<LabelEditValidator> {
