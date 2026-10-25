@@ -39,9 +39,13 @@ refusal. Two backends:
   (in istar-ts, `@eclipse-glsp/server-mcp`'s diagram tools). `McpToolClient` is typed
   structurally; a connected `@modelcontextprotocol/sdk` `Client` is one. `isError` results
   become refusals (a result carrying `{ diagnostics }`, structured or as a JSON text block, keeps
-  them). `query-*`, `count-*`, `diagram-model`, `element-types` and `validate-diagram` are
-  read-only (`isReadOnly` to change). `boundArgs` are sent with every call and hidden from the
-  model, e.g. `@istar-ts/glsp`'s session:
+  them). A tool is read-only by its `readOnlyHint` when the server gives one, else by name
+  (`query-*`, `count-*`, `diagram-model`, `element-types`, `validate-diagram`, `session-info`,
+  `check-edge`, `get-selection`; `isReadOnly` to change). The model is offered only the tools the
+  server lists, less `MCP_RESOURCE_TOOLS` (`diagram-png`, `diagram-svg`: server-mcp's image
+  resources, which it lists as tools but a headless istar session can't serve, #157) and
+  `exclude`. `boundArgs` are sent with every call and hidden from the model, e.g.
+  `@istar-ts/glsp`'s session:
 
   ```ts
   const server = serveIstarGlsp({ shared: { store, dispatcher }, mcp: true }); // @istar-ts/glsp/browser

@@ -12,8 +12,9 @@
  * flags this as unbuilt, #130's gap): `openScratch` starts a second headless server over a
  * scratch copy of the live model (`parsePistar(toPistar(model))`, the same metamodel, guards and
  * schemas), and `apply` dispatches the operations the scratch session actually ran (recorded by
- * wrapping its dispatcher, not re-derived from the MCP calls' arguments) to the live dispatcher
- * as one `compound`. The scratch server is disposed once the run finishes (`runAgent` calls
+ * wrapping its dispatcher, not re-derived from the MCP calls' arguments, each with the ids it
+ * created pinned as explicit ids so a later step naming one finds it on the live model too, #155)
+ * to the live dispatcher as one `compound`. The scratch server is disposed once the run finishes (`runAgent` calls
  * `ScratchSession.close` itself) or the review is applied/discarded.
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -32,6 +33,8 @@ import { contributionFor, paletteOf } from '@istar-ts/glsp';
 import type { IstarGlspMcpServer } from '@istar-ts/glsp/browser';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { createMcpToolRegistry } from '@istar-ts/agent';
+import { injectCreatedIds } from '../lab/createdIds';
+import { describeOperation } from './describeOperation';
 import type {
   ChangeSetEntry,
   ChangeSetTarget,
@@ -91,11 +94,31 @@ function copyOf(store: ModelStore<string, string>): ModelStore<string, string> {
   return createModelStore(scratch as never) as unknown as ModelStore<string, string>;
 }
 
+/** What a successful mutating call did on the scratch session: a step of the change set (#156). */
+export interface ProposedStep {
+  /** As the scratch session ran them, with the ids they created pinned (#155). */
+  readonly operations: readonly IstarOperation<string, string>[];
+  /** `operations` in plain words, one line each. */
+  readonly description: readonly string[];
+  /** The ids the scratch run created, which `apply` reproduces on the live model. */
+  readonly createdIds: readonly string[];
+}
+
+export interface GlspChangeSet extends ChangeSetTarget {
+  /**
+   * `entry`'s step, or `undefined` for a call that isn't one: a read-only call, a refused one, or
+   * one that changed nothing (e.g. `set-view`). Only steps go into `apply`'s compound.
+   */
+  step(entry: ChangeSetEntry): ProposedStep | undefined;
+}
+
 /**
  * Propose mode over backend A: a scratch session per run, with its dispatched operations
  * recorded (keyed by the exact `ToolResult` object a call returns, so applying a reviewed,
  * possibly reordered-or-dropped subset of `entries` needs no further bookkeeping) so `apply` can
- * replay the kept ones on the live dispatcher as one `compound`.
+ * replay the kept ones on the live dispatcher as one `compound`. Each is recorded with the ids it
+ * created injected as explicit ids (`injectCreatedIds`, as the lab's replay does): the live store
+ * would otherwise mint fresh ones, and a later step naming a scratch id would be rejected (#155).
  *
  * `getOptions` is read fresh on every `openScratch`/`apply` (not once at session-open time), so
  * toggling the lab's guards switch after the drawer is already open still reaches the next run.
@@ -103,14 +126,14 @@ function copyOf(store: ModelStore<string, string>): ModelStore<string, string> {
 function createGlspChangeSet(
   getOptions: () => GlspMcpBackendOptions,
   contribution: IstarGlspContribution,
-): ChangeSetTarget {
-  const opsByResult = new WeakMap<ToolResult, readonly IstarOperation<string, string>[]>();
+): GlspChangeSet {
+  const stepsByResult = new WeakMap<ToolResult, ProposedStep>();
 
   return {
     async openScratch(): Promise<ScratchSession> {
       const options = getOptions();
       const scratchStore = copyOf(options.store);
-      let bucket: IstarOperation<string, string>[] | null = null;
+      let bucket: ProposedStep[] | null = null;
       const baseDispatcher = createActionDispatcher(scratchStore, {
         ...(options.guards ? { guards: options.guards } : {}),
         ...(options.schemas ? { schemas: options.schemas } : {}),
@@ -120,8 +143,16 @@ function createGlspChangeSet(
       // shared model requires (`App.tsx`'s/`BothApp.tsx`'s own tagged dispatchers do the same).
       const recordingDispatcher = {
         async dispatch(action: Parameters<ActionDispatcher<string, string>['dispatch']>[0]) {
+          const before = scratchStore.getModel();
           const result = await baseDispatcher.dispatch(action);
-          if (bucket && result.ok && isOperation(action)) bucket.push(action);
+          if (bucket && result.ok && isOperation(action)) {
+            const pinned = injectCreatedIds(action, result.createdIds, before);
+            bucket.push({
+              operations: [pinned],
+              description: describeOperation(pinned, [before, scratchStore.getModel()]),
+              createdIds: result.createdIds,
+            });
+          }
           return result;
         },
         subscribe: (listener: Parameters<ActionDispatcher<string, string>['subscribe']>[0]) =>
@@ -144,12 +175,20 @@ function createGlspChangeSet(
         list: () => registry.list(),
         prepare: registry.prepare?.bind(registry),
         async call(name, args, callOptions) {
-          const myBucket: IstarOperation<string, string>[] = [];
+          const myBucket: ProposedStep[] = [];
           bucket = myBucket;
           try {
             const result = await registry.call(name, args, callOptions);
-            if (!readOnlyNames.has(name)) opsByResult.set(result, myBucket);
-            return result;
+            if (!result.ok || readOnlyNames.has(name) || myBucket.length === 0) return result;
+            const step: ProposedStep = {
+              operations: myBucket.flatMap((s) => s.operations),
+              description: myBucket.flatMap((s) => s.description),
+              createdIds: myBucket.flatMap((s) => s.createdIds),
+            };
+            // The review shows them (`resultText`); the model never reads `createdIds`.
+            const proposed: ToolResult = { ...result, createdIds: step.createdIds };
+            stepsByResult.set(proposed, step);
+            return proposed;
           } finally {
             bucket = null;
           }
@@ -165,8 +204,8 @@ function createGlspChangeSet(
       };
     },
     async apply(entries: readonly ChangeSetEntry[]): Promise<ToolResult> {
-      const operationList = entries.flatMap((entry) =>
-        entry.result.ok ? (opsByResult.get(entry.result) ?? []) : [],
+      const operationList = entries.flatMap(
+        (entry) => stepsByResult.get(entry.result)?.operations ?? [],
       );
       if (operationList.length === 0) {
         return { ok: true, content: { createdIds: [] }, createdIds: [] };
@@ -179,6 +218,7 @@ function createGlspChangeSet(
         createdIds: result.createdIds,
       };
     },
+    step: (entry) => stepsByResult.get(entry.result),
   };
 }
 
@@ -186,7 +226,7 @@ export interface GlspMcpSession {
   /** Auto mode's tools, over the live model, through the drawer's "Agent"-tagged dispatcher. */
   readonly liveRegistry: ToolRegistry;
   /** Propose mode's target: a fresh scratch session per run. */
-  readonly changeSet: ChangeSetTarget;
+  readonly changeSet: GlspChangeSet;
   /** Closes the live session. Propose mode's scratch sessions close themselves per run. */
   close(): void;
 }
