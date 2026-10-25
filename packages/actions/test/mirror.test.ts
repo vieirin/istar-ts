@@ -56,7 +56,10 @@ function nextChange(mirror: ModelStore): Promise<ModelChangeEvent> {
   });
 }
 
-const text = (model: AnyIstarModel): string => toPistar(model);
+// `toPistar` stamps a fresh `saveDate` (`new Date()`) on a model with none of its own (every
+// model here, since none is parsed from a file): pinning it keeps two calls for the same
+// content equal, so a wall-clock second crossed between them can't make a comparison fail.
+const text = (model: AnyIstarModel): string => toPistar(model, { saveDate: new Date(0) });
 
 /** Each port's last answer comes after every notification sent before it: a barrier. */
 const barrier = (mirror: MirrorStore) =>
