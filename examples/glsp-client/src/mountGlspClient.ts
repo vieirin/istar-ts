@@ -28,6 +28,7 @@ import {
   onAction,
 } from '@eclipse-glsp/client';
 import { Container } from 'inversify';
+import type { AnyMetamodel } from '@istar-ts/core';
 import type { GlspPortLike } from './connection';
 import { portConnectionProvider, websocketConnectionProvider } from './connection';
 import { configureIstarModelElements } from './elementTypes';
@@ -41,6 +42,12 @@ export interface MountGlspClientOptions {
   readonly sourceUri: string;
   /** Every GModel type the model may contain (`gmodelTypes(metamodel, overrides).all`). */
   readonly types: readonly string[];
+  /**
+   * The model's metamodel, for iStar 2.0 (and KAOS/NFR) shapes (#84, `istar-views.ts`): a goal's
+   * pill, a quality's cloud, a task's hexagon, an actor's circle and boundary, and link markers.
+   * Without it, every type renders with the framework's default view only, as before #84.
+   */
+  readonly metamodel?: AnyMetamodel;
   /** The in-page `MessageChannel` port (default), or an already-created module `Worker`. */
   readonly port?: GlspPortLike;
   /** A Node launcher's WebSocket URL, instead of `port`. */
@@ -146,7 +153,8 @@ export function mountGlspClient(
     {
       add: [
         new FeatureModule(
-          (bind, _unbind, isBound) => configureIstarModelElements({ bind, isBound }, options.types),
+          (bind, _unbind, isBound) =>
+            configureIstarModelElements({ bind, isBound }, options.types, options.metamodel),
           { featureId: Symbol('istarModelElements') },
         ),
         messageModule(options.onMessage),

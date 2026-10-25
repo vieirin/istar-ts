@@ -6,11 +6,14 @@
  * (packages/react/src/styles.css) so the two clients read as the same tool, in both light and
  * dark (`prefers-color-scheme`).
  *
- * Default views only (#84 adds custom shapes): this colours the stock rect/path/text sprotty
- * already renders, selected through the attributes/classes `elementTypes.ts` and
+ * Colours the `rect`/`path`/`circle`/`text` the default views and `istar-views.ts`'s custom
+ * ones (#84) render, selected through the attributes/classes `elementTypes.ts` and
  * `@istar-ts/glsp`'s `modelToGModel` already produce —
  * `data-svg-metadata-type` (every element and link, set by GLSP's own `MetadataPlacer`) and
  * the `dependum`/`collapsed` CSS classes `modelToGModel` adds (`packages/glsp/src/gmodel.ts`).
+ * An actor's own `.sprotty-node` is its circle (#84's `ActorNodeView`), so it gets the plain
+ * node fill below like every other element, matching `@istar-ts/react`'s `ActorSymbol` (its
+ * `--istar-actor-fill` colours only the boundary, `.istar-glsp-actor-boundary` below).
  */
 
 :root {
@@ -56,15 +59,6 @@
   stroke-width: 1.5px;
 }
 
-/* Actor containers (`istar.Actor`/`.Agent`/`.Role`): a muted fill, as `--istar-actor-fill`. An
-   exact match, not a `.Actor`/`.Agent`/`.Role` suffix, since a dialect may name an ordinary node
-   kind that way (KAOS's `kaos.Agent` is a node, not a container). */
-[data-svg-metadata-type='node:istar.Actor'] > .sprotty-node,
-[data-svg-metadata-type='node:istar.Agent'] > .sprotty-node,
-[data-svg-metadata-type='node:istar.Role'] > .sprotty-node {
-  fill: var(--istar-glsp-actor-fill);
-}
-
 /* A dependum (the `dependum` class `modelToGModel` adds): same fill as its own kind, a dashed
    stroke to mark it, as piStar's dependency links read at a glance. */
 [data-svg-metadata-type^='node:'].dependum > .sprotty-node {
@@ -78,4 +72,32 @@
 [data-svg-metadata-type='node:link-anchor'] > .sprotty-node {
   fill: var(--istar-glsp-anchor-fill);
   stroke: var(--istar-glsp-link-stroke);
+}
+
+/* iStar 2.0 views (#84, `istar-views.ts`): an actor's boundary and decoration, and a link's
+   target marker and dependency "D". Colours mirror `@istar-ts/react`'s equivalents
+   (`packages/react/src/styles.css`'s `.istar-actor-boundary`/`.istar-link-marker`/
+   `.istar-link-dependency`), so the two clients read as the same tool. */
+.istar-glsp-actor-boundary {
+  fill: var(--istar-glsp-actor-fill);
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 1.5px;
+  stroke-dasharray: 10 5 4 4;
+}
+.istar-glsp-actor-decorator {
+  stroke: var(--istar-glsp-node-stroke);
+  stroke-width: 1.5px;
+}
+.istar-glsp-marker {
+  fill: none;
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 1.2px;
+}
+.istar-glsp-marker.is-filled {
+  fill: var(--istar-glsp-link-stroke);
+}
+.istar-glsp-dependency {
+  fill: var(--istar-glsp-node-fill);
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 2px;
 }

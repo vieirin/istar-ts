@@ -118,6 +118,7 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
     diagramType: fixture.contribution.diagramType,
     sourceUri: fixture.sourceUri,
     types: gmodelTypes(fixture.contribution.metamodel, fixture.contribution.types).all,
+    metamodel: fixture.contribution.metamodel,
     port: channel.port1,
     onMessage: (action) => showMessage(action.message, action.severity),
     logActions,
@@ -143,6 +144,7 @@ async function mountWorker(): Promise<void> {
   const client = mountGlspClient(element, {
     sourceUri: 'welcome.txt',
     types: gmodelTypes(ISTAR_GLSP.metamodel).all,
+    metamodel: ISTAR_GLSP.metamodel,
     port: worker,
     onMessage: (action) => showMessage(action.message, action.severity),
     logActions,
@@ -158,6 +160,7 @@ async function mountWebSocket(url: string, sourceUri: string): Promise<void> {
   const client = mountGlspClient(element, {
     sourceUri,
     types: gmodelTypes(ISTAR_GLSP.metamodel).all,
+    metamodel: ISTAR_GLSP.metamodel,
     url,
     onMessage: (action) => showMessage(action.message, action.severity),
     logActions,

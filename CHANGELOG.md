@@ -52,6 +52,14 @@ Versions are published from GitHub release tags; see the release notes for full 
   for the other two launchers), Undo/Redo buttons, and a status line for rejections and other
   server messages (`message`; `status` and `setMarkers` already show through the default modules).
   GLSP, Inversify and `@eclipse-glsp/*` stay out of `/react.html`'s bundle.
+- **examples:** `glsp-client` draws iStar 2.0 shapes instead of the default view's plain boxes
+  and lines (#84): a goal pill, a quality cloud, a task hexagon, an actor's circle with a dashed
+  boundary (and Agent/Role's own marks), a dependency link's "D", and refinement/contribution/
+  qualification/needed-by markers — matching `@istar-ts/react`'s shapes and colours
+  (`istar-glsp.css`). Resolved from the metamodel's `category`/`shape`/`line`/`behavesLike`
+  rather than `istar.*` name checks, so KAOS and NFR get their own shapes and markers through
+  their contributions with no extra code (`istar-views.ts`); a kind with none of this still gets
+  the framework's default view, unchanged.
 - **react:** `IstarInspector`'s width is a CSS variable (`--istar-inspector-width`, default
   340px, up from a fixed 280px) with min/max variables (`--istar-inspector-min-width` 240px,
   `--istar-inspector-max-width` 60vw), and resizable by dragging a handle on its canvas-facing
