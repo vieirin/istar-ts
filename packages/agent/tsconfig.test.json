@@ -2,6 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "isolatedDeclarations": false,
+    // The backend-A integration test imports `@istar-ts/glsp`, whose sources use Inversify's
+    // legacy decorators.
+    "experimentalDecorators": true,
     "declaration": false
   },
   "include": ["src", "test", "*.config.ts"]

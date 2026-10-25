@@ -7,7 +7,8 @@ Versions are published from GitHub release tags; see the release notes for full 
 - **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
   loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
   backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for
-  server-mcp's diagram tools) and the `@istar-ts/actions` dispatcher (`createActionToolRegistry`,
+  server-mcp's diagram tools, tested against `serveIstarGlsp({ mcp: true })`, with `boundArgs`
+  for the session id) and the `@istar-ts/actions` dispatcher (`createActionToolRegistry`,
   one tool per handled action kind). `createChatClient` (base URL, key and model are
   configuration; `DEEPSEEK` with `deepseek-flash` as the default; buffered or streamed tool
   calls). `runAgent` runs tool calls sequentially and stops on a final answer, `maxSteps`, a

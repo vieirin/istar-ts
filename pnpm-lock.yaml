@@ -128,6 +128,9 @@ importers:
         specifier: workspace:^
         version: link:../core
     devDependencies:
+      '@istar-ts/glsp':
+        specifier: workspace:^
+        version: link:../glsp
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)

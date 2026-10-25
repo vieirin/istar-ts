@@ -38,8 +38,27 @@ refusal. Two backends:
 - **A, MCP** — `createMcpToolRegistry(client)` over an MCP client's `tools/list` / `tools/call`
   (in istar-ts, `@eclipse-glsp/server-mcp`'s diagram tools). `McpToolClient` is typed
   structurally; a connected `@modelcontextprotocol/sdk` `Client` is one. `isError` results
-  become refusals (a result carrying `{ diagnostics }` keeps them). `query-*`, `count-*`,
-  `diagram-model`, `element-types` and `validate-diagram` are read-only (`isReadOnly` to change).
+  become refusals (a result carrying `{ diagnostics }`, structured or as a JSON text block, keeps
+  them). `query-*`, `count-*`, `diagram-model`, `element-types` and `validate-diagram` are
+  read-only (`isReadOnly` to change). `boundArgs` are sent with every call and hidden from the
+  model, e.g. `@istar-ts/glsp`'s session:
+
+  ```ts
+  const server = serveIstarGlsp({ shared: { store, dispatcher }, mcp: true }); // @istar-ts/glsp/browser
+  const client = new Client({ name: 'agent', version: '1.0.0' });
+  await client.connect(
+    new StreamableHTTPClientTransport(server.mcp.url, { fetch: server.mcp.fetch }),
+  );
+  const tools = await createMcpToolRegistry(client, {
+    boundArgs: { sessionId: server.sessionId! },
+    exclude: ['save-model'],
+  });
+  ```
+
+  Until #136 is fixed, a guard's rejection through `@istar-ts/glsp` arrives as a `tool-error`
+  carrying the SDK's output-schema message, not the guard's own diagnostics. Propose mode over
+  MCP needs a `ChangeSetTarget` with a scratch GLSP session; this package does not ship one yet.
+
 - **B, actions** — `createActionToolRegistry(dispatcher, { metamodel })`: one tool per
   `HANDLED_ACTION_KINDS` operation and request, plus `glspUndo`/`glspRedo`, named after the kind
   with `.` as `_` (`istar_setLinkValue`). Element and link kinds in the schemas come from the

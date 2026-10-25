@@ -43,6 +43,11 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} },
   },
   { name: 'save-model', description: 'Save.', inputSchema: { type: 'object', properties: {} } },
+  {
+    name: 'rejects-in-text',
+    description: 'Refuses with diagnostics in a JSON text block.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 let closers: (() => Promise<void>)[] = [];
@@ -91,6 +96,21 @@ async function fakeMcp(): Promise<{ client: Client; created: string[] }> {
         },
       };
     }
+    if (name === 'rejects-in-text') {
+      return {
+        isError: true,
+        content: [
+          { type: 'text', text: 'Rejected: no' },
+          {
+            type: 'text',
+            text: JSON.stringify({
+              code: 'rejected',
+              diagnostics: [{ elementId: 'a', severity: 'error', message: 'no', code: 'demo' }],
+            }),
+          },
+        ],
+      };
+    }
     throw new Error(`no tool ${name}`);
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -113,7 +133,9 @@ describe('createMcpToolRegistry', () => {
 
   test('lists the tools as OpenAI-safe names, marking the read-only ones', async () => {
     const { client } = await fakeMcp();
-    const registry = await createMcpToolRegistry(client, { exclude: ['save-model'] });
+    const registry = await createMcpToolRegistry(client, {
+      exclude: ['save-model', 'rejects-in-text'],
+    });
     expect(registry.list().map((s) => [s.name, s.readOnly ?? false])).toEqual([
       ['element-types', true],
       ['create-nodes', false],
@@ -145,6 +167,10 @@ describe('createMcpToolRegistry', () => {
       diagnostics: [
         { elementId: 'g1', severity: 'error', message: 'bad value', code: 'invalid-property' },
       ],
+    });
+    expect(await registry.call('rejects-in-text', {})).toEqual({
+      ok: false,
+      diagnostics: [{ elementId: 'a', severity: 'error', message: 'no', code: 'demo' }],
     });
     expect(await registry.call('nope', {})).toMatchObject({
       ok: false,
