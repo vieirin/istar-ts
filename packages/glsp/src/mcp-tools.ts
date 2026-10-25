@@ -1,6 +1,7 @@
 /**
- * The three istar-specific MCP diagram tools server-mcp has no equivalent for (#126 §4's gap
- * row): `set-properties`, `set-link-value` and `check-edge`. Type imports only, like `mcp.ts` —
+ * The istar-specific MCP diagram tools server-mcp has no equivalent for (#126 §4's gap row):
+ * `set-properties`, `set-link-value`, `change-link-kind` (#199) and `check-edge`. Type imports
+ * only, like `mcp.ts` —
  * the launchers load the optional `@eclipse-glsp/server-mcp` (and its `zod` dependency)
  * themselves and hand both namespaces in, so a host that never asks for MCP never needs either
  * installed.
@@ -55,8 +56,8 @@ export interface IstarMcpToolsBase extends IstarMcpHostBase {
 }
 
 /**
- * `istarMcpDiagramModule(mcp, z)`'s diagram module class, with `set-properties`, `set-link-value`
- * and `check-edge` added to server-mcp's default tool set — the same `configureToolHandlers`
+ * `istarMcpDiagramModule(mcp, z)`'s diagram module class, with `set-properties`, `set-link-value`,
+ * `change-link-kind` and `check-edge` added to server-mcp's default tool set — the same `configureToolHandlers`
  * extension point `docs/glsp/framework-notes.md` §5 describes for every adopter tool. A host's
  * `hostTools` and `context` (#175) are added to the same tool and resource multi-bindings.
  */
@@ -177,6 +178,75 @@ export function istarMcpDiagramModule(
     }
   }
   decorate(injectable(), SetLinkValueMcpToolHandler);
+
+  const ChangeLinkKindInputSchema = mcp.McpDiagramScopedInputSchema.extend({
+    linkIds: z
+      .array(mcp.elementId)
+      .min(1)
+      .describe('Ids of the links to change the kind of, e.g. every refinement link into a goal.'),
+    elementTypeId: z
+      .string()
+      .describe(
+        'The links’ new kind, e.g. `istar.OrRefinementLink`. Use `element-types` to discover ' +
+          'valid edge type ids. Ids, sources, targets, order, name, value, custom properties ' +
+          'and display are kept; a link already of this kind is left as is.',
+      ),
+  });
+  type ChangeLinkKindInput = ZodV4.infer<typeof ChangeLinkKindInputSchema>;
+  const ChangeLinkKindOutputSchema = z.object({
+    links: z.array(mcp.ElementIdentitySchema),
+    elementTypeId: z.string(),
+  });
+  type ChangeLinkKindOutput = ZodV4.infer<typeof ChangeLinkKindOutputSchema>;
+
+  class ChangeLinkKindMcpToolHandler extends mcp.OperationMcpDiagramToolHandler<
+    ChangeLinkKindInput,
+    ChangeLinkKindOutput
+  > {
+    static readonly NAME = 'change-link-kind';
+    readonly name = ChangeLinkKindMcpToolHandler.NAME;
+    override readonly title = 'Change Link Kind';
+    readonly description =
+      'Change the kind of one or more links at once (e.g. toggling every AND-refinement link ' +
+      'into a goal to OR), keeping their ids, source, target, order, name, value, custom ' +
+      'properties and display. One undo step, all or nothing: rejected if any listed link’s ' +
+      'new kind is invalid for its unchanged source and target. Use `diagram-model` or ' +
+      '`query-elements` first to find the links’ ids. This operation modifies the diagram ' +
+      'state and requires user approval.';
+    readonly inputSchema = ChangeLinkKindInputSchema;
+    override readonly outputSchema = ChangeLinkKindOutputSchema;
+
+    protected async createResult({
+      linkIds,
+      elementTypeId,
+    }: ChangeLinkKindInput): Promise<McpToolResult> {
+      const state = istarStateOf(this.modelState);
+      const modelIds: string[] = [];
+      const missing: string[] = [];
+      for (const linkId of linkIds) {
+        const realId = this.aliasService.lookup(linkId);
+        const modelId = modelIdOf(state.model, realId);
+        if (modelId === undefined) missing.push(linkId);
+        else modelIds.push(modelId);
+      }
+      if (missing.length > 0) throw new mcp.McpElementsNotFoundError(missing);
+      const result = await state.dispatcher.dispatch({
+        kind: 'istar.changeLinkKind',
+        linkIds: modelIds,
+        elementTypeId,
+      });
+      if (!result.ok) return rejectedToolResult(result.diagnostics as readonly GoalDiagnostic[]);
+      const links = linkIds
+        .map((id) => this.describeElement(id))
+        .filter((link) => link !== undefined);
+      return this.success(
+        `Changed ${linkIds.length === 1 ? 'the kind of' : 'the kinds of'} ${linkIds.length} ` +
+          `link${linkIds.length === 1 ? '' : 's'} to '${elementTypeId}'.`,
+        { links, elementTypeId },
+      );
+    }
+  }
+  decorate(injectable(), ChangeLinkKindMcpToolHandler);
 
   const CheckEdgeInputSchema = mcp.McpDiagramScopedInputSchema.extend({
     edgeType: z
@@ -310,6 +380,7 @@ export function istarMcpDiagramModule(
       super.configureToolHandlers(binding);
       binding.add(SetPropertiesMcpToolHandler);
       binding.add(SetLinkValueMcpToolHandler);
+      binding.add(ChangeLinkKindMcpToolHandler);
       binding.add(CheckEdgeMcpToolHandler);
       binding.rebind(mcp.ModifyNodesMcpToolHandler, IstarModifyNodesMcpToolHandler);
       for (const handler of hostTools) binding.add(handler);

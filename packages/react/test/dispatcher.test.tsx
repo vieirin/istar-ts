@@ -425,4 +425,40 @@ describe('asking the dispatcher for hints, the palette and edge checks', () => {
 
     expect(kinds).not.toContain('canLink');
   });
+
+  test('#200: istar.setFileMetamodel re-fetches type hints and the palette, and completes the registry', async () => {
+    const store = createModelStore();
+    store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const kinds: string[] = [];
+    const baseDispatcher = createActionDispatcher(store);
+    const dispatcher = recordingDispatcher(baseDispatcher, kinds);
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store} dispatcher={dispatcher}>
+          <IstarCanvas />
+        </IstarProvider>
+      </div>,
+    );
+    expect(kinds).toContain('requestTypeHints');
+    const before = kinds.filter((k) => k === 'requestTypeHints').length;
+
+    const result = await act(() =>
+      baseDispatcher.dispatch({
+        kind: 'istar.setFileMetamodel',
+        block: { name: 'beliefs', elements: [{ kind: 'beliefs.Belief', category: 'node' }] },
+      }),
+    );
+    expect(result.ok).toBe(true);
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    const after = kinds.filter((k) => k === 'requestTypeHints').length;
+    expect(after).toBeGreaterThan(before);
+
+    const response = await baseDispatcher.dispatch({
+      kind: 'requestTypeHints',
+      requestId: 'check',
+    });
+    if (!response.ok) throw new Error('expected an answer');
+    expect(response.response?.shapeHints.map((h) => h.elementTypeId)).toContain('beliefs.Belief');
+  });
 });

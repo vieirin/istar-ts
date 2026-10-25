@@ -17,6 +17,7 @@ import type {
   CustomProperties,
   DiagnosticSeverity,
   ElementKind,
+  FileMetamodel,
   LinkKind,
   ModelChange,
   PistarFile,
@@ -276,6 +277,35 @@ export interface UpdateLinkDisplayOperation extends Operation {
   readonly patch: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Changes the kind of a set of links: each listed link's id, source, target, order in the file,
+ * name, value, custom properties and display are kept; other links are untouched. One undo step
+ * for the whole set, all or nothing. A link whose kind is already `elementTypeId` is a no-op;
+ * an empty `linkIds` is a no-op too. Rejected (model untouched) if `canLink` refuses any listed
+ * link's new kind for its unchanged source and target (e.g. a mixed-refinement rule), or if the
+ * link keeps a `value` the new kind's `possibleLabels` disallows.
+ */
+export interface ChangeLinkKindOperation<LK extends string = LinkKind> extends Operation {
+  readonly kind: 'istar.changeLinkKind';
+  readonly linkIds: readonly string[];
+  /** The links' new kind, e.g. `istar.OrRefinementLink`. */
+  readonly elementTypeId: LK;
+}
+
+/**
+ * Sets (or, with `null` or an empty block, removes) the model file's own `"metamodel"` block:
+ * custom element kinds, groupers, link kinds with their rules and line style (`withFileMetamodel`
+ * in `@istar-ts/core`). One undo step; undo restores the previous block exactly. Rejected (model
+ * untouched) if the block is malformed, collides with the host's kinds, or drops a kind an
+ * element or link still uses. A host's dialect-specific checks (e.g. goal-controller's own
+ * validation of the block) run as an `ActionGuard` on this operation's kind, so their refusal
+ * also comes back as diagnostics.
+ */
+export interface SetFileMetamodelOperation extends Operation {
+  readonly kind: 'istar.setFileMetamodel';
+  readonly block: FileMetamodel | null;
+}
+
 /** Every operation, keyed by `kind`. */
 export type IstarOperation<EK extends string = ElementKind, LK extends string = LinkKind> =
   | CreateNodeOperation<EK>
@@ -293,7 +323,9 @@ export type IstarOperation<EK extends string = ElementKind, LK extends string = 
   | UpdatePropertiesOperation
   | UpdateDisplayOperation
   | SetLinkValueOperation
-  | UpdateLinkDisplayOperation;
+  | UpdateLinkDisplayOperation
+  | ChangeLinkKindOperation<LK>
+  | SetFileMetamodelOperation;
 
 // ---------------------------------------------------------------------------------------------
 // Model
@@ -572,6 +604,8 @@ const OPERATION_KIND_LIST: readonly IstarOperation['kind'][] = [
   'istar.updateDisplay',
   'istar.setLinkValue',
   'istar.updateLinkDisplay',
+  'istar.changeLinkKind',
+  'istar.setFileMetamodel',
 ];
 
 const REQUEST_KIND_LIST: readonly IstarRequestAction['kind'][] = [
