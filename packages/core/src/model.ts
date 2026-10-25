@@ -424,3 +424,150 @@ export function actorBounds<EK extends string, LK extends string>(
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
+
+/** Space kept between a suggested box and any existing element (`suggestPosition`). */
+export const SUGGEST_MARGIN = 20;
+
+/** Step between candidate positions on the grid `suggestPosition` scans. */
+const SUGGEST_STEP = 40;
+
+/** How many rings out `suggestPosition` scans before falling back past the model's bounding box. */
+const SUGGEST_MAX_RING = 25;
+
+export interface SuggestPositionOptions<EK extends string> {
+  /** The kind of element being placed; its metamodel size is what must not overlap. */
+  readonly kind: EK;
+  /** Place inside this actor's boundary (`actorBounds`), growing it if full. */
+  readonly containerId?: string;
+  /** Prefer a spot adjacent to this element's id, or to this point. */
+  readonly near?: string | Point;
+  readonly metamodel?: Metamodel<EK, string>;
+  /** See `actorBounds`' `defaultSizeOf`. */
+  readonly defaultSizeOf?: (kind: EK) => Size;
+}
+
+function boxesOverlap(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function padded(box: Box, margin: number): Box {
+  return {
+    x: box.x - margin,
+    y: box.y - margin,
+    width: box.width + margin * 2,
+    height: box.height + margin * 2,
+  };
+}
+
+function firstFreeCandidate(
+  candidates: readonly Point[],
+  size: Size,
+  obstacles: readonly Box[],
+): Point {
+  for (const point of candidates) {
+    const box: Box = { x: point.x, y: point.y, width: size.width, height: size.height };
+    if (!obstacles.some((obstacle) => boxesOverlap(padded(box, SUGGEST_MARGIN), obstacle))) {
+      return point;
+    }
+  }
+  return candidates[candidates.length - 1] ?? { x: 0, y: 0 };
+}
+
+/** Candidate positions in expanding square rings around `center`, in a fixed scan order. */
+function ringCandidates(center: Point, maxRing: number): Point[] {
+  const points: Point[] = [center];
+  for (let ring = 1; ring <= maxRing; ring++) {
+    const offset = ring * SUGGEST_STEP;
+    for (let dx = -offset; dx <= offset; dx += SUGGEST_STEP) {
+      points.push({ x: center.x + dx, y: center.y - offset });
+      points.push({ x: center.x + dx, y: center.y + offset });
+    }
+    for (let dy = -offset + SUGGEST_STEP; dy <= offset - SUGGEST_STEP; dy += SUGGEST_STEP) {
+      points.push({ x: center.x - offset, y: center.y + dy });
+      points.push({ x: center.x + offset, y: center.y + dy });
+    }
+  }
+  return points;
+}
+
+function modelBoxes<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  defaultSizeOf: (kind: EK) => Size,
+): Box[] {
+  const boxes: Box[] = [];
+  for (const element of model.elements.values()) {
+    const base = defaultSizeOf(element.kind);
+    const width = element.display?.width ?? base.width;
+    const height = element.display?.height ?? base.height;
+    boxes.push({ x: element.x, y: element.y, width, height });
+  }
+  return boxes;
+}
+
+/**
+ * A free spot for a new element of `kind`, overlapping no existing element (sizes from the
+ * metamodel, or `defaultSizeOf` for a host with its own size overrides, as in `actorBounds`).
+ *
+ * Scans a deterministic, fixed-order set of candidates — rings around `near` when given, else
+ * the container's interior, else rings around the origin — and returns the first whose padded
+ * box (`SUGGEST_MARGIN`) overlaps nothing; same input always yields the same output.
+ *
+ * Inside `containerId`, the candidate stays within the actor's current boundary (`actorBounds`)
+ * when there is room, or goes just past its last child when the boundary is full — the boundary
+ * grows from there, same as any other inner element (`actorBounds`).
+ */
+export function suggestPosition<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  options: SuggestPositionOptions<EK>,
+): Point {
+  const metamodel = (options.metamodel ?? metamodelOf(model)) as AnyMetamodel;
+  const defaultSizeOf: (kind: EK) => Size =
+    options.defaultSizeOf ?? ((kind) => metamodelSizeOf(metamodel, kind));
+  const size = defaultSizeOf(options.kind);
+  const obstacles = modelBoxes(model, defaultSizeOf);
+
+  const near = typeof options.near === 'string' ? model.elements.get(options.near) : options.near;
+  const nearPoint: Point | undefined = near
+    ? 'kind' in near
+      ? { x: near.x, y: near.y }
+      : near
+    : undefined;
+
+  if (options.containerId) {
+    const bounds = actorBounds(
+      model,
+      options.containerId,
+      metamodel as Metamodel<EK, LK>,
+      defaultSizeOf,
+    );
+    const inside = nearPoint ?? { x: bounds.x + ACTOR_PADDING, y: bounds.y + ACTOR_PADDING };
+    const candidates = ringCandidates(inside, SUGGEST_MAX_RING).filter(
+      (point) =>
+        point.x >= bounds.x + ACTOR_PADDING &&
+        point.y >= bounds.y + ACTOR_PADDING &&
+        point.x + size.width <= bounds.x + bounds.width - ACTOR_PADDING &&
+        point.y + size.height <= bounds.y + bounds.height - ACTOR_PADDING,
+    );
+    if (candidates.length > 0) {
+      const found = firstFreeCandidate(candidates, size, obstacles);
+      const foundBox: Box = { x: found.x, y: found.y, width: size.width, height: size.height };
+      const isFree = !obstacles.some((obstacle) =>
+        boxesOverlap(padded(foundBox, SUGGEST_MARGIN), obstacle),
+      );
+      if (isFree) return found;
+    }
+    // The boundary is full: scan onward from just past its last child, growing it.
+    const pastLastChild = {
+      x: bounds.x + bounds.width + ACTOR_PADDING,
+      y: bounds.y + ACTOR_PADDING,
+    };
+    return firstFreeCandidate(ringCandidates(pastLastChild, SUGGEST_MAX_RING), size, obstacles);
+  }
+
+  const start: Point =
+    nearPoint ??
+    (obstacles.length > 0
+      ? { x: Math.max(...obstacles.map((box) => box.x + box.width)) + SUGGEST_MARGIN, y: 0 }
+      : { x: 0, y: 0 });
+  return firstFreeCandidate(ringCandidates(start, SUGGEST_MAX_RING), size, obstacles);
+}
