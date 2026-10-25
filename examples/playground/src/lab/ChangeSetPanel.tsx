@@ -1,110 +1,101 @@
-import type { ActionDispatcher, ActionGuard, ActionResult } from '@istar-ts/actions';
-import type { AnyIstarModel } from '@istar-ts/core';
 import type { ReactElement } from 'react';
-import { useMemo, useState } from 'react';
-import type { AgentStep, ChangeSetEntry } from './agent';
-import { dryRun, planFor } from './agent';
 
-function resultText(result: ActionResult<never>): string {
-  if (result.ok)
-    return result.createdIds.length > 0 ? `accept → ${result.createdIds.join(', ')}` : 'accept';
-  return `reject — ${result.diagnostics.map((d) => d.message).join('; ')}`;
+/** One reviewable step: `key` identifies it for `included`/`preview` lookups, `label` is shown. */
+export interface ChangeSetStepView {
+  readonly key: string;
+  readonly label: string;
+}
+
+export interface ChangeSetPreview {
+  readonly ok: boolean;
+  readonly text: string;
+}
+
+/** A dry-run or apply result's accept/reject line, from an `ActionResult`- or `ToolResult`-shaped value. */
+export function resultText(result: {
+  readonly ok: boolean;
+  readonly createdIds?: readonly string[];
+  readonly diagnostics?: readonly { readonly message: string }[];
+}): string {
+  if (result.ok) {
+    return result.createdIds && result.createdIds.length > 0
+      ? `accept → ${result.createdIds.join(', ')}`
+      : 'accept';
+  }
+  return `reject — ${(result.diagnostics ?? []).map((d) => d.message).join('; ')}`;
 }
 
 /**
- * The protocol lab's pseudo-agent change set (#47, #42 item 7): a scripted plan toward a
- * stated goal (`agent.ts`'s `planFor`), dry-run through the same guards the live dispatcher
- * would use, shown step by step as accept or reject. The user can drop steps before applying
- * the rest as one `compound` to `dispatcher` — one undo step.
+ * Review and apply a change set: checkbox steps with their dry-run outcome, an "Apply as one
+ * compound" button. Driven entirely by props so a scripted pseudo-agent
+ * (`PseudoAgentChangeSet.tsx`, #47, #42 item 7) and a real LLM agent's Propose mode (#126 D4) can
+ * render through the same component — accept/reject-per-step behaves identically for both.
+ * `onDryRun` is omitted when a caller's steps already carry their dry-run result (the LLM
+ * agent's Propose mode dry-runs as part of the run itself, not as a separate UI step).
  */
 export function ChangeSetPanel({
-  model,
-  guards,
-  dispatcher,
+  goal,
+  hint,
+  steps,
+  included,
+  onToggleStep,
+  preview,
+  onDryRun,
+  dryRunLabel = 'Dry run',
+  onApply,
+  applyLabel = 'Apply as one compound',
+  canApply,
+  applied,
 }: {
-  readonly model: AnyIstarModel;
-  readonly guards: readonly ActionGuard[];
-  readonly dispatcher: ActionDispatcher;
+  readonly goal?: string;
+  readonly hint?: string;
+  readonly steps: readonly ChangeSetStepView[];
+  readonly included: readonly boolean[];
+  readonly onToggleStep: (index: number) => void;
+  readonly preview: ReadonlyMap<string, ChangeSetPreview> | null;
+  readonly onDryRun?: () => void;
+  readonly dryRunLabel?: string;
+  readonly onApply: () => void;
+  readonly applyLabel?: string;
+  readonly canApply: boolean;
+  readonly applied: ChangeSetPreview | null;
 }): ReactElement {
-  const [plan] = useState(() => planFor());
-  const [included, setIncluded] = useState<readonly boolean[]>(() => plan.steps.map(() => true));
-  const [preview, setPreview] = useState<readonly ChangeSetEntry[] | null>(null);
-  const [applied, setApplied] = useState<ActionResult<never> | null>(null);
-
-  const selectedSteps = useMemo(
-    () => plan.steps.filter((_, index) => included[index]),
-    [plan, included],
-  );
-  const previewByStep = useMemo(() => {
-    const map = new Map<AgentStep, ChangeSetEntry>();
-    for (const entry of preview ?? []) map.set(entry.step, entry);
-    return map;
-  }, [preview]);
-
-  const toggleStep = (index: number): void => {
-    setIncluded((prev) => prev.map((value, i) => (i === index ? !value : value)));
-    setPreview(null);
-    setApplied(null);
-  };
-
-  const onDryRun = (): void => {
-    setApplied(null);
-    void dryRun(model, selectedSteps, guards).then(setPreview);
-  };
-
-  const onApply = (): void => {
-    void dispatcher
-      .dispatch({ kind: 'compound', operationList: selectedSteps.map((step) => step.operation) })
-      .then((result) => {
-        setApplied(result as ActionResult<never>);
-        setPreview(null);
-      });
-  };
-
+  const selectedCount = included.filter(Boolean).length;
   return (
     <div className="pg-lab-agent">
-      <p className="pg-lab-agent-goal">Goal: {plan.goal}</p>
-      <p className="pg-lab-hint">
-        The plan's steps use fixed ids, so applying it a second time is rejected as a whole — a good
-        demo of a refused compound.
-      </p>
+      {goal !== undefined && <p className="pg-lab-agent-goal">Goal: {goal}</p>}
+      {hint !== undefined && <p className="pg-lab-hint">{hint}</p>}
       <ol className="pg-lab-agent-steps">
-        {plan.steps.map((step, index) => {
-          const entry = previewByStep.get(step);
+        {steps.map((step, index) => {
+          const entry = preview?.get(step.key);
           return (
-            <li key={step.label} className="pg-lab-agent-step">
+            <li key={step.key} className="pg-lab-agent-step">
               <label>
                 <input
                   type="checkbox"
-                  checked={included[index]}
-                  onChange={() => toggleStep(index)}
+                  checked={included[index] ?? false}
+                  onChange={() => onToggleStep(index)}
                 />
                 {step.label}
               </label>
               {entry && (
-                <span className={entry.result.ok ? 'pg-lab-accept' : 'pg-lab-reject'}>
-                  {resultText(entry.result)}
-                </span>
+                <span className={entry.ok ? 'pg-lab-accept' : 'pg-lab-reject'}>{entry.text}</span>
               )}
             </li>
           );
         })}
       </ol>
       <div className="pg-lab-agent-actions">
-        <button type="button" onClick={onDryRun} disabled={selectedSteps.length === 0}>
-          Dry run
-        </button>
-        <button type="button" onClick={onApply} disabled={preview === null}>
-          Apply as one compound
+        {onDryRun && (
+          <button type="button" onClick={onDryRun} disabled={selectedCount === 0}>
+            {dryRunLabel}
+          </button>
+        )}
+        <button type="button" onClick={onApply} disabled={!canApply}>
+          {applyLabel}
         </button>
       </div>
-      {applied && (
-        <p className={applied.ok ? 'pg-lab-accept' : 'pg-lab-reject'}>
-          {applied.ok
-            ? 'Applied.'
-            : `Rejected — ${applied.diagnostics.map((d) => d.message).join('; ')}`}
-        </p>
-      )}
+      {applied && <p className={applied.ok ? 'pg-lab-accept' : 'pg-lab-reject'}>{applied.text}</p>}
     </div>
   );
 }

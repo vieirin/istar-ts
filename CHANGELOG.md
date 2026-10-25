@@ -29,6 +29,14 @@ Versions are published from GitHub release tags; see the release notes for full 
   (mean, spread) into a JSON and markdown report. Both `@istar-ts/agent` backends (A, the GLSP
   MCP tools; B, the actions dispatcher) run every condition, including the shield, now that
   #136 (D2/#129) lands a guard's typed diagnostics over MCP too.
+- **playground:** an agent drawer on `/react.html` and `/both.html` (#131, epic #126 D4): a
+  BYOK panel (DeepSeek key, in memory by default, opt-in `localStorage`; a model picker) over
+  `@istar-ts/agent`'s loop. Propose (default) reuses the protocol lab's `ChangeSetPanel` for
+  review; Auto applies live. Both run over a headless `serveIstarGlsp({ mcp: true })` on the
+  canvas's own store, through its own "Agent"-tagged dispatcher, so every applied tool call
+  lands in the action log and survives export/replay unmodified. A live token/cost readout and
+  a Stop button (`AbortSignal`). Lazy-loaded (dynamic `import()`): `/react.html`'s first-load JS
+  is unchanged. A CSP `connect-src` entry restricts the page to `https://api.deepseek.com`.
 - **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
   loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
   backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for

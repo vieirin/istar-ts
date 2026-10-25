@@ -4,9 +4,9 @@ import type { Selection } from '@istar-ts/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { ActionLog } from './ActionLog';
-import { ChangeSetPanel } from './ChangeSetPanel';
 import { ClientToggles } from './ClientToggles';
 import { GuardsSwitch } from './GuardsSwitch';
+import { PseudoAgentChangeSet } from './PseudoAgentChangeSet';
 import { Replay } from './Replay';
 import { ScriptConsole } from './ScriptConsole';
 import type { LogStore } from './log';
@@ -81,7 +81,7 @@ export function ProtocolLab({
         />
       )}
       {tab === 'agent' && (
-        <ChangeSetPanel model={model} guards={guards} dispatcher={agentDispatcher} />
+        <PseudoAgentChangeSet model={model} guards={guards} dispatcher={agentDispatcher} />
       )}
       {tab === 'replay' && <Replay log={log} store={store} />}
     </div>

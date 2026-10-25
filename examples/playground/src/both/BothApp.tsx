@@ -23,6 +23,7 @@ import type { MountedGlspClient } from 'glsp-client';
 import type { ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import welcomeText from '../../../../fixtures/pistar/welcome.txt?raw';
+import { AgentPanel } from '../agent/AgentPanel';
 import { ActionLog } from '../lab/ActionLog';
 import { createLogStore } from '../lab/log';
 import { tagClient } from '../lab/tagClient';
@@ -67,6 +68,17 @@ export function BothApp(): ReactElement {
   const [glspDispatcher] = useState<StoreActionDispatcher<string, string>>(
     () =>
       Object.assign(tagClient(dispatcher, 'GLSP', log), {
+        isDirty: () => dispatcher.isDirty(),
+        dispose: () => dispatcher.dispose(),
+      }) as StoreActionDispatcher<string, string>,
+  );
+  // The agent drawer's own headless GLSP+MCP session (#126 D4, #131 item 7), tagged "Agent" so
+  // its applied tool calls show up as their own client in the log, same underlying dispatcher.
+  // Reshaped to `StoreActionDispatcher` like `glspDispatcher`: `serveIstarGlsp`'s shared model
+  // needs the full shape.
+  const [agentDispatcher] = useState<StoreActionDispatcher<string, string>>(
+    () =>
+      Object.assign(tagClient(dispatcher, 'Agent', log), {
         isDirty: () => dispatcher.isDirty(),
         dispose: () => dispatcher.dispose(),
       }) as StoreActionDispatcher<string, string>,
@@ -160,7 +172,21 @@ export function BothApp(): ReactElement {
             store={store}
             dispatcher={reactDispatcher}
             palette="left"
-            aside={<LogPanel log={log} model={model} />}
+            aside={
+              <>
+                <LogPanel log={log} model={model} />
+                <section className="pg-both-log">
+                  <h2 className="pg-aside-heading">Agent</h2>
+                  <AgentPanel
+                    store={store}
+                    dispatcher={agentDispatcher}
+                    guards={[]}
+                    schemas={[]}
+                    framework="none"
+                  />
+                </section>
+              </>
+            }
           />
         </div>
         <div className="pg-both-glsp">

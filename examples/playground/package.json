@@ -12,16 +12,20 @@
     "e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@eclipse-glsp/server-mcp": "2.8.0",
     "@istar-ts/actions": "workspace:^",
+    "@istar-ts/agent": "workspace:^",
     "@istar-ts/core": "workspace:^",
     "@istar-ts/dsm3-kaos": "workspace:^",
     "@istar-ts/dsm3-nfr": "workspace:^",
     "@istar-ts/glsp": "workspace:^",
     "@istar-ts/react": "workspace:^",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@xyflow/react": "^12.12.0",
     "glsp-client": "workspace:*",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@eclipse-glsp/playwright": "2.9.0-next.20",

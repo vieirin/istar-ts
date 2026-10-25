@@ -4,6 +4,8 @@ import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector, useIstarEditor } from '@istar-ts/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { AgentPanel } from './agent/AgentPanel';
+import type { GlspFramework } from './agent/glspMcpBackend';
 import { ProtocolLab } from './lab/ProtocolLab';
 import type { LogStore } from './lab/log';
 import type { TaggedDispatcher } from './lab/tagClient';
@@ -27,6 +29,7 @@ export function Sidebar({
   guards,
   agentDispatcher,
   store,
+  agentFramework,
 }: {
   readonly model: AnyIstarModel;
   /** Property schemas contributed by the active extension, if any. */
@@ -40,6 +43,8 @@ export function Sidebar({
   readonly guards: readonly ActionGuard[];
   readonly agentDispatcher: ActionDispatcher;
   readonly store: ModelStore<string, string>;
+  /** The GLSP contribution the agent drawer's backend A picks for the active extension. */
+  readonly agentFramework: GlspFramework;
 }): ReactElement {
   const issues = validateModel(model);
   const propertyIssues = validateModelProperties(model, schemas);
@@ -75,6 +80,16 @@ export function Sidebar({
           guardDescription={guardDescription}
           guards={guards}
           agentDispatcher={agentDispatcher}
+        />
+      </section>
+      <section className="pg-aside-section">
+        <h2 className="pg-aside-heading">Agent</h2>
+        <AgentPanel
+          store={store}
+          dispatcher={agentDispatcher as ActionDispatcher<string, string>}
+          guards={guards as readonly ActionGuard<string, string>[]}
+          schemas={schemas}
+          framework={agentFramework}
         />
       </section>
       <section className="pg-aside-section">

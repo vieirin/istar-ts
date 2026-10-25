@@ -60,9 +60,15 @@ importers:
 
   examples/playground:
     dependencies:
+      '@eclipse-glsp/server-mcp':
+        specifier: 2.8.0
+        version: 2.8.0(hono@4.13.13)(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
       '@istar-ts/actions':
         specifier: workspace:^
         version: link:../../packages/actions
+      '@istar-ts/agent':
+        specifier: workspace:^
+        version: link:../../packages/agent
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -78,6 +84,9 @@ importers:
       '@istar-ts/react':
         specifier: workspace:^
         version: link:../../packages/react
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.32.2
+        version: 1.32.2(zod@4.6.7)
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -90,6 +99,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
     devDependencies:
       '@eclipse-glsp/playwright':
         specifier: 2.9.0-next.20

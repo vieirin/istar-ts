@@ -8,6 +8,9 @@ export default defineConfig({
       '@istar-ts/actions': fileURLToPath(
         new URL('../../packages/actions/src/index.ts', import.meta.url),
       ),
+      '@istar-ts/agent': fileURLToPath(
+        new URL('../../packages/agent/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
