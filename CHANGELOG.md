@@ -4,6 +4,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **actions, react:** render a model held elsewhere (#99). `createMirrorStore(remote)` is a
+  read-only `ModelStore` that follows a remote `ActionDispatcher` (a worker, a GLSP server, a
+  `createRemoteDispatcher` port): an initial `requestModel`, then one update per
+  `sourceModelChanged`, applied in the remote's order. Give `<IstarCanvas>` / `IstarProvider`
+  `store={mirror}` and `dispatcher={mirror.dispatcher}`, whose `dispatch` resolves once the
+  mirror shows the change. Direct mutation throws; undo/redo go to the remote's stack. The new
+  `sendModel` dispatcher option attaches the model to each `sourceModelChanged` (`newRoot`), so a
+  mirror needs no round trip; `startIstarGlspWorker` turns it on. The playground's
+  `/both.html?server=worker` shows the React canvas and the stock GLSP client on a worker-held
+  model.
 - **react:** the canvas asks the dispatcher the questions a GLSP client asks its server
   (#142, stage 3 of #144), instead of answering them locally: `requestCheckEdge` for connection
   checks (`checkConnection`, cached per kind/source/target, invalidated on model change — an

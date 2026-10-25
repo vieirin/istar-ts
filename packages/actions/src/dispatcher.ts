@@ -132,6 +132,12 @@ export interface ActionDispatcherOptions<
   readonly save?: (file: PistarFile, action: SaveModelAction) => void | Promise<void>;
   /** `ModelSourceChangedAction.sourceModelName`, e.g. the file name. Default `''`. */
   readonly sourceModelName?: string;
+  /**
+   * Attach the new model to every `sourceModelChanged` as `newRoot` (piStar JSON), so a mirror
+   * on the other end of a transport (`createMirrorStore`) follows without a `requestModel` round
+   * trip. Costs a `toPistarObject` per change (0.3 ms on the largest fixture). Default false.
+   */
+  readonly sendModel?: boolean;
 }
 
 export interface StoreActionDispatcher<
@@ -239,6 +245,7 @@ export function createActionDispatcher<
       sourceModelName,
       source: event.source,
       changes: event.changes,
+      ...(options.sendModel ? { newRoot: toPistarObject(event.model) } : {}),
     });
     updateDirty(REASONS[event.source]);
   });
