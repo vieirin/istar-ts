@@ -95,8 +95,35 @@ export type ActionListener<EK extends string = ElementKind, LK extends string = 
  * Sends actions and hears what the other side sends back. Implemented in-process by
  * `createActionDispatcher`; a transport implements it over a message port.
  */
+/** `dispatch`'s second argument. */
+export interface DispatchOptions {
+  /**
+   * Echoed back as `origin` on every `ModelSourceChangedAction` and `SetDirtyStateAction` this
+   * dispatch causes (each change of a compound, both events of an undo or redo), so a listener
+   * can tell which surface or client made a change without tracking it itself. Carried through
+   * `createRemoteDispatcher`/`connectDispatcher` and by `createMirrorStore`'s dispatcher, so it
+   * survives a round trip to a remote host. Optional: a change with no origin (a host's direct
+   * `store.load`, for instance) has none.
+   */
+  readonly origin?: string;
+}
+
 export interface ActionDispatcher<EK extends string = ElementKind, LK extends string = LinkKind> {
-  dispatch<A extends IstarAction<EK, LK>>(action: A): Promise<ActionResult<ResponseFor<A>>>;
+  /**
+   * For a **local** dispatcher (`createActionDispatcher`), an operation, `glspUndo`/`glspRedo`,
+   * and the guards and postGuards around them, are applied to the store and every listener
+   * (`subscribe`, the store's own) is notified synchronously, before this call's promise is
+   * created to resolve — only `saveModel` awaits. Code that needs to see the result of an action
+   * before its own next statement (not just before `await dispatch(...)` resolves) can rely on
+   * this for a local dispatcher; it does **not** hold across a `createRemoteDispatcher`/
+   * `connectDispatcher` transport or a `createMirrorStore` mirror, where a change always arrives
+   * after a message round trip. Use `origin` ({@link DispatchOptions}) instead where that
+   * portability matters — it is carried through both.
+   */
+  dispatch<A extends IstarAction<EK, LK>>(
+    action: A,
+    options?: DispatchOptions,
+  ): Promise<ActionResult<ResponseFor<A>>>;
   /**
    * Hears the actions the dispatcher sends: `ModelSourceChangedAction` after every model change,
    * `SetDirtyStateAction` when the dirty state flips, and the notifications dispatched to it.
@@ -248,16 +275,28 @@ export function createActionDispatcher<
 
   let saved: AnyIstarModel = s.getModel();
   let dirty = false;
+  /**
+   * The origin of the dispatch currently applying synchronously (set by `dispatch`, around the
+   * synchronous part of `run`): what the store's subscription below echoes on
+   * `sourceModelChanged`/`setDirtyState`. `undefined` for a change not caused by a dispatch (a
+   * host's direct `store.load`) or once `run`'s synchronous part has returned.
+   */
+  let currentOrigin: string | undefined;
 
   const emit = (action: IstarAction<string, string>): void => {
     for (const listener of listeners) listener(action);
   };
 
-  const updateDirty = (reason: DirtyStateChangeReason): void => {
+  const updateDirty = (reason: DirtyStateChangeReason, origin: string | undefined): void => {
     const next = s.getModel() !== saved;
     if (next === dirty) return;
     dirty = next;
-    emit({ kind: 'setDirtyState', isDirty: next, reason });
+    emit({
+      kind: 'setDirtyState',
+      isDirty: next,
+      reason,
+      ...(origin === undefined ? {} : { origin }),
+    });
   };
 
   const REASONS: Record<ModelChangeEvent['source'], DirtyStateChangeReason> = {
@@ -276,8 +315,9 @@ export function createActionDispatcher<
       changes: event.changes,
       ...(options.sendModel ? { newRoot: toPistarObject(event.model) } : {}),
       ...(options.sendModel ? { canUndo: s.canUndo(), canRedo: s.canRedo() } : {}),
+      ...(currentOrigin === undefined ? {} : { origin: currentOrigin }),
     });
-    updateDirty(REASONS[event.source]);
+    updateDirty(REASONS[event.source], currentOrigin);
   });
 
   // -------------------------------------------------------------------------------------------
@@ -763,7 +803,10 @@ export function createActionDispatcher<
 
   // -------------------------------------------------------------------------------------------
 
-  const run = async (action: IstarAction<string, string>): Promise<ActionResult<unknown>> => {
+  const run = async (
+    action: IstarAction<string, string>,
+    origin: string | undefined,
+  ): Promise<ActionResult<unknown>> => {
     if (isOperation(action)) return runOperation(action);
     if (isRequestAction(action)) return { ok: true, createdIds: [], response: respond(action) };
     switch (action.kind) {
@@ -778,7 +821,7 @@ export function createActionDispatcher<
         const model = s.getModel();
         await options.save(toPistarObject(model, { saveDate: new Date() }), action);
         saved = model;
-        updateDirty('save');
+        updateDirty('save', origin);
         return { ok: true, createdIds: [] };
       }
       case 'sourceModelChanged':
@@ -798,9 +841,21 @@ export function createActionDispatcher<
   };
 
   return {
-    async dispatch(action) {
+    async dispatch(action, dispatchOptions) {
+      const origin = dispatchOptions?.origin;
+      // `run`'s synchronous part (an operation, undo, redo, their guards) applies and notifies
+      // listeners before this call returns to its caller below, still inside this `try`: see
+      // `ActionDispatcher.dispatch`'s doc comment. `currentOrigin` is reset right after, before
+      // any `await`, so it can't leak into an unrelated dispatch's own synchronous part.
+      currentOrigin = origin;
+      let pending: Promise<ActionResult<unknown>>;
       try {
-        return (await run(action as IstarAction<string, string>)) as ActionResult<never>;
+        pending = run(action as IstarAction<string, string>, origin);
+      } finally {
+        currentOrigin = undefined;
+      }
+      try {
+        return (await pending) as ActionResult<never>;
       } catch (error) {
         if (error instanceof Rejection) return { ok: false, diagnostics: error.diagnostics };
         if (error instanceof ModelOperationError) {

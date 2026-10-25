@@ -549,9 +549,11 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   const run = useCallback(
     (action: IstarAction, surface?: IstarSurface) => {
       const activeDispatcher = surface ? dispatcherFor(surface) : dispatcher;
-      void activeDispatcher.dispatch(action).then((result) => {
-        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
-      });
+      void activeDispatcher
+        .dispatch(action, surface ? { origin: surface } : undefined)
+        .then((result) => {
+          if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+        });
     },
     [dispatcher, dispatcherFor, notify],
   );

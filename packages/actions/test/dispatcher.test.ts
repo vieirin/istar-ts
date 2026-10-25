@@ -999,6 +999,148 @@ describe('subscribers', () => {
   });
 });
 
+describe('origin', () => {
+  test('round-trips on sourceModelChanged and setDirtyState for an operation', async () => {
+    const env = setup();
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    await env.dispatcher.dispatch(
+      { kind: 'changeBounds', newBounds: [{ elementId: 'b', newPosition: { x: 1, y: 1 } }] },
+      { origin: 'canvas' },
+    );
+    expect(heard).toEqual([
+      {
+        kind: 'sourceModelChanged',
+        sourceModelName: '',
+        source: 'edit',
+        changes: [{ type: 'moveElement', id: 'b', x: 1, y: 1 }],
+        origin: 'canvas',
+      },
+      { kind: 'setDirtyState', isDirty: true, reason: 'operation', origin: 'canvas' },
+    ]);
+  });
+
+  test('is absent for a dispatch given none, and for a direct store change', async () => {
+    const env = setup();
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    await env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'b', newPosition: { x: 1, y: 1 } }],
+    });
+    env.store.moveElement('b', 2, 2);
+    for (const action of heard) expect(action).not.toHaveProperty('origin');
+  });
+
+  test("a compound's changes all carry the origin", async () => {
+    const env = setup();
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    await env.dispatcher.dispatch(
+      {
+        kind: 'compound',
+        operationList: [
+          { kind: 'changeBounds', newBounds: [{ elementId: 'b', newPosition: { x: 1, y: 1 } }] },
+          { kind: 'applyLabelEdit', labelId: 'a', text: 'Renamed' },
+        ],
+      },
+      { origin: 'inspector' },
+    );
+    const changed = heard.filter(
+      (a): a is Extract<IstarAction, { kind: 'sourceModelChanged' }> =>
+        a.kind === 'sourceModelChanged',
+    );
+    expect(changed).toHaveLength(1);
+    expect(changed[0]?.changes).toHaveLength(2);
+    expect(changed[0]).toMatchObject({ origin: 'inspector' });
+  });
+
+  test('undo and redo dispatched with an origin carry it', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'b', newPosition: { x: 1, y: 1 } }],
+    });
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    await env.dispatcher.dispatch({ kind: 'glspUndo' }, { origin: 'canvas' });
+    await env.dispatcher.dispatch({ kind: 'glspRedo' }, { origin: 'inspector' });
+    const changed = heard.filter((a) => a.kind === 'sourceModelChanged');
+    expect(changed).toEqual([
+      expect.objectContaining({ source: 'undo', origin: 'canvas' }),
+      expect.objectContaining({ source: 'redo', origin: 'inspector' }),
+    ]);
+  });
+
+  test('a guard-rejected operation emits nothing, origin or not', async () => {
+    const guard: ActionGuard = () => [{ elementId: '', severity: 'error', message: 'no' }];
+    const env = setup({ guards: [guard] });
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    const result = await env.dispatcher.dispatch(
+      { kind: 'createNode', elementTypeId: 'istar.Actor' },
+      { origin: 'canvas' },
+    );
+    expect(result.ok).toBe(false);
+    expect(heard).toEqual([]);
+  });
+});
+
+describe('the local synchronous guarantee', () => {
+  test('an operation applies and notifies before dispatch awaits', () => {
+    const env = setup();
+    const heard: IstarAction[] = [];
+    env.dispatcher.subscribe((a) => heard.push(a));
+    void env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'b', newPosition: { x: 9, y: 9 } }],
+    });
+    expect(env.store.getModel().elements.get('b')?.x).toBe(9);
+    expect(heard.some((a) => a.kind === 'sourceModelChanged')).toBe(true);
+  });
+
+  test('a compound applies every child synchronously', () => {
+    const env = setup();
+    void env.dispatcher.dispatch({
+      kind: 'compound',
+      operationList: [
+        { kind: 'changeBounds', newBounds: [{ elementId: 'b', newPosition: { x: 9, y: 9 } }] },
+        { kind: 'applyLabelEdit', labelId: 'a', text: 'Renamed' },
+      ],
+    });
+    expect(env.store.getModel().elements.get('b')?.x).toBe(9);
+    expect(env.store.getModel().elements.get('a')?.name).toBe('Renamed');
+  });
+
+  test('undo and redo apply synchronously', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'b', newPosition: { x: 9, y: 9 } }],
+    });
+    void env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel().elements.get('b')?.x).toBe(400);
+    void env.dispatcher.dispatch({ kind: 'glspRedo' });
+    expect(env.store.getModel().elements.get('b')?.x).toBe(9);
+  });
+
+  test('a guarded operation is applied (or rejected) synchronously too', () => {
+    const guard: ActionGuard = (operation) =>
+      operation.kind === 'createNode' && operation.elementTypeId === 'istar.Task'
+        ? [{ elementId: '', severity: 'error', message: 'no tasks' }]
+        : undefined;
+    const env = setup({ guards: [guard] });
+    const before = env.store.getModel();
+    void env.dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Task' });
+    // Rejected: the model is untouched, synchronously.
+    expect(env.store.getModel()).toBe(before);
+
+    void env.dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Actor' });
+    // Applied: the model already has the new actor, synchronously.
+    expect(env.store.getModel()).not.toBe(before);
+  });
+});
+
 describe('saving', () => {
   test('goes through the host callback and clears the dirty state', async () => {
     const files: PistarFile[] = [];

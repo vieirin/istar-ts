@@ -368,6 +368,11 @@ export interface ModelSourceChangedAction extends Action {
    * created with `sendModel`). An iStar extra; a mirror uses this to know the exact state.
    */
   readonly canRedo?: boolean;
+  /**
+   * The `origin` the causing `dispatch` was given, echoed back; absent for a change with none
+   * (a host's direct `store.load`, for instance). See `ActionDispatcher.dispatch`.
+   */
+  readonly origin?: string;
 }
 
 /** Saves the model through the host's `save` callback. */
@@ -383,6 +388,8 @@ export interface SetDirtyStateAction extends Action {
   readonly kind: 'setDirtyState';
   readonly isDirty: boolean;
   readonly reason?: DirtyStateChangeReason;
+  /** The `origin` of the dispatch that caused this dirty-state change, echoed back; see `ModelSourceChangedAction.origin`. */
+  readonly origin?: string;
 }
 
 export interface UndoAction extends Action {

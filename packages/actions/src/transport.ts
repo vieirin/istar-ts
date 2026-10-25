@@ -9,7 +9,7 @@
  * `ActionDispatcher` implementation for the other end. No `vscode-jsonrpc`.
  */
 import type { ElementKind, LinkKind } from '@istar-ts/core';
-import type { ActionDispatcher, ActionListener, ActionResult } from './dispatcher';
+import type { ActionDispatcher, ActionListener, ActionResult, DispatchOptions } from './dispatcher';
 import type { IstarAction } from './actions';
 
 const JSONRPC_VERSION = '2.0';
@@ -22,6 +22,8 @@ export interface JsonRpcRequest {
   readonly id: JsonRpcId;
   readonly method: string;
   readonly params?: unknown;
+  /** The dispatch's `origin` (`DispatchOptions.origin`), carried to the server's `dispatch`. */
+  readonly origin?: string;
 }
 
 /** A subscriber event, sent with no `id`: it expects no response. */
@@ -98,8 +100,10 @@ export function connectDispatcher<
   port.onmessage = (ev: E) => {
     const message = ev.data;
     if (!isRecord(message) || message.jsonrpc !== JSONRPC_VERSION) return;
-    const { id, method, params } = message;
+    const { id, method, params, origin } = message;
     const hasId = isJsonRpcId(id);
+    const dispatchOptions: DispatchOptions | undefined =
+      typeof origin === 'string' ? { origin } : undefined;
 
     if (typeof method !== 'string' || method.length === 0) {
       if (hasId) port.postMessage(errorMessage(id, -32601, 'method not found'));
@@ -113,10 +117,10 @@ export function connectDispatcher<
     const action = params as unknown as IstarAction<EK, LK>;
     if (!hasId) {
       // A notification from the client: dispatch it, no response expected.
-      void dispatcher.dispatch(action);
+      void dispatcher.dispatch(action, dispatchOptions);
       return;
     }
-    dispatcher.dispatch(action).then(
+    dispatcher.dispatch(action, dispatchOptions).then(
       (result: ActionResult<unknown>) => {
         port.postMessage({ jsonrpc: JSONRPC_VERSION, id, result });
       },
@@ -175,11 +179,17 @@ export function createRemoteDispatcher<
   };
 
   return {
-    dispatch(action) {
+    dispatch(action, dispatchOptions) {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, { resolve: resolve as (result: ActionResult<unknown>) => void, reject });
-        port.postMessage({ jsonrpc: JSONRPC_VERSION, id, method: action.kind, params: action });
+        port.postMessage({
+          jsonrpc: JSONRPC_VERSION,
+          id,
+          method: action.kind,
+          params: action,
+          ...(dispatchOptions?.origin === undefined ? {} : { origin: dispatchOptions.origin }),
+        });
       });
     },
     subscribe(listener) {
