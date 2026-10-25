@@ -21,9 +21,11 @@ import {
   FeatureModule,
   FitToScreenAction,
   MessageAction as MessageActionNS,
+  RedoAction,
   STANDALONE_MODULE_CONFIG,
   TYPES,
   ToolPalette,
+  UndoAction,
   createDiagramOptionsModule,
   initializeDiagramContainer,
   onAction,
@@ -106,6 +108,43 @@ function toolPaletteModule(): FeatureModule {
   });
 }
 
+/**
+ * `document.activeElement` is a text input, a `<select>` or active `contenteditable` (e.g. a
+ * label being edited): never steal Ctrl/Cmd+Z there, the browser/field's own undo applies.
+ */
+function isEditingText(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement
+    ? target.closest('input, textarea, select, [contenteditable="true"]') !== null
+    : false;
+}
+
+/**
+ * GLSP's own undo/redo shortcut (`GLSPUndoRedoKeyListener`) only fires through sprotty's
+ * `KeyTool`, which listens on the diagram's own SVG element — so it only reacts while that
+ * element has focus. After a palette click, a toolbar button or a host page's own control takes
+ * focus elsewhere, Ctrl/Cmd+Z stops reaching it (#102). This listens on `document` instead and
+ * forwards the same shortcuts to `dispatch` directly: `KeyTool.handleEvent` calls
+ * `event.preventDefault()` once it dispatches an action, so by the time a `document` bubble
+ * listener runs, `event.defaultPrevented` tells whether the diagram (or e.g. the React canvas's
+ * own shortcut on `/both.html`, #85) already handled this keystroke — avoiding a double undo on
+ * the shared stack.
+ */
+function installUndoRedoFallback(dispatch: (action: Action) => Promise<void>): () => void {
+  const isMac = /Mac|iPhone|iPod|iPad/.test(navigator.platform);
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented || isEditingText(event.target)) return;
+    const mod = event.metaKey || event.ctrlKey;
+    const key = event.key.toLowerCase();
+    if (!mod || (key !== 'z' && key !== 'y')) return;
+    const isRedo = (key === 'z' && event.shiftKey) || (key === 'y' && !isMac);
+    if (key === 'y' && isMac) return;
+    event.preventDefault();
+    void dispatch(isRedo ? RedoAction.create() : UndoAction.create());
+  };
+  document.addEventListener('keydown', onKeyDown);
+  return () => document.removeEventListener('keydown', onKeyDown);
+}
+
 /** Wraps `client`'s send and receive with a console log of each action (`logActions`). */
 function logActionMessages(client: GLSPClient): void {
   const send = client.sendActionMessage.bind(client);
@@ -173,6 +212,9 @@ export function mountGlspClient(
     STANDALONE_MODULE_CONFIG,
   );
   const dispatcher = container.get<IActionDispatcher>(TYPES.IActionDispatcher);
+  const uninstallUndoRedoFallback = installUndoRedoFallback((action) =>
+    dispatcher.dispatch(action),
+  );
 
   // The standalone container never auto-fits the viewport to the loaded model (upstream leaves
   // that to the app, e.g. an IDE host's own "fit to screen" command); without this, a model
@@ -184,6 +226,9 @@ export function mountGlspClient(
     ready,
     dispatch: (action) => dispatcher.dispatch(action),
     fit,
-    dispose: () => void glspClient?.stop(),
+    dispose: () => {
+      uninstallUndoRedoFallback();
+      void glspClient?.stop();
+    },
   };
 }

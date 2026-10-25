@@ -269,6 +269,26 @@ test.describe('cross-client: React Flow and the stock GLSP client on one model',
     await expect(glspNode(page, createdId)).toHaveCount(0);
   });
 
+  // #102: `mountGlspClient`'s document-level Ctrl/Cmd+Z fallback and the React canvas's own
+  // keyboard handler (`IstarCanvas.tsx`'s `onKeyDown`) share one dispatcher/undo stack. If the
+  // fallback didn't check `event.defaultPrevented`, a keystroke the GLSP pane's own `KeyTool`
+  // (or the React handler) already handled would get forwarded a second time, undoing two edits
+  // for one keystroke: create two Goals, press it once, and only the second is undone.
+  test('Ctrl/Cmd+Z undoes exactly once on the shared stack, not twice', async ({ page }) => {
+    const app = await open(page);
+    const firstId = await createGoalInGlsp(page, app, ID.piStarTool);
+    const secondId = await createGoalInGlsp(page, app, ID.analyst, 0.66, 0.72);
+    await expect(reactNode(page, firstId)).toBeVisible();
+    await expect(reactNode(page, secondId)).toBeVisible();
+
+    await page.keyboard.press('ControlOrMeta+z');
+
+    await expect(reactNode(page, secondId)).toHaveCount(0);
+    await expect(glspNode(page, secondId)).toHaveCount(0);
+    await expect(reactNode(page, firstId)).toBeVisible();
+    await expect(glspNode(page, firstId)).toBeVisible();
+  });
+
   test('moves, renames and deletes an element across both clients', async ({ page }) => {
     const app = await open(page);
     // Inside "Business Analyst" (expanded, unlike the collapsed "piStar tool"), in its free
