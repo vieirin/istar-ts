@@ -42,6 +42,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, '../../packages/gmodel/src/index.ts'),
       },
       {
+        find: '@istar-ts/agent/glsp',
+        replacement: path.resolve(rootDir, '../../packages/agent/src/glsp.ts'),
+      },
+      {
         find: '@istar-ts/agent',
         replacement: path.resolve(rootDir, '../../packages/agent/src/index.ts'),
       },

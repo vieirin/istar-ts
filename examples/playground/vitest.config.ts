@@ -25,6 +25,10 @@ export default defineConfig({
       '@istar-ts/dsm3-nfr/metamodel': fileURLToPath(
         new URL('../../packages/dsm3-nfr/src/headless.ts', import.meta.url),
       ),
+      // Before '@istar-ts/agent', which would otherwise match it as a prefix.
+      '@istar-ts/agent/glsp': fileURLToPath(
+        new URL('../../packages/agent/src/glsp.ts', import.meta.url),
+      ),
       '@istar-ts/agent': fileURLToPath(
         new URL('../../packages/agent/src/index.ts', import.meta.url),
       ),
