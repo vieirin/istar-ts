@@ -14,14 +14,15 @@ import type {
 import type { ChangeSetEntry } from '@istar-ts/agent';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
-import { ChangeSetPanel } from '../lab/ChangeSetPanel';
-import type { ChangeSetPreview } from '../lab/ChangeSetPanel';
+import { ChangeSetPanel, resultText } from '../lab/ChangeSetPanel';
+import type { ChangeSetContextView, ChangeSetPreview } from '../lab/ChangeSetPanel';
 import { useApiKey } from './apiKey';
 import { AGENT_MODELS, useAgentSession } from './useAgentSession';
 import type { ChatLogEntry } from './useAgentSession';
 
-function changeSetLabel(entry: ChangeSetEntry): string {
-  return `${entry.name} ${JSON.stringify(entry.args)}`;
+/** A tool call as the model made it, for the review's JSON disclosure. */
+function callJson(call: { readonly name: string; readonly args: unknown }): string {
+  return JSON.stringify({ tool: call.name, arguments: call.args }, null, 2);
 }
 
 function logLine(entry: ChatLogEntry, index: number): ReactElement {
@@ -75,32 +76,54 @@ export default function AgentDrawer({
   const [seenChangeSet, setSeenChangeSet] = useState<readonly ChangeSetEntry[] | undefined>(
     undefined,
   );
+  const { proposedStep } = session;
+  // The change set's steps: its successful mutating calls only (#156). The run's other calls go
+  // in the review's collapsed context section.
+  const proposed = useMemo(
+    () =>
+      (session.changeSet ?? []).flatMap((entry) => {
+        const step = proposedStep(entry);
+        return step ? [{ entry, step }] : [];
+      }),
+    [session.changeSet, proposedStep],
+  );
   if (session.changeSet !== seenChangeSet) {
     setSeenChangeSet(session.changeSet);
-    setIncluded((session.changeSet ?? []).map(() => true));
+    setIncluded(proposed.map(() => true));
   }
 
   const steps = useMemo(
     () =>
-      (session.changeSet ?? []).map((entry) => ({
+      proposed.map(({ entry, step }) => ({
         key: entry.toolCallId,
-        label: changeSetLabel(entry),
+        label: step.description.join('; '),
+        detail: callJson(entry),
       })),
-    [session.changeSet],
+    [proposed],
   );
   const preview = useMemo(() => {
     if (!session.changeSet) return null;
     const map = new Map<string, ChangeSetPreview>();
-    for (const entry of session.changeSet) {
-      map.set(entry.toolCallId, {
-        ok: entry.result.ok,
-        text: entry.result.ok
-          ? 'accept'
-          : `reject — ${entry.result.diagnostics.map((d) => d.message).join('; ')}`,
-      });
+    for (const { entry, step } of proposed) {
+      map.set(entry.toolCallId, { ok: true, text: resultText({ ok: true, ...step }) });
     }
     return map;
-  }, [session.changeSet]);
+  }, [session.changeSet, proposed]);
+  const context = useMemo((): readonly ChangeSetContextView[] => {
+    const stepIds = new Set(proposed.map(({ entry }) => entry.toolCallId));
+    return (session.transcript?.steps ?? [])
+      .flatMap((s) => s.toolCalls)
+      .filter((call) => !stepIds.has(call.id))
+      .map((call) => ({
+        key: call.id,
+        label: call.name,
+        detail: callJson(call),
+        outcome: {
+          ok: call.result.ok,
+          text: call.result.ok ? 'ok' : resultText(call.result),
+        },
+      }));
+  }, [session.transcript, proposed]);
 
   const onRun = (): void => {
     session.run(apiKey, prompt);
@@ -111,7 +134,7 @@ export default function AgentDrawer({
   };
 
   const onApply = (): void => {
-    const kept = (session.changeSet ?? []).filter((_, index) => included[index]);
+    const kept = proposed.filter((_, index) => included[index]).map(({ entry }) => entry);
     void session.applyChangeSet(kept);
   };
 
@@ -207,13 +230,14 @@ export default function AgentDrawer({
       {session.changeSet && preview && (
         <ChangeSetPanel
           goal="Review the proposed change set"
-          hint="Applied as one compound: one undo step, refused as a whole if any step is."
+          hint={`Applied as one compound: one undo step, refused as a whole if any of its ${steps.length} ${steps.length === 1 ? 'step' : 'steps'} is.`}
           steps={steps}
           included={included}
           onToggleStep={onToggleStep}
           preview={preview}
           onApply={onApply}
           canApply={included.some(Boolean)}
+          context={context}
           applied={
             session.applyResult
               ? {

@@ -4,6 +4,15 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
+  The scratch session records each successful operation with the ids it created pinned
+  (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a
+  proposal whose later steps name a node it created no longer fails with `unknown element`. The
+  review lists only successful mutating steps, in plain words ("create Task 'T8' in Actor
+  'Lab'") with the raw call behind a JSON disclosure; read-only and refused calls go in a
+  collapsed context section. `createMcpToolRegistry` now honours the server's `readOnlyHint`
+  (`session-info`, `check-edge` are reads) and never offers `MCP_RESOURCE_TOOLS`
+  (`diagram-png`, `diagram-svg`), which server-mcp lists but a headless istar session can't serve.
 - **glsp:** `contributionFor(metamodel, options?)` (#151), a generic factory that builds an
   `IstarGlspContribution` from any metamodel at runtime — iStar 2.0, KAOS, NFR or a host's own
   `extendMetamodel` result — with an optional palette, schemas and type overrides; it falls back

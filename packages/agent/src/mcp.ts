@@ -38,23 +38,39 @@ export interface McpToolClient {
 }
 
 /**
- * server-mcp's tools that only read the diagram, as #130 lists them: `query-*`, `count-*`,
- * `diagram-model`, `element-types`, `validate-diagram`.
+ * Whether a tool only reads the diagram: its `readOnlyHint` when the server gives one (server-mcp
+ * 2.8.0 annotates every tool handler, `session-info` and `check-edge` included), else by name, as
+ * #130 lists server-mcp's read-only tools: `query-*`, `count-*`, `diagram-model`,
+ * `element-types`, `validate-diagram`, `session-info`, `check-edge`, `get-selection`.
  */
 export function isReadOnlyMcpTool(tool: McpTool): boolean {
+  const hint = tool.annotations?.readOnlyHint;
+  if (typeof hint === 'boolean') return hint;
   return (
     tool.name.startsWith('query-') ||
     tool.name.startsWith('count-') ||
     tool.name === 'diagram-model' ||
     tool.name === 'element-types' ||
-    tool.name === 'validate-diagram'
+    tool.name === 'validate-diagram' ||
+    tool.name === 'session-info' ||
+    tool.name === 'check-edge' ||
+    tool.name === 'get-selection'
   );
 }
+
+/**
+ * server-mcp's diagram resources, which it lists as tools when it isn't serving them as MCP
+ * resources (server-mcp 2.8.0's `dataMode`, `registerOneDiagramResourceAsTool`). They render
+ * the diagram as an image, which only a client with a renderer can serve (`@istar-ts/glsp`'s
+ * headless sessions register no handler for them, #135) and a text-only model can't read (#126
+ * §4), so the registry never offers them (#157).
+ */
+export const MCP_RESOURCE_TOOLS: readonly string[] = ['diagram-png', 'diagram-svg'];
 
 export interface McpToolRegistryOptions {
   /** Default `isReadOnlyMcpTool`. */
   readonly isReadOnly?: (tool: McpTool) => boolean;
-  /** Tools to leave out (e.g. `save-model` in a demo). Default: none. */
+  /** Tools to leave out (e.g. `save-model` in a demo), besides `MCP_RESOURCE_TOOLS`. */
   readonly exclude?: readonly string[];
   /**
    * Arguments sent with every call and hidden from the model's schemas, e.g.
@@ -137,7 +153,9 @@ function errorResult(result: McpCallToolResult): ToolResult {
 }
 
 /**
- * A registry over `client`'s tools, listed once now (`tools/list`, every page). A call is
+ * A registry over `client`'s tools, listed once now (`tools/list`, every page), less
+ * `MCP_RESOURCE_TOOLS` and `exclude`: the model is offered only tools the server lists, and a call
+ * to any other name is refused without reaching the server. A call is
  * `tools/call`; `isError` results and thrown errors become refusals (`@istar-ts/glsp`'s
  * `{ code: 'rejected', diagnostics }` for an operation the dispatcher refused keeps its
  * diagnostics).
@@ -147,7 +165,7 @@ export async function createMcpToolRegistry(
   options: McpToolRegistryOptions = {},
 ): Promise<ToolRegistry> {
   const isReadOnly = options.isReadOnly ?? isReadOnlyMcpTool;
-  const exclude = new Set(options.exclude ?? []);
+  const exclude = new Set([...MCP_RESOURCE_TOOLS, ...(options.exclude ?? [])]);
   const bound = options.boundArgs ?? {};
   const boundKeys = Object.keys(bound);
   const tools: McpTool[] = [];
