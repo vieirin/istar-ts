@@ -431,7 +431,7 @@ export const SUGGEST_MARGIN = 20;
 /** Step between candidate positions on the grid `suggestPosition` scans. */
 const SUGGEST_STEP = 40;
 
-/** How many rings out `suggestPosition` scans before falling back past the model's bounding box. */
+/** How many rings out `suggestPosition` scans before falling back to `guaranteedFreePoint`. */
 const SUGGEST_MAX_RING = 25;
 
 export interface SuggestPositionOptions<EK extends string> {
@@ -463,6 +463,7 @@ function firstFreeCandidate(
   candidates: readonly Point[],
   size: Size,
   obstacles: readonly Box[],
+  fallback: Point,
 ): Point {
   for (const point of candidates) {
     const box: Box = { x: point.x, y: point.y, width: size.width, height: size.height };
@@ -470,7 +471,18 @@ function firstFreeCandidate(
       return point;
     }
   }
-  return candidates[candidates.length - 1] ?? { x: 0, y: 0 };
+  return fallback;
+}
+
+/**
+ * A point guaranteed to overlap no obstacle, however dense the model: past the right edge of
+ * every obstacle's box, so no obstacle can reach it regardless of its y (`suggestPosition`'s
+ * last-resort fallback, once every ring candidate is taken).
+ */
+function guaranteedFreePoint(obstacles: readonly Box[], referenceY: number): Point {
+  if (obstacles.length === 0) return { x: 0, y: referenceY };
+  const maxRight = Math.max(...obstacles.map((box) => box.x + box.width));
+  return { x: maxRight + SUGGEST_MARGIN, y: referenceY };
 }
 
 /** Candidate positions in expanding square rings around `center`, in a fixed scan order. */
@@ -510,7 +522,9 @@ function modelBoxes<EK extends string, LK extends string>(
  *
  * Scans a deterministic, fixed-order set of candidates — rings around `near` when given, else
  * the container's interior, else rings around the origin — and returns the first whose padded
- * box (`SUGGEST_MARGIN`) overlaps nothing; same input always yields the same output.
+ * box (`SUGGEST_MARGIN`) overlaps nothing; same input always yields the same output. However
+ * dense the model, the result never overlaps: once every ring candidate is taken, it falls back
+ * to a point past the right edge of every obstacle (`guaranteedFreePoint`).
  *
  * Inside `containerId`, the candidate stays within the actor's current boundary (`actorBounds`)
  * when there is room, or goes just past its last child when the boundary is full — the boundary
@@ -549,19 +563,23 @@ export function suggestPosition<EK extends string, LK extends string>(
         point.y + size.height <= bounds.y + bounds.height - ACTOR_PADDING,
     );
     if (candidates.length > 0) {
-      const found = firstFreeCandidate(candidates, size, obstacles);
-      const foundBox: Box = { x: found.x, y: found.y, width: size.width, height: size.height };
-      const isFree = !obstacles.some((obstacle) =>
-        boxesOverlap(padded(foundBox, SUGGEST_MARGIN), obstacle),
-      );
-      if (isFree) return found;
+      const sentinel: Point = { x: Number.NaN, y: Number.NaN };
+      const found = firstFreeCandidate(candidates, size, obstacles, sentinel);
+      if (found !== sentinel) return found;
     }
-    // The boundary is full: scan onward from just past its last child, growing it.
+    // The boundary is full: scan onward from just past its last child, growing it, falling back
+    // to a point guaranteed free of every obstacle in the model (not only the boundary) if even
+    // that is exhausted.
     const pastLastChild = {
       x: bounds.x + bounds.width + ACTOR_PADDING,
       y: bounds.y + ACTOR_PADDING,
     };
-    return firstFreeCandidate(ringCandidates(pastLastChild, SUGGEST_MAX_RING), size, obstacles);
+    return firstFreeCandidate(
+      ringCandidates(pastLastChild, SUGGEST_MAX_RING),
+      size,
+      obstacles,
+      guaranteedFreePoint(obstacles, pastLastChild.y),
+    );
   }
 
   const start: Point =
@@ -569,5 +587,10 @@ export function suggestPosition<EK extends string, LK extends string>(
     (obstacles.length > 0
       ? { x: Math.max(...obstacles.map((box) => box.x + box.width)) + SUGGEST_MARGIN, y: 0 }
       : { x: 0, y: 0 });
-  return firstFreeCandidate(ringCandidates(start, SUGGEST_MAX_RING), size, obstacles);
+  return firstFreeCandidate(
+    ringCandidates(start, SUGGEST_MAX_RING),
+    size,
+    obstacles,
+    guaranteedFreePoint(obstacles, start.y),
+  );
 }

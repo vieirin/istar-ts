@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { ElementKind } from '../src';
-import { metamodelOf, parsePistar, suggestPosition } from '../src';
+import type { ElementKind, IstarElement, Point } from '../src';
+import { createEmptyModel, metamodelOf, parsePistar, suggestPosition } from '../src';
 import { loadFixtures } from './fixtures';
 
 const fixtures = loadFixtures();
@@ -98,6 +98,32 @@ describe('suggestPosition', () => {
     const a = suggestPosition(model, { kind });
     const b = suggestPosition(model, { kind });
     expect(a).toStrictEqual(b);
+  });
+
+  test('a model dense enough to fill every ring around near still gets a free spot', () => {
+    const base = createEmptyModel();
+    const elements = new Map<string, IstarElement>();
+    const near: Point = { x: 0, y: 0 };
+    // Tiles every ring candidate around `near` (25 rings, 40px step) with a task, spaced close
+    // enough (its padded box is wider than the step) that no candidate escapes.
+    const span = 25 * 40;
+    let id = 0;
+    for (let x = -span; x <= span; x += 40) {
+      for (let y = -span; y <= span; y += 40) {
+        const elementId = `t${id++}`;
+        elements.set(elementId, { id: elementId, kind: 'istar.Task', name: elementId, x, y });
+      }
+    }
+    const model = { ...base, elements };
+    const point = suggestPosition(model, { kind: 'istar.Task', near });
+
+    const metamodel = metamodelOf(model);
+    const size = metamodel.elements.get('istar.Task')!.size!;
+    const box = { x: point.x, y: point.y, width: size.width, height: size.height };
+    for (const element of model.elements.values()) {
+      const other = { x: element.x, y: element.y, width: size.width, height: size.height };
+      expect(overlaps(box, other)).toBe(false);
+    }
   });
 
   test('stays inside an actor boundary with room to spare', () => {
