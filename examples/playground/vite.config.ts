@@ -7,6 +7,12 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  // Relative asset URLs: the built site works from any path on a static host (e.g. a
+  // GitHub Pages project subpath), not only from the domain root.
+  base: './',
+  // ES-module workers: the GLSP worker lazy-loads server-mcp (#128), and code-splitting
+  // isn't possible with Vite's default IIFE worker format.
+  worker: { format: 'es' },
   build: {
     rollupOptions: {
       input: {
