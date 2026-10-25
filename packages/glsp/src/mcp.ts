@@ -6,7 +6,10 @@
 import type { GoalDiagnostic } from '@istar-ts/core';
 import type { InitializeParameters } from '@eclipse-glsp/server';
 import type {
+  AbstractMcpDiagramResourceHandler,
   DefaultMcpDiagramHandlerDispatcher,
+  GLSPMcpServer,
+  McpDiagramScopedInput,
   McpDiagramHandlerDispatcher,
 } from '@eclipse-glsp/server-mcp/browser.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -78,6 +81,30 @@ export function istarMcpDispatcher(base: {
       }
       if (rejections.length === 0) return result;
       return rejectedToolResult(rejections, result.content);
+    }
+
+    /**
+     * A resource served as a tool (server-mcp's default `dataMode: 'tools'`) is a read, but
+     * server-mcp registers it without annotations, so a harness that goes by `readOnlyHint`
+     * (`@istar-ts/agent`'s, in Propose mode) would take a host's context provider (#175) for an
+     * edit. Marked read-only here.
+     */
+    protected override registerOneDiagramResourceAsTool(
+      server: GLSPMcpServer,
+      probe: AbstractMcpDiagramResourceHandler<McpDiagramScopedInput>,
+    ): void {
+      const readOnly = new Proxy(server, {
+        get: (target, key, receiver) =>
+          key === 'registerTool'
+            ? (name: string, config: { annotations?: object }, callback: unknown) =>
+                (target.registerTool as (...args: unknown[]) => unknown)(
+                  name,
+                  { ...config, annotations: { ...config.annotations, readOnlyHint: true } },
+                  callback,
+                )
+            : Reflect.get(target, key, receiver),
+      });
+      super.registerOneDiagramResourceAsTool(readOnly, probe);
     }
   }
   decorate(injectable(), IstarMcpDiagramHandlerDispatcher);

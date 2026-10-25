@@ -13,7 +13,10 @@ import type { IstarGlspContribution } from './contribution';
 import { ISTAR_GLSP, paletteOf } from './contribution';
 import { configureIstarDiagram } from './diagram-module';
 import { PistarFiles } from './files';
+import type { IstarMcpHostExtensions } from './mcp-host';
 import { IstarSharedModel } from './model-state';
+
+export type { IstarMcpHostExtensions } from './mcp-host';
 
 /** What a launcher serves. */
 export interface IstarGlspHostOptions {
@@ -33,13 +36,33 @@ export interface IstarGlspHostOptions {
   readonly modules?: readonly ContainerModule[];
 }
 
-/** The MCP server's options, on every launcher (`mcp` of `@istar-ts/glsp/node`'s and
- * `@istar-ts/glsp/browser`'s options). */
-export interface IstarMcpBaseOptions {
+/**
+ * The MCP server's options, on every launcher (`mcp` of `@istar-ts/glsp/node`'s and
+ * `@istar-ts/glsp/browser`'s options), the host's `hostTools` and `context` (#175) included.
+ */
+export interface IstarMcpBaseOptions extends IstarMcpHostExtensions {
   /** Default `/mcp`. */
   readonly route?: string;
   /** The MCP server's name. Default `istar-glsp`. */
   readonly name?: string;
+  /**
+   * How server-mcp serves resources (a `context` provider, say): `'tools'` (its default) lists
+   * each as a read-only tool of its name, `'resources'` as MCP resources.
+   */
+  readonly dataMode?: 'tools' | 'resources';
+}
+
+/** What `initialize`'s `mcpServer` carries for `options` (`withMcpServer`), defaults applied. */
+export function mcpServerConfig(options: IstarMcpBaseOptions): {
+  route: string;
+  name: string;
+  options?: { dataMode: 'tools' | 'resources' };
+} {
+  return {
+    route: options.route ?? '/mcp',
+    name: options.name ?? 'istar-glsp',
+    ...(options.dataMode ? { options: { dataMode: options.dataMode } } : {}),
+  };
 }
 
 /** Binds a host's `IstarSharedModel`, for a diagram's session containers or a whole server. */

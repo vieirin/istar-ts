@@ -4,6 +4,7 @@ export const ACTIONS_PROTOCOL_VERSION: string = '0.0.0';
 export * from './actions';
 export * from './dispatcher';
 export * from './hints';
+export * from './host';
 export * from './markers';
 export * from './mirror';
 export * from './transport';

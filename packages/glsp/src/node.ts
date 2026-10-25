@@ -16,6 +16,7 @@ import type { ContainerModule } from 'inversify';
 import { Container, decorate, injectable } from 'inversify';
 import type { PistarFiles } from './files';
 import type { IstarGlspHostOptions, IstarMcpBaseOptions } from './host';
+import { mcpServerConfig } from './host';
 import { createIstarServerModules } from './host';
 import { istarMcpDispatcher, withMcpServer } from './mcp';
 import { istarMcpDiagramModule } from './mcp-tools';
@@ -102,11 +103,7 @@ async function mcpModules(
 ): Promise<{ server: ContainerModule; diagram: ContainerModule }> {
   const mcp = await import('@eclipse-glsp/server-mcp/node.js');
   const z = await import('zod/v4');
-  const config = {
-    port: options.port ?? 0,
-    route: options.route ?? '/mcp',
-    name: options.name ?? 'istar-glsp',
-  };
+  const config = { port: options.port ?? 0, ...mcpServerConfig(options) };
   class IstarMcpServerLauncher extends mcp.NodeMcpServerLauncher {
     override initializeServer(
       server: GLSPServer,
@@ -126,7 +123,10 @@ async function mcpModules(
       return dispatcher;
     }
   }
-  return { server: new IstarMcpServerModule(), diagram: new (istarMcpDiagramModule(mcp, z))() };
+  return {
+    server: new IstarMcpServerModule(),
+    diagram: new (istarMcpDiagramModule(mcp, z, options))(),
+  };
 }
 
 /**
