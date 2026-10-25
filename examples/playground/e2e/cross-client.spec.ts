@@ -59,13 +59,16 @@ async function createGoalInGlsp(
   app: GLSPApp,
   actorId: string = ID.piStarTool,
   fx = 0.5,
-  fy = 0.3,
+  fy = 0.5,
 ): Promise<string> {
   const diagram = page.locator('.pg-both-glsp-diagram svg');
-  const actorBox = await glspNode(page, actorId).boundingBox();
-  const diagramBox = await diagram.boundingBox();
-  if (!actorBox || !diagramBox) throw new Error('actor or diagram has no layout box');
+  // Boxes are recomputed on every `toPass()` retry (`waitForCreation`, below): under a loaded
+  // machine the diagram can still be settling its fit-to-screen when the first attempt reads
+  // them, so a position computed once outside the retry loop can go stale.
   const created = await app.graph.waitForCreation('node:istar.Goal', async () => {
+    const actorBox = await glspNode(page, actorId).boundingBox();
+    const diagramBox = await diagram.boundingBox();
+    if (!actorBox || !diagramBox) throw new Error('actor or diagram has no layout box');
     await pickGlspTool(page, 'Goal');
     await diagram.click({
       position: {
