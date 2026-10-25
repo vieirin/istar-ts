@@ -23,6 +23,7 @@ import {
   EndProgressAction,
   ExportSvgAction,
   FitToScreenAction,
+  GModelFactory,
   Logger,
   MessageAction,
   ModelState,
@@ -92,6 +93,13 @@ export class IstarModelSubmissionHandler extends ModelSubmissionHandler {
  * (`IstarModelSubmissionHandler`), and disposes the model state then (which stops a dispatcher
  * the session owns): on a shared store (`IstarSharedModel`) the dispatcher outlives every
  * session.
+ *
+ * On a shared store the host's model is already there when the session is created — before any
+ * client sends `requestModel` (#225: an MCP tool call can arrive first, e.g. a slow viewer, and
+ * needs the GModel/index to act on the model that's already loaded). So `initialize` builds the
+ * GModel root right away on a shared session, instead of waiting for the client's own
+ * `requestModel` to do it (`RequestModelActionHandler` → `ModelSubmissionHandler.submitModel` →
+ * `GModelFactory.createModel`, which still runs again, harmlessly, once the client does ask).
  */
 @injectable()
 export class IstarStoreListener implements ClientSessionInitializer {
@@ -101,6 +109,7 @@ export class IstarStoreListener implements ClientSessionInitializer {
   protected readonly sessions: ClientSessionManager;
   protected readonly clientId: string;
   protected readonly submission: IstarModelSubmissionHandler;
+  protected readonly gmodelFactory: GModelFactory;
   private pending: 'model' | 'dirty' | undefined;
   /** Whether the pending `'model'` update also needs a fresh `setTypeHints` (the metamodel
    * changed since the last one was sent — #97, a load extended it with a file's own kinds). */
@@ -114,6 +123,7 @@ export class IstarStoreListener implements ClientSessionInitializer {
     @inject(ClientSessionManager) sessions: ClientSessionManager,
     @inject(ClientId) clientId: string,
     @inject(ModelSubmissionHandler) submission: IstarModelSubmissionHandler,
+    @inject(GModelFactory) gmodelFactory: GModelFactory,
   ) {
     this.state = state;
     this.actions = actions;
@@ -121,10 +131,12 @@ export class IstarStoreListener implements ClientSessionInitializer {
     this.sessions = sessions;
     this.clientId = clientId;
     this.submission = submission;
+    this.gmodelFactory = gmodelFactory;
     this.lastMetamodel = metamodelOf(state.model) as unknown as AnyMetamodel;
   }
 
   initialize(): void {
+    if (this.state.isShared && !this.state.root) this.gmodelFactory.createModel();
     const unsubscribe = this.state.dispatcher.subscribe((action) => {
       if (this.state.isOwnChange) return;
       if (action.kind === 'sourceModelChanged') {
