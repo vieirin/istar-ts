@@ -14,6 +14,13 @@ Versions are published from GitHub release tags; see the release notes for full 
   `@eclipse-glsp/*` dependency — `@istar-ts/glsp` now serves a wire-compatible stock GLSP
   client; `@istar-ts/actions`'s own transport is unaffected and still isn't GLSP's wire
   protocol (#44).
+- **actions, glsp:** `istar.updateLinkDisplay` (#96), the link counterpart of
+  `istar.updateDisplay` — merges into a link's `display` (its `vertices`, i.e. bend points),
+  checked against an existing link id. `@istar-ts/glsp`'s `translateOperation` now maps GLSP's
+  `changeRoutingPoints` to it (a `compound` when more than one edge's routing points change in
+  the same operation), instead of skipping it: a stock GLSP client's edge-edit tool and the move
+  tool's `compound[changeBounds, changeRoutingPoints]` no longer drop bend points on the next
+  `updateModel`.
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a

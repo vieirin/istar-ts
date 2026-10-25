@@ -71,5 +71,7 @@ export function templateFor(kind: IstarOperation['kind'], model: AnyIstarModel):
       return { kind, elementId, patch: { backgroundColor: '#ffffff' } };
     case 'istar.setLinkValue':
       return { kind, linkId, value: 'help' };
+    case 'istar.updateLinkDisplay':
+      return { kind, linkId, patch: { vertices: [{ x: 0, y: 0 }] } };
   }
 }
