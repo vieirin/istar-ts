@@ -5,7 +5,8 @@
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { createActionDispatcher } from '@istar-ts/actions';
-import { createModelStore } from '@istar-ts/core';
+import { createModelStore, metamodelOf } from '@istar-ts/core';
+import type { AnyMetamodel } from '@istar-ts/core';
 import type { ModelStore } from '@istar-ts/core';
 import { ISTAR_GLSP, paletteOf } from '@istar-ts/glsp';
 import { runAgent } from '@istar-ts/agent';
@@ -80,7 +81,11 @@ async function setup() {
     ],
   });
   expect(seeded.ok).toBe(true);
-  const session = await openGlspMcpSession(() => ({ store, dispatcher }));
+  const session = await openGlspMcpSession(() => ({
+    store,
+    dispatcher,
+    metamodel: metamodelOf(store.getModel()) as AnyMetamodel,
+  }));
   sessions.push(session);
   return { store, dispatcher, session };
 }

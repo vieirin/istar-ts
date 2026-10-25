@@ -11,15 +11,9 @@ export default defineConfig({
       '@istar-ts/react': fileURLToPath(
         new URL('../../packages/react/src/index.ts', import.meta.url),
       ),
-      // Before '@istar-ts/glsp', which would otherwise match these subpaths as a prefix.
+      // Before '@istar-ts/glsp', which would otherwise match it as a prefix.
       '@istar-ts/glsp/browser': fileURLToPath(
         new URL('../../packages/glsp/src/browser.ts', import.meta.url),
-      ),
-      '@istar-ts/glsp/kaos': fileURLToPath(
-        new URL('../../packages/glsp/src/kaos.ts', import.meta.url),
-      ),
-      '@istar-ts/glsp/nfr': fileURLToPath(
-        new URL('../../packages/glsp/src/nfr.ts', import.meta.url),
       ),
       '@istar-ts/glsp': fileURLToPath(new URL('../../packages/glsp/src/index.ts', import.meta.url)),
       '@istar-ts/dsm3-kaos/metamodel': fileURLToPath(
