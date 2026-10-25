@@ -12,8 +12,11 @@ import { ISTAR_GLSP, createIstarSharedModel, gmodelTypes } from '@istar-ts/glsp'
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { KAOS_GLSP } from '@istar-ts/glsp/kaos';
 import { NFR_GLSP } from '@istar-ts/glsp/nfr';
+import { connectWorkerMcp } from '@istar-ts/glsp/page';
 import { mountGlspClient, redoAction, undoAction } from 'glsp-client';
 import type { MountedGlspClient } from 'glsp-client';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import istar2Welcome from '../../../../fixtures/pistar/welcome.txt?raw';
 import kaosWelcome from '../../../../fixtures/dsm3/kaos-welcome.txt?raw';
 import nfrWelcome from '../../../../fixtures/dsm3/nfr-welcome.txt?raw';
@@ -137,11 +140,34 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
   showMessage('', 'NONE');
 }
 
+/** The stock client's own session id on `?server=worker`, also the MCP tools' `sessionId`. */
+const WORKER_CLIENT_ID = 'glsp-worker';
+
+declare global {
+  interface Window {
+    /** `?server=worker&mcp=1`'s MCP SDK client, for the e2e suite to drive (#134). */
+    glspWorkerMcp?: Client;
+  }
+}
+
+/**
+ * `?server=worker&mcp=1`: on top of the stock client, an MCP SDK client over the worker's
+ * `McpWorkerBridge` (`connectWorkerMcp`, #134), exposed on `window` for the e2e suite to drive —
+ * out of scope here is wiring the agent drawer itself to the worker (it uses in-page MCP).
+ */
+async function mountWorkerMcp(worker: Worker): Promise<void> {
+  const mcp = connectWorkerMcp(worker);
+  const client = new Client({ name: 'istar-ts-playground-worker', version: '1.0.0' });
+  await client.connect(new StreamableHTTPClientTransport(mcp.url, { fetch: mcp.fetch }));
+  window.glspWorkerMcp = client;
+}
+
 async function mountWorker(): Promise<void> {
   select.disabled = true;
   const element = freshDiagramElement();
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   const client = mountGlspClient(element, {
+    clientId: WORKER_CLIENT_ID,
     sourceUri: 'welcome.txt',
     types: gmodelTypes(ISTAR_GLSP.metamodel).all,
     metamodel: ISTAR_GLSP.metamodel,
@@ -151,6 +177,7 @@ async function mountWorker(): Promise<void> {
   });
   currentClient = client;
   await client.ready;
+  if (params.get('mcp') === '1') await mountWorkerMcp(worker);
   showMessage('', 'NONE');
 }
 

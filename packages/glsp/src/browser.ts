@@ -46,14 +46,14 @@ import { createIstarServerModules, createIstarSharedModel } from './host';
 import { istarMcpDispatcher, withMcpServer } from './mcp';
 import { istarMcpDiagramModule } from './mcp-tools';
 import type { IstarSharedModel } from './model-state';
-import { isDispatcherPortMessage } from './page';
+import { isDispatcherPortMessage, isMcpBridgeMessage } from './page';
 
 /**
  * What the GLSP connection needs of a port: a `MessagePort`, a `Worker` or a worker's `self`
  * (`BrowserMessageReader` sets `onmessage` and listens for `error`).
  */
 export interface GlspPortLike {
-  postMessage(data: unknown): void;
+  postMessage(data: unknown, transfer?: readonly unknown[]): void;
   onmessage: ((event: { readonly data: unknown }) => unknown) | null;
   addEventListener(type: 'error', listener: (event: unknown) => void): void;
 }
@@ -365,10 +365,7 @@ function inPageMcp(
 /** What `startIstarGlspWorker` needs of the worker's `self`. */
 export type WorkerScopeLike = GlspPortLike;
 
-export interface IstarGlspWorkerOptions extends Omit<
-  IstarGlspBrowserOptions,
-  'contributions' | 'mcp'
-> {
+export interface IstarGlspWorkerOptions extends Omit<IstarGlspBrowserOptions, 'contributions'> {
   /** The diagram. Default `ISTAR_GLSP`. */
   readonly contribution?: IstarGlspContribution;
   /** The model: piStar text or a parsed file. Ignored with `shared`; else `url`, else empty. */
@@ -384,6 +381,13 @@ export interface IstarGlspWorkerOptions extends Omit<
   readonly files?: PistarFiles;
   /** The worker's global scope. Default `self`. */
   readonly scope?: WorkerScopeLike;
+  /**
+   * Also serve the diagram over MCP, through server-mcp 2.8.0's `McpWorkerBridge` (loaded on
+   * demand, like the in-page MCP): the page reaches it with `connectWorkerMcp` from
+   * `@istar-ts/glsp/page`, over a `MessagePort` separate from `connectWorkerDispatcher`'s. Off
+   * by default. `@experimental` upstream, so the peer is pinned to one version.
+   */
+  readonly mcp?: boolean | IstarBrowserMcpOptions;
 }
 
 /** A running GLSP worker. */
@@ -408,10 +412,15 @@ export async function startIstarGlspWorker(
   const scope = options.scope ?? (globalThis as unknown as { self: WorkerScopeLike }).self;
   const ports: unknown[] = [];
   let serve: ((port: unknown) => void) | undefined;
-  const glsp = routePort(scope, (port) => {
-    if (serve) serve(port);
-    else ports.push(port);
-  });
+  const bridgeScope = options.mcp ? createMcpBridgeScope(scope) : undefined;
+  const glsp = routePort(
+    scope,
+    (port) => {
+      if (serve) serve(port);
+      else ports.push(port);
+    },
+    bridgeScope?.dispatch,
+  );
 
   const contribution = options.contribution ?? ISTAR_GLSP;
   const sourceUri = options.sourceUri ?? options.url?.split('/').pop() ?? 'model.txt';
@@ -434,27 +443,128 @@ export async function startIstarGlspWorker(
   };
   for (const port of ports.splice(0)) serve(port);
 
+  const mcp = bridgeScope
+    ? await workerMcpModules(mcpConfig(options.mcp ?? false), bridgeScope.target)
+    : undefined;
+
   const server = serveIstarGlsp(glsp, {
     ...options,
     mcp: false,
     contributions: [contribution],
     shared,
     files,
+    diagramModules: [...(options.diagramModules ?? []), ...(mcp ? [mcp.diagram] : [])],
+    modules: [...(options.modules ?? []), ...(mcp ? [mcp.server] : [])],
   });
   return { shared, closed: server.closed };
 }
 
+/** `options.mcp === true ? {} : options.mcp`'s defaults, as `serveOnPort` applies them. */
+function mcpConfig(mcp: boolean | IstarBrowserMcpOptions): Required<IstarMcpBaseOptions> {
+  const config = typeof mcp === 'object' ? mcp : {};
+  return { route: config.route ?? '/mcp', name: config.name ?? 'istar-glsp' };
+}
+
 /**
- * Splits the worker's messages: dispatcher ports go to `onPort`, everything else to the GLSP
- * connection, through the port this returns. GLSP messages that come before the connection
- * listens are queued.
+ * The worker side of `McpWorkerBridge`'s wiring: a scope-shaped adapter the bridge can
+ * `addEventListener('message', …)` on, fed by `routePort`'s `onMcp` (not the real worker scope
+ * directly, since the bridge is loaded lazily — messages that arrive first are queued the same
+ * way `startIstarGlspWorker`'s dispatcher ports are).
  */
-function routePort(scope: WorkerScopeLike, onPort: (port: unknown) => void): GlspPortLike {
+function createMcpBridgeScope(scope: WorkerScopeLike): {
+  readonly target: {
+    addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+    removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+    postMessage(message: unknown, transfer?: readonly unknown[]): void;
+  };
+  dispatch(event: { readonly data: unknown }): void;
+} {
+  const queued: Array<{ readonly data: unknown }> = [];
+  let listener: ((event: MessageEvent) => void) | undefined;
+  return {
+    target: {
+      addEventListener: (_type, handler) => {
+        listener = handler;
+        for (const event of queued.splice(0)) handler(event as MessageEvent);
+      },
+      removeEventListener: (_type, handler) => {
+        if (listener === handler) listener = undefined;
+      },
+      postMessage: (message, transfer) => scope.postMessage(message, transfer),
+    },
+    dispatch: (event) => {
+      if (listener) listener(event as MessageEvent);
+      else queued.push(event);
+    },
+  };
+}
+
+interface WorkerMcpModules {
+  readonly server: ContainerModule;
+  readonly diagram: ContainerModule;
+}
+
+/**
+ * The MCP server module and diagram module for a worker's `startIstarGlspWorker({ mcp: true })`:
+ * like `mcpModules`, but the launcher is activated behind `McpWorkerBridge` (`scope`, built by
+ * `createMcpBridgeScope`) instead of exposing a direct `fetch` — the page is a different realm,
+ * so it reaches the launcher over `postMessage` (`connectWorkerMcp`), not a function call.
+ */
+async function workerMcpModules(
+  config: Required<IstarMcpBaseOptions>,
+  scope: {
+    addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+    removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+    postMessage(message: unknown, transfer?: readonly unknown[]): void;
+  },
+): Promise<WorkerMcpModules> {
+  const mcp = await import('@eclipse-glsp/server-mcp/browser.js');
+  const z = await import('zod/v4');
+  const bridge = new mcp.McpWorkerBridge(scope);
+  class IstarWebMcpServerLauncher extends mcp.WebMcpServerLauncher {
+    override async initializeServer(
+      server: GLSPServer,
+      params: InitializeParameters,
+      result: InitializeResult,
+    ): Promise<InitializeResult> {
+      return super.initializeServer(server, withMcpServer(params, config), result);
+    }
+  }
+  decorate(injectable(), IstarWebMcpServerLauncher);
+  const dispatcher = istarMcpDispatcher(mcp);
+  class IstarWorkerMcpServerModule extends mcp.BrowserMcpServerModule {
+    protected override bindMcpServerLauncher(): typeof IstarWebMcpServerLauncher {
+      return IstarWebMcpServerLauncher;
+    }
+    protected override bindMcpDiagramHandlerDispatcher(): typeof dispatcher {
+      return dispatcher;
+    }
+    protected override onMcpServerLauncherActivated(launcher: IstarWebMcpServerLauncher): void {
+      bridge.bindLauncher(launcher);
+    }
+  }
+  return {
+    server: new IstarWorkerMcpServerModule(),
+    diagram: new (istarMcpDiagramModule(mcp, z))(),
+  };
+}
+
+/**
+ * Splits the worker's messages: dispatcher ports go to `onPort`, `McpWorkerBridge` messages (if
+ * `onMcp` is given) go to `onMcp`, everything else to the GLSP connection, through the port this
+ * returns. GLSP messages that come before the connection listens are queued.
+ */
+function routePort(
+  scope: WorkerScopeLike,
+  onPort: (port: unknown) => void,
+  onMcp?: (event: { readonly data: unknown }) => void,
+): GlspPortLike {
   const queued: Array<{ readonly data: unknown }> = [];
   let listener: GlspPortLike['onmessage'] = null;
   // oxlint-disable-next-line unicorn/prefer-add-event-listener -- the one message handler, as GLSP's reader sets it
   scope.onmessage = (event) => {
     if (isDispatcherPortMessage(event.data)) onPort(event.data.port);
+    else if (onMcp && isMcpBridgeMessage(event.data)) onMcp(event);
     else if (listener) listener(event);
     else queued.push(event);
   };
