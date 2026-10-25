@@ -25,6 +25,8 @@ analysis extension (`KAOS_OBSTACLES`). Its file types (`kaos.Obstacle`,
 `kaos.ObstacleRefinementLink*`, `kaos.ObstructionLink`, `kaos.ResolutionLink`) are istar-ts's,
 not DSM3-goals': DSM3's KAOS editor doesn't know them.
 
+**Live playground:** https://vieirin.github.io/istar-ts/ (the istar-ts React client, the stock Eclipse GLSP client, both side by side, and the agent drawer).
+
 ## Development
 
 ```sh
