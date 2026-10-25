@@ -1,0 +1,1 @@
+- **glsp:** `@istar-ts/glsp/browser`, and so `@istar-ts/agent/glsp`, imports under plain Node ESM (#236): its deep import of `vscode-jsonrpc/browser` now carries the `.js` extension that a package without an exports map needs. CI imports every built entry point under plain Node (`pnpm check:dist`).

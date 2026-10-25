@@ -36,7 +36,7 @@ import {
   BrowserMessageReader,
   BrowserMessageWriter,
   createMessageConnection,
-} from 'vscode-jsonrpc/browser';
+} from 'vscode-jsonrpc/browser.js';
 import type { IstarGlspContribution } from './contribution';
 import { ISTAR_GLSP } from './contribution';
 import type { PistarFiles } from './files';
