@@ -31,12 +31,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: `pnpm vite --port ${PORT} --strictPort`,
+    // CI tests the static build that gets hosted (vite build + preview); locally the dev
+    // server is faster to iterate on.
+    command: process.env.CI
+      ? `pnpm vite build && pnpm vite preview --port ${PORT} --strictPort`
+      : `pnpm vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     // Reusing a running server is opt-in (E2E_REUSE=1): with a per-checkout port it is this
     // checkout's own `pnpm dev`, never another worktree's.
     reuseExistingServer: !process.env.CI && process.env.E2E_REUSE === '1',
-    timeout: 60_000,
+    timeout: 180_000,
   },
   projects: [
     {
