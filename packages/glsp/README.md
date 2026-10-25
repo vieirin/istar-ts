@@ -32,8 +32,11 @@ A client then sends `requestModel` with `{ sourceUri: 'model.txt' }` and gets `s
 
 ## The GModel
 
-`modelToGModel(model, { types })` is a pure function of the model and its metamodel
-(`metamodelOf`):
+The GModel is built by [`@istar-ts/gmodel`](../gmodel) as plain schema JSON
+(`modelToGModelSchema(model, { types, sizes })`), and `IstarGModelFactory` turns it into the root
+with the session's `GModelSerializer`, so what goes on the wire is that schema plus the root's
+`revision`. `modelToGModel(model, { types })` returns the same graph as GLSP's classes. It is a
+pure function of the model and its metamodel (`metamodelOf`):
 
 - **Types**, one rule: element kind `K` → `node:K`, link kind `K` → `edge:K` (hubs, legs and ends
   included), unless the contribution's `types` overrides the kind. Besides those: `graph` (the
@@ -51,7 +54,9 @@ A client then sends `requestModel` with `{ sourceUri: 'model.txt' }` and gets `s
   default size), so `needsClientLayout` is `false` and updates need no bounds round trip.
 - A link that **targets a link** (NFR's Argument) ends on an anchor node on the middle of that
   link (`<id>_anchor`), as DSM3-goals draws it. Links of kinds that may be targeted all get one.
-- **Custom properties** are not copied into `args`: GLSP uses `args` for rendering options.
+- **`args`** of every element's node and link's edge: `kind` (the kind verbatim, whatever the
+  type), and `customProperties`, `display` and `extra` (unknown keys) as the file holds them, so a
+  client never needs the model to draw an element.
 
 The piStar file is both the semantic model and its layout, so the notation is derived from it,
 not stored beside it: a deliberate difference from Metin & Bork's separate source model and

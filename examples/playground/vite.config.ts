@@ -38,6 +38,10 @@ export default defineConfig({
         replacement: path.resolve(rootDir, '../../packages/actions/src/index.ts'),
       },
       {
+        find: '@istar-ts/gmodel',
+        replacement: path.resolve(rootDir, '../../packages/gmodel/src/index.ts'),
+      },
+      {
         find: '@istar-ts/agent',
         replacement: path.resolve(rootDir, '../../packages/agent/src/index.ts'),
       },

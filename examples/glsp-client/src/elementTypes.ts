@@ -1,7 +1,7 @@
 /**
- * Default-view registrations for a GModel's concrete types. `@istar-ts/glsp`'s `modelToGModel`
- * types every element kind `node:<kind>` and every link kind `edge:<kind>` (`gmodelTypes`,
- * `packages/glsp/src/types.ts`); the stock client's `configureDefaultModelElements` only knows
+ * Default-view registrations for a GModel's concrete types. `@istar-ts/gmodel`'s
+ * `modelToGModelSchema` types every element kind `node:<kind>` and every link kind `edge:<kind>`
+ * (`gmodelTypes`, `packages/gmodel/src/types.ts`); the stock client's `configureDefaultModelElements` only knows
  * the bare `'node'`/`'edge'` strings, so each concrete type needs its own registration. This
  * reuses the exact view classes the default types already render with
  * (`RoundedCornerNodeView`, `GEdgeView`), so a kind without a custom shape (S3) still renders —

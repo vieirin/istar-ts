@@ -42,7 +42,7 @@ export interface IstarGlspContribution {
   /**
    * Kind → size, for kinds whose GModel size differs from the metamodel's own default — a host
    * whose `@istar-ts/react` registry overrides a kind's size (`contributionFor`'s `sizes`) must
-   * pass the same sizes here, or `modelToGModel`'s nodes and actor boundaries (`actorBounds`)
+   * pass the same sizes here, or `modelToGModelSchema`'s nodes and actor boundaries (`actorBounds`)
    * stop matching what that registry draws (#154).
    */
   readonly sizes?: GModelSizeOverrides;

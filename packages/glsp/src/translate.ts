@@ -4,7 +4,7 @@
  * exactly as a React Flow canvas edit does (flow similarity, Metin & Bork 2025 §4.1.4).
  *
  * Pure: the model and the contribution in, an `IstarOperation` (or the reason there is none)
- * out. The mapping is `modelToGModel`'s, read backwards:
+ * out. The mapping is `modelToGModelSchema`'s (`@istar-ts/gmodel`), read backwards:
  *
  * - **Types**: `gmodelTypes(...).kindOf` (`node:K`/`edge:K` and the contribution's overrides).
  * - **Ids**: the model's; `<id>_anchor` (a link's anchor node) stands for link `<id>`, the root
@@ -13,8 +13,8 @@
  *   in the GModel, `createNode` locations absolute (GLSP's own create handlers convert them with
  *   `getRelativeLocation`). An actor's node sits at its boundary's corner, not at the actor's
  *   `x`/`y`, so an actor moves by the boundary's offset; its elements' model positions are the
- *   boundary's corner plus their GModel position. Bounds are read from a fresh `modelToGModel`
- *   of the current model, so the boundary maths lives in one place.
+ *   boundary's corner plus their GModel position. Bounds are read from a fresh
+ *   `modelToGModelSchema` of the current model, so the boundary maths lives in one place.
  */
 import type { AnyIstarModel, AnyMetamodel, CustomProperties, GoalDiagnostic } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
@@ -28,12 +28,12 @@ import {
   CreateEdgeOperation,
   CreateNodeOperation,
   DeleteElementOperation,
-  GNode,
   ReconnectEdgeOperation,
 } from '@eclipse-glsp/server';
-import type { Args, GModelElement, Operation } from '@eclipse-glsp/server';
+import type { Args, Operation } from '@eclipse-glsp/server';
+import { GRAPH_ID, isGNodeSchema, modelToGModelSchema } from '@istar-ts/gmodel';
+import type { GModelChildSchema } from '@istar-ts/gmodel';
 import type { IstarGlspContribution } from './contribution';
-import { GRAPH_ID, modelToGModel } from './gmodel';
 import { gmodelTypes } from './types';
 
 /**
@@ -92,11 +92,11 @@ export function gmodelBounds(
   model: AnyIstarModel,
   contribution: IstarGlspContribution,
 ): Map<string, Bounds> {
-  const root = modelToGModel(model, contribution.types ? { types: contribution.types } : {});
+  const root = modelToGModelSchema(model, contribution.types ? { types: contribution.types } : {});
   const bounds = new Map<string, Bounds>();
-  const walk = (element: GModelElement, origin: { x: number; y: number }): void => {
+  const walk = (element: GModelChildSchema, origin: { x: number; y: number }): void => {
     // Nodes only: labels are placed by their owner, edges by their ends.
-    if (!(element instanceof GNode)) return;
+    if (!isGNodeSchema(element)) return;
     const box = {
       x: origin.x + element.position.x,
       y: origin.y + element.position.y,
@@ -356,7 +356,7 @@ class Translator {
     return newBounds.length > 0 ? { kind: 'changeBounds', newBounds } : undefined;
   }
 
-  /** A GEdge's id is its link's id directly (`modelToGModel`), so no anchor resolution needed. */
+  /** A GEdge's id is its link's id (`modelToGModelSchema`), so no anchor resolution needed. */
   private changeRoutingPoints(
     operation: ChangeRoutingPointsOperation,
   ): IstarOperation<string, string> | undefined {

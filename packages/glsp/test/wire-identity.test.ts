@@ -4,16 +4,16 @@
  * with the GLSP-builder `modelToGModel` before the GModel moved to `@istar-ts/gmodel` (#164), so a
  * refactor of the mapping must leave it unchanged.
  *
- * The one intended change since: nodes and edges carry `args.kind` and `args.customProperties`
- * (#164's constraints). `withoutAddedArgs` takes exactly those off before hashing, and the test
- * checks them separately, so the hash still covers everything else.
+ * The one intended change since: nodes and edges carry `args` (`kind`, `customProperties`,
+ * `display`, `extra`; #164's constraints). `withoutAddedArgs` takes exactly those off before
+ * hashing, and `@istar-ts/gmodel`'s tests check them, so the hash still covers everything else.
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import { ContainerModule } from 'inversify';
 import type { GModelElementSchema, GModelRootSchema } from '@eclipse-glsp/server';
 import { ChangeBoundsOperation, ServerModule } from '@eclipse-glsp/server';
-import { PistarFiles, configureIstarDiagram, memoryPistarFiles } from '../src';
+import { PistarFiles, configureIstarDiagram, memoryPistarFiles, modelToGModelSchema } from '../src';
 import type { IstarGlspContribution } from '../src';
 import { loadFixtures } from './fixtures';
 import { next, openOn, startServer } from './server';
@@ -33,7 +33,7 @@ function canonical(value: unknown): unknown {
 }
 
 /** Keys the GModel gained in #164, which the pre-refactor snapshot can't hold. */
-const ADDED_ARGS = ['kind', 'customProperties'];
+const ADDED_ARGS = ['kind', 'customProperties', 'display', 'extra'];
 
 function withoutAddedArgs(element: GModelElementSchema): GModelElementSchema {
   const { args, children, ...rest } = element as GModelElementSchema & {
@@ -82,6 +82,15 @@ describe('the GModel on the wire', () => {
     for (const [i, f] of fixtures.entries()) {
       const s = await openOn(glsp, sent, f.contribution, f.name, { clientId: `wire-${i}` });
       const entry: { setModel: string; updateModel?: string } = { setModel: hash(s.root) };
+      // The wire is `@istar-ts/gmodel`'s schema itself, plus the root's revision.
+      const schema = modelToGModelSchema(s.state.model, {
+        ...(f.contribution.types ? { types: f.contribution.types } : {}),
+        ...(f.contribution.sizes ? { sizes: f.contribution.sizes } : {}),
+      });
+      expect(JSON.parse(JSON.stringify(s.root))).toStrictEqual({
+        ...schema,
+        revision: s.root.revision,
+      });
       // Move the first top-level node of a kind by (10, 10).
       const node = (s.root.children ?? []).find(
         (c) => c.type.startsWith('node:') && c.type !== 'node:link-anchor',

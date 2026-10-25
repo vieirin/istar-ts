@@ -43,8 +43,8 @@ as GLSP markers and messages, since GLSP itself has no failure response to an op
 - **One file holds both the semantic model and its layout.** The paper's reference
   architecture keeps a source model and its GModel notation apart (§4.1.3); istar-ts's piStar
   file format requires absolute positions alongside the semantic data, so there is nothing to
-  keep apart. `modelToGModel(model, { types })` (`@istar-ts/glsp`) derives the GModel from that
-  one file on every read; it is never stored separately.
+  keep apart. `modelToGModelSchema(model, { types, sizes })` (`@istar-ts/gmodel`) derives the
+  GModel from that one file on every read; it is never stored separately.
 - **No model server.** The paper's rule of thumb is to add one past roughly 30 metamodel
   elements (§6.6/"The '~30 metamodel elements' rule"); iStar 2.0 is under that, KAOS with
   obstacles is close. `IstarModelState` holds one in-memory `ModelStore` per session (or a

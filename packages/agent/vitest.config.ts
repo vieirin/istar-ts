@@ -6,6 +6,7 @@ export default defineConfig({
     alias: {
       '@istar-ts/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
       '@istar-ts/actions': fileURLToPath(new URL('../actions/src/index.ts', import.meta.url)),
+      '@istar-ts/gmodel': fileURLToPath(new URL('../gmodel/src/index.ts', import.meta.url)),
       // Backend A's integration test (test/glsp-mcp.test.ts) only.
       '@istar-ts/glsp/browser': fileURLToPath(new URL('../glsp/src/browser.ts', import.meta.url)),
       '@istar-ts/glsp': fileURLToPath(new URL('../glsp/src/index.ts', import.meta.url)),
