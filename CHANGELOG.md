@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.1
+## 0.15.0-beta.2
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -503,6 +503,18 @@ Added e2e test: palette refresh without remounting the client.
   model's metamodel; a shared store's load that extends the metamodel mid-session re-sends
   `setTypeHints` to every connected client. `/glsp.html`'s fixture picker gained an "iStar 2.0 —
   file metamodel" entry.
+- **gmodel/react:** a frameless actor (registry `boundary: false`) now renders at its own x/y
+  instead of its GModel boundary box's corner, when an inner element sits above or left of it
+  (#194).
+- **actions:** `createActionDispatcher`'s `palette` option also accepts a function, evaluated on
+  each `requestContextActions` (so a host can track its registry/extensions, or an
+  `IstarExtension`'s own `palette`). With no option, the default now follows the model's
+  metamodel (`paletteFromMetamodel`, moved from `@istar-ts/glsp`), not iStar 2.0's palette
+  regardless of dialect (#202).
+- **react:** `IstarProvider` re-requests type hints and the palette when `extensions` (and the
+  registry it produces) change, not only on a new dispatcher or metamodel; its own dispatcher's
+  palette now tracks the current registry/extensions instead of the ones it was created with
+  (#202).
 - **actions:** a mirror store's `canUndo()` and `canRedo()` are now exact (not an estimate) when
   the dispatcher sends them: a `createActionDispatcher` with `sendModel: true` now includes
   `canUndo` and `canRedo` fields in each `sourceModelChanged` notification, and a mirror reads
