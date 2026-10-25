@@ -5,14 +5,19 @@
  * as `ModelSourceChangedAction`s, whoever made them.
  */
 import {
+  FILE_METAMODEL_KEY,
   MetamodelError,
   ModelOperationError,
+  PistarParseError,
+  TOP_LEVEL_KEYS,
   canLink,
   connectResultToDiagnostic,
   dependencyEnds,
+  hostMetamodelOf,
   inheritMetamodel,
   inheritSourceLayout,
   metamodelOf,
+  parsePistar,
   toPistarObject,
   validateModel,
   validateModelProperties,
@@ -25,6 +30,7 @@ import type {
   ConnectResult,
   CustomProperties,
   ElementKind,
+  Extra,
   GoalDiagnostic,
   IstarLink,
   IstarModel,
@@ -226,6 +232,12 @@ function rejectCheck(
 function metaOf(model: AnyIstarModel): AnyMetamodel {
   return metamodelOf(model) as unknown as AnyMetamodel;
 }
+
+/**
+ * Keys `istar.updateModelExtra`'s `set`/`remove` must not touch: every key core models itself
+ * (`TOP_LEVEL_KEYS`, which includes `tool`), and `"metamodel"` (`istar.setFileMetamodel`'s own).
+ */
+const RESERVED_EXTRA_KEYS: ReadonlySet<string> = new Set([...TOP_LEVEL_KEYS, FILE_METAMODEL_KEY]);
 
 /** A model with `links` changed, as the core operations derive one. */
 function withLinks(model: AnyIstarModel, links: ReadonlyMap<string, IstarLink<string>>) {
@@ -590,6 +602,63 @@ export function createActionDispatcher<
           next = withFileMetamodel(model, operation.block);
         } catch (error) {
           if (error instanceof MetamodelError) reject(error.message, '', 'invalid-metamodel');
+          throw error;
+        }
+        s.replace(next);
+        return;
+      }
+      case 'istar.updateModelExtra': {
+        const { set, remove, tool } = operation;
+        for (const key of [...Object.keys(set ?? {}), ...(remove ?? [])]) {
+          if (!RESERVED_EXTRA_KEYS.has(key)) continue;
+          if (key === 'tool') {
+            reject(
+              `"tool" is a modelled field: set it with this operation's own "tool"`,
+              '',
+              'reserved-key',
+            );
+          }
+          if (key === FILE_METAMODEL_KEY) {
+            reject(
+              `"${key}" is set with istar.setFileMetamodel, not updateModelExtra`,
+              '',
+              'reserved-key',
+            );
+          }
+          reject(
+            `"${key}" is modelled by the file itself and cannot be an extra key`,
+            '',
+            'reserved-key',
+          );
+        }
+        let withTool: AnyIstarModel = model;
+        if (tool === null) {
+          const { tool: _tool, ...rest } = withTool;
+          withTool = rest;
+        } else if (tool !== undefined) {
+          withTool = { ...withTool, tool };
+        }
+        const extra: Record<string, unknown> = { ...withTool.extra };
+        if (set) for (const [key, value] of Object.entries(set)) extra[key] = value;
+        if (remove) for (const key of remove) delete extra[key];
+        const { extra: _extra, ...rest } = withTool;
+        const next: AnyIstarModel = {
+          ...rest,
+          ...(Object.keys(extra).length > 0 ? { extra: extra as Extra } : {}),
+        };
+        s.replace(inheritMetamodel(model, inheritSourceLayout(model, next)));
+        return;
+      }
+      case 'istar.replaceModel': {
+        const host = hostMetamodelOf(model) ?? meta;
+        let next: AnyIstarModel;
+        try {
+          next = parsePistar(operation.model, {
+            metamodel: host,
+            fileMetamodel: operation.fileMetamodel ?? false,
+          });
+        } catch (error) {
+          if (error instanceof PistarParseError) reject(error.message, '', 'parse-error');
           throw error;
         }
         s.replace(next);

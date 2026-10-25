@@ -40,7 +40,17 @@ patch — colour, the auto-grown height — merged like `ElementPatch.display`),
 value, custom properties and display — e.g. toggling every AND-refinement link into a goal to
 OR), `istar.setFileMetamodel` (sets or removes the model file's own `"metamodel"` block —
 `withFileMetamodel` in `@istar-ts/core` — rejecting a block that collides with the host's kinds
-or drops one still in use).
+or drops one still in use), `istar.updateModelExtra` (sets or removes the model's own top-level
+keys that core keeps in `model.extra`, e.g. a dialect's `metamodelVersion`; other extra keys and
+their order are kept, a new key is appended where `toPistar` would place it; `tool` sets or, with
+`null`, removes the model's own `tool` field in the same undo step; rejects a key core models
+itself — `actors`, `orphans`, `dependencies`, `links`, `display`, `tool`, `istar`, `saveDate`,
+`diagram` — or `"metamodel"`, which is `istar.setFileMetamodel`'s own), `istar.replaceModel`
+(replaces the whole model from a piStar save file as one undo step — ids, order and extra keys
+come from the given file, so a parse → `toPistar` round trip of the result is byte-identical to
+it; parsed with `parsePistar` under the dispatcher's own metamodel, `fileMetamodel` as in
+`parsePistar`; a parse error rejects with a typed diagnostic, the model untouched; a host's
+pre-guards and postGuards run against it like any other operation).
 
 **Requests/responses** (GLSP): `requestModel`/`setModel` (the model as piStar JSON, via
 `toPistar`), `requestTypeHints`/`setTypeHints` (shape and edge hints derived from the

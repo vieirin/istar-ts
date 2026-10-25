@@ -26,6 +26,15 @@ import type {
 /** GLSP's custom arguments: a flat map of primitives. */
 export type Args = Readonly<Record<string, string | number | boolean>>;
 
+/** A value that survives a JSON round trip, for `istar.updateModelExtra`'s `set`. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
 export interface Point {
   readonly x: number;
   readonly y: number;
@@ -306,6 +315,35 @@ export interface SetFileMetamodelOperation extends Operation {
   readonly block: FileMetamodel | null;
 }
 
+/**
+ * Sets, removes or reads back the model's own top-level keys that core keeps in `model.extra`
+ * (e.g. a dialect's `metamodelVersion`): `set`'s keys are written (other extra keys and their
+ * order are kept; a new key is appended where `toPistar` would place it), `remove`'s keys are
+ * deleted. `tool` sets (or, with `null`, removes) the model's own `tool` field in the same undo
+ * step — `set`/`remove` reject it, and every key core models itself (`actors`, `orphans`,
+ * `dependencies`, `links`, `display`, `istar`, `saveDate`, `diagram`), and `"metamodel"` (use
+ * `istar.setFileMetamodel` for that one). One undo step.
+ */
+export interface UpdateModelExtraOperation extends Operation {
+  readonly kind: 'istar.updateModelExtra';
+  readonly set?: Readonly<Record<string, JsonValue>>;
+  readonly remove?: readonly string[];
+  readonly tool?: string | null;
+}
+
+/**
+ * Replaces the whole model from a piStar save file, as one undo step: ids, order and extra keys
+ * come from `model`, so a parse → `toPistar` round trip is byte-identical to it. Parsed with
+ * `parsePistar` under the dispatcher's own metamodel (`fileMetamodel` as in `parsePistar`); a
+ * parse error rejects with a typed diagnostic, the model untouched. Pre-guards and postGuards
+ * run against this operation, the model before and the model after, like any other operation.
+ */
+export interface ReplaceModelOperation extends Operation {
+  readonly kind: 'istar.replaceModel';
+  readonly model: PistarFile;
+  readonly fileMetamodel?: boolean;
+}
+
 /** Every operation, keyed by `kind`. */
 export type IstarOperation<EK extends string = ElementKind, LK extends string = LinkKind> =
   | CreateNodeOperation<EK>
@@ -325,7 +363,9 @@ export type IstarOperation<EK extends string = ElementKind, LK extends string = 
   | SetLinkValueOperation
   | UpdateLinkDisplayOperation
   | ChangeLinkKindOperation<LK>
-  | SetFileMetamodelOperation;
+  | SetFileMetamodelOperation
+  | UpdateModelExtraOperation
+  | ReplaceModelOperation;
 
 // ---------------------------------------------------------------------------------------------
 // Model
@@ -613,6 +653,8 @@ const OPERATION_KIND_LIST: readonly IstarOperation['kind'][] = [
   'istar.updateLinkDisplay',
   'istar.changeLinkKind',
   'istar.setFileMetamodel',
+  'istar.updateModelExtra',
+  'istar.replaceModel',
 ];
 
 const REQUEST_KIND_LIST: readonly IstarRequestAction['kind'][] = [

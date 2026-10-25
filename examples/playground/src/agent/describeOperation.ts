@@ -122,5 +122,18 @@ export function describeOperation(
           ? `set the file's metamodel to ${quoted(operation.block.name)}`
           : "clear the file's metamodel",
       ];
+    case 'istar.updateModelExtra': {
+      const lines: string[] = [];
+      if (operation.tool === null) lines.push('remove the model tool');
+      else if (operation.tool !== undefined)
+        lines.push(`set the model tool to ${quoted(operation.tool)}`);
+      for (const [key, value] of Object.entries(operation.set ?? {})) {
+        lines.push(`set ${key} of the model to ${quoted(JSON.stringify(value))}`);
+      }
+      for (const key of operation.remove ?? []) lines.push(`remove ${key} from the model`);
+      return lines.length > 0 ? lines : ['update the model'];
+    }
+    case 'istar.replaceModel':
+      return ['replace the model'];
   }
 }
