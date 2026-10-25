@@ -156,6 +156,72 @@ test.describe('agent drawer', () => {
     await expect(stop).toBeDisabled();
   });
 
+  test('text streams in and the budget updates live, before the reply completes (#152)', async ({
+    page,
+  }) => {
+    await mockDeepSeek(page, () =>
+      answer(
+        'The model streams this reply in over many small chunks, so the drawer can show it ' +
+          'arriving and a live token estimate well before the whole answer is in.',
+      ),
+    );
+
+    await openDrawer(page);
+    await page.getByRole('textbox', { name: 'Task' }).fill('Say something long.');
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+    // A live, estimated budget readout appears while the reply is still streaming in, and the
+    // assistant line already shows the start of the text before the run finishes.
+    await expect(page.getByText('(estimate)')).toBeVisible();
+    const assistantLine = page.locator('.pg-agent-log-assistant').last();
+    await expect(assistantLine).toContainText('The model streams');
+    await expect(page.getByText(/^Stopped: /)).not.toBeVisible();
+
+    // Once the run settles, the estimate is replaced by the exact final usage/cost line and the
+    // full text is in place.
+    await expect(page.getByText('Stopped: final')).toBeVisible();
+    await expect(assistantLine).toHaveText(
+      'The model streams this reply in over many small chunks, so the drawer can show it ' +
+        'arriving and a live token estimate well before the whole answer is in.',
+    );
+    await expect(page.getByText('(estimate)')).not.toBeVisible();
+  });
+
+  test('Stop mid-stream leaves partial text, marks it stopped, and makes no further calls (#152)', async ({
+    page,
+  }) => {
+    let callCount = 0;
+    await mockDeepSeek(page, () => {
+      callCount += 1;
+      return answer(
+        'This is a long streamed reply that Stop should interrupt well before it finishes ' +
+          'streaming in, so the test can see a partial line.',
+      );
+    });
+
+    await openDrawer(page);
+    await page.getByRole('textbox', { name: 'Task' }).fill('Say something long, then stop me.');
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+    const assistantLine = page.locator('.pg-agent-log-assistant').last();
+    await expect(assistantLine).toContainText('This is a long');
+
+    const stop = page.getByRole('button', { name: 'Stop', exact: true });
+    await expect(stop).toBeEnabled();
+    await stop.click();
+
+    await expect(page.getByText('Stopped: aborted')).toBeVisible();
+    await expect(assistantLine).toContainText('(stopped)');
+    await expect(assistantLine).not.toContainText('finishes streaming in');
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+    await expect(stop).toBeDisabled();
+
+    // The aborted run never asked the model again.
+    expect(callCount).toBe(1);
+  });
+
   test('Auto mode applies tool calls as they come, with no review step', async ({ page }) => {
     await mockDeepSeek(page, (_, index) =>
       index === 0

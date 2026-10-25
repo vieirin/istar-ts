@@ -4,6 +4,14 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **playground:** the agent drawer streams DeepSeek's replies (#152, follow-up from #150):
+  `useAgentSession` turns `createChatClient`'s `stream: true` on, so the drawer's log grows a
+  reply's text as it arrives instead of waiting for the full response, and the budget/cost line
+  updates live — a running estimate (DeepSeek only sends `usage` on a step's last chunk) until
+  that chunk lands, then the exact total. Stop aborts the in-flight stream: no further tool calls
+  run, and the partial text stays visible, marked "(stopped)". `e2e/mock-deepseek.ts` now answers
+  every mocked request as SSE, splitting each tool call's `arguments` across two chunks like
+  DeepSeek does, instead of one JSON body.
 - **react:** node resize (`NodeResizer` in `nodes.tsx`) now dispatches through
   `dispatcherFor('canvas')` instead of writing the store directly (#141, stage 1 of #144): one
   `compound` of `istar.updateDisplay` (size) and `changeBounds` (the position delta), so it
