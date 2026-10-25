@@ -20,6 +20,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Changelog entries go in changes/unreleased/ (one file per PR); only a release/X.Y.Z PR
+      # edits CHANGELOG.md, so parallel PRs never conflict on it.
+      - name: CHANGELOG.md is only edited by release PRs
+        if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/')
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx 'CHANGELOG.md'; then
+            echo "::error::Add a fragment in changes/unreleased/ instead of editing CHANGELOG.md (see changes/unreleased/README.md)."
+            exit 1
+          fi
 
       # pnpm version comes from "packageManager" in package.json.
       - uses: pnpm/action-setup@v6
