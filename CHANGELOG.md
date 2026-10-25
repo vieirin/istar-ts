@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.6
+## 0.15.0-beta.7
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -466,6 +466,12 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
   back with `ok: true` as warnings, merged after `guards`' own. Works through the transport
   (`createRemoteDispatcher`) and for a mirror (`createMirrorStore`) the same as `guards`, and is
   documented in `docs/action-protocol.md` next to it (#203).
+- **agent:** `@istar-ts/agent/glsp` publishes backend A's (GLSP MCP) Propose-mode
+  `ChangeSetTarget`: `createGlspChangeSet`/`openGlspMcpSession`, moved from the playground's
+  private `glspMcpBackend.ts`, with `describeOperation` for the review's plain-words preview.
+  `@istar-ts/glsp` and `@modelcontextprotocol/sdk` are this subpath's own optional peer
+  dependencies, so the package root stays GLSP-free (#232).
+- **playground:** the agent drawer switches to `@istar-ts/agent/glsp`, removing its private copy.
 - **actions:** `HostContextProvider` and `HostTool`, a host's context (static text, or a function
   of the model) and tools (name, JSON Schema, handler, `readOnly`) for the agent: opaque data
   plus a handler, the same values for every backend. A read-only tool's dispatcher takes requests
@@ -577,6 +583,11 @@ Added e2e test: palette refresh without remounting the client.
   API is unchanged; `gmodelBounds` reads the schema. Apart from `args`, the GModel on the wire
   (`setModel`, `updateModel`) is identical for every fixture, pinned by a snapshot recorded before
   the move.
+- **tests:** every vitest project now freezes `Date` to a fixed instant before each test
+  (`test-support/freeze-date.ts`), so a `toPistar` `saveDate` stamp can no longer straddle a
+  wall-clock second and flake a comparison — the recurring cause behind #41, #119, #168 and #228.
+  A test that needs the real clock opts out with `useRealDate()` (`test-support/use-real-date.ts`).
+  Closes #231.
 
 ## 0.15.0-beta.0
 
