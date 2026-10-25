@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.2
+## 0.15.0-beta.3
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -421,6 +421,18 @@ and the release PR gathers them into a version section here (`pnpm changelog:rel
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
 - **playground:** deployed to GitHub Pages on every push to main, at https://vieirin.github.io/istar-ts/ (`.github/workflows/pages.yml`).
+- **actions:** `dispatch(action, { origin? })` echoes `origin` back as `origin` on every
+  `sourceModelChanged` and `setDirtyState` the action causes — each change of a `compound`, both
+  events of an undo or redo — so a listener can tell which surface or client caused a change
+  without tracking it itself. Carried through the transport (`createRemoteDispatcher` →
+  `connectDispatcher`) and by `createMirrorStore`'s dispatcher; `@istar-ts/react`'s
+  `dispatcherFor(surface)` passes `origin: surface`, and the playground's `tagClient` passes its
+  client tag. `ActionDispatcher.dispatch`'s second argument is optional: existing callers are
+  unaffected. `docs/action-protocol.md` and the dispatcher's doc comment now pin the local
+  dispatcher's synchronous-apply guarantee (operations, `compound`, `glspUndo`/`glspRedo`, guards
+  and postGuards all apply before `dispatch`'s promise is even created to resolve) and spell out
+  that it does not hold for a remote dispatcher or a mirror, where `origin` is the portable way
+  to correlate a dispatch with its changes (#213).
 - **actions:** `istar.changeLinkKind { linkIds, elementTypeId }` changes the kind of a set of
   links at once, keeping their ids, source, target, order in the file, name, value, custom
   properties and display; `canLink` checks each listed link's new kind against its unchanged
