@@ -10,3 +10,5 @@ conflict on the changelog.
   moves every file here, in name order, into a new `## X.Y.Z` section at the top of
   `CHANGELOG.md` and deletes the fragment files. Merge that PR, then run the **Tag release**
   workflow.
+- **Pre-release:** `pnpm changelog:release X.Y.Z-beta.N --keep` writes the `## X.Y.Z-beta.N` section but
+  keeps the fragments, so the final `X.Y.Z` release gathers them again.
