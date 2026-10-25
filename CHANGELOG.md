@@ -7,6 +7,17 @@ Versions are published from GitHub release tags; see the release notes for full 
 - **actions, core:** `createEdge` for an n-ary kind whose target already is a hub takes
   `args.id` or `args.legId` for the new leg's id, like the new-hub path already did (#138);
   `createdIds` lists it, so a dry run on a scratch copy and a live apply give the same ids.
+- **agent:** headless level-7 evaluation runner (#132, epic #126 D5),
+  `packages/agent/scripts/evaluate.ts` (`pnpm --filter @istar-ts/agent evaluate`, a real
+  provider key via `DEEPSEEK_API_KEY` or `--api-key-env`, never run in CI). Task families
+  (retrieval, modification, large-model against `smartHome.txt`'s 237 ids, conflict — a
+  guard-rejected edit with a repair) × conditions (Text's one `replace-model` tool with a parse
+  check only, Actions with the dispatcher's guards off, Actions with the shield on) × 5 fresh
+  runs each, scored for precision/recall against expected edits, syntactic/semantic errors,
+  rejections caught, a destroyed/unparseable model, tokens, wall-clock time and cost, aggregated
+  (mean, spread) into a JSON and markdown report. Both `@istar-ts/agent` backends (A, the GLSP
+  MCP tools; B, the actions dispatcher) run every condition, including the shield, now that
+  #136 (D2/#129) lands a guard's typed diagnostics over MCP too.
 - **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
   loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
   backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for
