@@ -33,6 +33,15 @@ export interface IstarGlspHostOptions {
   readonly modules?: readonly ContainerModule[];
 }
 
+/** The MCP server's options, on every launcher (`mcp` of `@istar-ts/glsp/node`'s and
+ * `@istar-ts/glsp/browser`'s options). */
+export interface IstarMcpBaseOptions {
+  /** Default `/mcp`. */
+  readonly route?: string;
+  /** The MCP server's name. Default `istar-glsp`. */
+  readonly name?: string;
+}
+
 /** Binds a host's `IstarSharedModel`, for a diagram's session containers or a whole server. */
 export function bindIstarSharedModel(shared: IstarSharedModel): ContainerModule {
   const { store, dispatcher } = shared;

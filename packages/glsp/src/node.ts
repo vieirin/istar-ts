@@ -15,17 +15,14 @@ import { WebSocketServerLauncher, createAppModule } from '@eclipse-glsp/server/n
 import type { ContainerModule } from 'inversify';
 import { Container, decorate, injectable } from 'inversify';
 import type { PistarFiles } from './files';
-import type { IstarGlspHostOptions } from './host';
+import type { IstarGlspHostOptions, IstarMcpBaseOptions } from './host';
 import { createIstarServerModules } from './host';
+import { istarMcpDispatcher, withMcpServer } from './mcp';
 
 /** The MCP server's options. It binds to `127.0.0.1` only and has no authentication. */
-export interface IstarMcpOptions {
+export interface IstarMcpOptions extends IstarMcpBaseOptions {
   /** Default 0: a free port, reported in `initialize`'s result (`mcpServer.url`). */
   readonly port?: number;
-  /** Default `/mcp`. */
-  readonly route?: string;
-  /** The MCP server's name. Default `istar-glsp`. */
-  readonly name?: string;
 }
 
 export interface IstarGlspNodeOptions extends IstarGlspHostOptions {
@@ -96,7 +93,8 @@ export async function startIstarGlspServer(
  * The MCP server module (server scope) and diagram module (every session), from
  * `@eclipse-glsp/server-mcp`, loaded only when asked for. GLSP starts the MCP server when a
  * client's `initialize` carries `mcpServer` options; this server starts it whether or not the
- * client asks, with `options`, so opting in is the host's call.
+ * client asks, with `options`, so opting in is the host's call. Rejected operations answer
+ * their tool call with an error (`istarMcpDispatcher`).
  */
 async function mcpModules(
   options: IstarMcpOptions,
@@ -113,16 +111,17 @@ async function mcpModules(
       params: InitializeParameters,
       result: InitializeResult,
     ): Promise<InitializeResult> {
-      const mcpServer = (params as { mcpServer?: unknown }).mcpServer ?? config;
-      // `mcpServer` is `McpInitializeParameters`' extension of the parameters.
-      const withMcp = { ...params, mcpServer } as InitializeParameters;
-      return super.initializeServer(server, withMcp, result);
+      return super.initializeServer(server, withMcpServer(params, config), result);
     }
   }
   decorate(injectable(), IstarMcpServerLauncher);
+  const dispatcher = istarMcpDispatcher(mcp);
   class IstarMcpServerModule extends mcp.NodeMcpServerModule {
     protected override bindMcpServerLauncher(): typeof IstarMcpServerLauncher {
       return IstarMcpServerLauncher;
+    }
+    protected override bindMcpDiagramHandlerDispatcher(): typeof dispatcher {
+      return dispatcher;
     }
   }
   return { server: new IstarMcpServerModule(), diagram: new mcp.DefaultMcpDiagramModule() };

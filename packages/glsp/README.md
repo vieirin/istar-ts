@@ -228,8 +228,47 @@ builds the package and serves one file as a shared model; `saveModel` writes it 
 authentication, started with each connection's first `initialize` whether or not the client
 asks for it, its URL returned as `initialize`'s `mcpServer.url` (port 0, a free one, by default).
 Off by default. `@eclipse-glsp/server-mcp` is an optional peer dependency pinned to `2.8.0`:
-upstream marks it `@experimental` (framework-notes §5, §8). Node only; the browser launchers
-have no MCP.
+upstream marks it `@experimental` (framework-notes §5, §8).
+
+`serveIstarGlsp` takes the same option (`mcp: true`, or `{ route, name }`) for an MCP server
+**in the page**, on server-mcp's `WebMcpServerLauncher` (#126 D1; supersedes the "browser
+launchers have no MCP" line, #86). It has no socket: an MCP SDK client reaches it through
+`server.mcp.fetch`, which hands each request to the launcher in the same realm. No Service
+Worker, no network, no authentication (only the page's own code can call it):
+
+```ts
+import { serveIstarGlsp } from '@istar-ts/glsp/browser';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+// Headless: no GLSP client of the page's. The server opens its own session on the shared
+// diagram (`server.sessionId`, `ISTAR_MCP_SESSION_ID`) for the tools to act on.
+const server = serveIstarGlsp({ shared: { store, dispatcher }, mcp: true }); // the canvas's store
+const client = new Client({ name: 'agent', version: '1.0.0' });
+await client.connect(
+  new StreamableHTTPClientTransport(server.mcp.url, { fetch: server.mcp.fetch }),
+);
+await client.callTool({ name: 'create-nodes', arguments: { sessionId: server.sessionId, nodes } });
+```
+
+- With a port (`serveIstarGlsp(port, { shared, mcp: true })`) the MCP server starts with that
+  GLSP client's `initialize` (`server.mcp.ready`), and its tools act on that client's sessions.
+- Tools dispatch GLSP operations through the session's operation handlers, so the host's
+  dispatcher, guards included, decides. **A rejected operation answers its tool call with an
+  error** (`isError: true`, the diagnostics' messages, `structuredContent: { code: 'rejected',
+diagnostics }`), on both launchers. server-mcp alone would answer success, since GLSP has no
+  failure answer to an operation.
+- A headless session has no viewer: `get-selection` answers a tool error, and `set-selection`
+  and `set-view` succeed with nothing to show. (server-mcp's PNG/SVG export is not offered for
+  istar diagrams on either launcher.)
+- `@eclipse-glsp/server-mcp` loads on demand (`import()`), so a bundler puts it in its own chunk:
+  about 1,026 kB minified (242 kB gzip) with Vite (`test/vite-build.test.ts`), mostly zod, the
+  MCP SDK and ajv. Without `mcp`, `serveIstarGlsp` costs what it did.
+- `server.mcp.handleRequest(request)` is the launcher's Fetch-shaped entry point, for a host's
+  own listener. Requests are handled one at a time, as server-mcp's `BrowserMcpRequestContext`
+  requires.
+- `startIstarGlspWorker` has no MCP yet: the server would sit in the worker, behind
+  server-mcp's `McpWorkerBridge` (`docs/agent/verification.md` §5).
 
 ## Decorators
 

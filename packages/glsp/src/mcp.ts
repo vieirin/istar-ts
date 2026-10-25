@@ -1,0 +1,67 @@
+/**
+ * What the Node and browser launchers' MCP opt-ins share (`@eclipse-glsp/server-mcp`,
+ * framework-notes §5). Type imports only: the launchers load the optional peer themselves, and
+ * hand its classes in.
+ */
+import type { GoalDiagnostic } from '@istar-ts/core';
+import type { InitializeParameters } from '@eclipse-glsp/server';
+import type {
+  DefaultMcpDiagramHandlerDispatcher,
+  McpDiagramHandlerDispatcher,
+} from '@eclipse-glsp/server-mcp/browser.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { interfaces } from 'inversify';
+import { decorate, injectable } from 'inversify';
+import { IstarOperationRunner } from './operations';
+
+/**
+ * `initialize`'s parameters with `mcpServer` (`McpInitializeParameters`' extension) set to
+ * `config` unless the client sent its own: the server starts MCP whether or not the client asks,
+ * so opting in is the host's call.
+ */
+export function withMcpServer(params: InitializeParameters, config: object): InitializeParameters {
+  const mcpServer = (params as { mcpServer?: unknown }).mcpServer ?? config;
+  return { ...params, mcpServer } as InitializeParameters;
+}
+
+/**
+ * server-mcp's diagram handler dispatcher, with a tool call whose operations the session's
+ * dispatcher rejected (a guard, `canLink`, a property schema) answered as a tool error. Without
+ * it the call succeeds: GLSP has no failure answer to an operation, and server-mcp's handlers
+ * only infer one (`create-nodes` lists "likely failed" under `errors`, `modify-nodes` nothing).
+ * The error's text is the rejection's diagnostics, then the tool's own answer, since a tool
+ * that applies several operations may have applied some.
+ */
+export function istarMcpDispatcher(base: {
+  DefaultMcpDiagramHandlerDispatcher: typeof DefaultMcpDiagramHandlerDispatcher;
+}): interfaces.Newable<McpDiagramHandlerDispatcher> {
+  class IstarMcpDiagramHandlerDispatcher extends base.DefaultMcpDiagramHandlerDispatcher {
+    protected override async dispatchDiagramTool(
+      name: string,
+      params: unknown,
+    ): Promise<CallToolResult> {
+      const sessionId = this.extractSessionId(params);
+      const container = sessionId
+        ? this.clientSessionManager.getSession(sessionId)?.container
+        : undefined;
+      if (!container?.isBound(IstarOperationRunner)) return super.dispatchDiagramTool(name, params);
+      const rejections: GoalDiagnostic[] = [];
+      const stop = container.get(IstarOperationRunner).onRejected((d) => rejections.push(...d));
+      let result: CallToolResult;
+      try {
+        result = await super.dispatchDiagramTool(name, params);
+      } finally {
+        stop();
+      }
+      if (rejections.length === 0) return result;
+      const text = `Rejected: ${rejections.map((d) => d.message).join('; ')}`;
+      return {
+        isError: true,
+        content: [{ type: 'text', text }, ...result.content],
+        structuredContent: { code: 'rejected', diagnostics: rejections },
+      };
+    }
+  }
+  decorate(injectable(), IstarMcpDiagramHandlerDispatcher);
+  return IstarMcpDiagramHandlerDispatcher;
+}
