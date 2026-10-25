@@ -14,6 +14,12 @@ Versions are published from GitHub release tags; see the release notes for full 
   `@eclipse-glsp/*` dependency — `@istar-ts/glsp` now serves a wire-compatible stock GLSP
   client; `@istar-ts/actions`'s own transport is unaffected and still isn't GLSP's wire
   protocol (#44).
+- **glsp, playground:** `contributionFor`'s `sizes` (#154) lets a contribution carry per-kind
+  size overrides, used by `modelToGModel`'s node sizes and `@istar-ts/core`'s `actorBounds`
+  (its `defaultSizeOf`), so an `/both.html` host whose `@istar-ts/react` registry overrides a
+  kind's size independently of the metamodel draws the same boxes in both the React canvas and
+  the stock GLSP client. `/both.html` now builds one registry and passes its sizes into the
+  GLSP contribution it serves.
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a
