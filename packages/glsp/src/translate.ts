@@ -34,6 +34,7 @@ import type { Args, Operation } from '@eclipse-glsp/server';
 import { GRAPH_ID, isGNodeSchema, modelToGModelSchema } from '@istar-ts/gmodel';
 import type { GModelChildSchema } from '@istar-ts/gmodel';
 import type { IstarGlspContribution } from './contribution';
+import { gmodelOptions } from './gmodel';
 import { gmodelTypes } from './types';
 
 /**
@@ -92,7 +93,7 @@ export function gmodelBounds(
   model: AnyIstarModel,
   contribution: IstarGlspContribution,
 ): Map<string, Bounds> {
-  const root = modelToGModelSchema(model, contribution.types ? { types: contribution.types } : {});
+  const root = modelToGModelSchema(model, gmodelOptions(contribution));
   const bounds = new Map<string, Bounds>();
   const walk = (element: GModelChildSchema, origin: { x: number; y: number }): void => {
     // Nodes only: labels are placed by their owner, edges by their ends.

@@ -3,6 +3,7 @@ import type { GModelFactory } from '@eclipse-glsp/server';
 import { modelToGModelSchema } from '@istar-ts/gmodel';
 import { inject, injectable } from 'inversify';
 import { IstarGlspContribution } from './contribution';
+import { gmodelOptions } from './gmodel';
 import type { IstarModelState } from './model-state';
 
 /**
@@ -26,11 +27,7 @@ export class IstarGModelFactory implements GModelFactory {
   }
 
   createModel(): void {
-    const options = {
-      ...(this.contribution.types ? { types: this.contribution.types } : {}),
-      ...(this.contribution.sizes ? { sizes: this.contribution.sizes } : {}),
-    };
-    const schema = modelToGModelSchema(this.modelState.model, options);
+    const schema = modelToGModelSchema(this.modelState.model, gmodelOptions(this.contribution));
     this.modelState.updateRoot(this.serializer.createRoot(schema));
   }
 }

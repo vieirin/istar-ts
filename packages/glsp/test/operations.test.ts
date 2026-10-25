@@ -23,15 +23,27 @@ import {
   RequestMarkersAction,
   RequestPopupModelAction,
   SaveModelAction,
+  ServerModule,
   SetEditModeAction,
   UndoAction,
 } from '@eclipse-glsp/server';
-import type { AnyIstarModel, IstarElement } from '@istar-ts/core';
-import { toPistar } from '@istar-ts/core';
-import { GLSP_ARGS, GRAPH_ID, ISTAR_GLSP, gmodelBounds, translateOperation } from '../src';
+import type { AnyIstarModel, IstarElement, Size } from '@istar-ts/core';
+import { ISTAR_2_0, actorBounds, toPistar } from '@istar-ts/core';
+import { ContainerModule } from 'inversify';
+import {
+  GLSP_ARGS,
+  GRAPH_ID,
+  ISTAR_GLSP,
+  PistarFiles,
+  configureIstarDiagram,
+  contributionFor,
+  gmodelBounds,
+  memoryPistarFiles,
+  translateOperation,
+} from '../src';
 import { KAOS_GLSP } from '../src/kaos';
 import type { Session } from './server';
-import { open, testFiles } from './server';
+import { open, openOn, startServer, testFiles } from './server';
 
 // welcome.txt: the agent "piStar tool v2.1.0" and the role "Business Analyst", with their goals,
 // tasks and qualities, and top-level dependums.
@@ -627,5 +639,108 @@ describe('translateOperation', () => {
         ISTAR_GLSP,
       ),
     ).toMatchObject({ ok: false, diagnostics: [{ elementId: 'nope', severity: 'error' }] });
+  });
+});
+
+describe('gmodelBounds with a contribution’s sizes (#154, #182)', () => {
+  // A host whose `@istar-ts/react` registry draws the agent kind and its inner task kind at
+  // sizes other than the metamodel's own defaults (`contributionFor`'s `sizes`).
+  const SIZED_GLSP = contributionFor(ISTAR_2_0, {
+    diagramType: 'istar-sized',
+    sizes: {
+      'istar.Agent': { width: 200, height: 200 },
+      'istar.Task': { width: 80, height: 60 },
+    },
+  });
+
+  /** The agent's own default size, overridden (#154): what a client drawing with the
+   * contribution's `sizes` actually renders, independent of this package's `gmodelBounds`. */
+  function sizeOf(kind: string): Size {
+    return (
+      SIZED_GLSP.sizes?.[kind] ??
+      (ISTAR_2_0.elements.get(kind as never)?.size as Size | undefined) ?? {
+        width: 0,
+        height: 0,
+      }
+    );
+  }
+
+  async function openSized(): Promise<Session> {
+    const fileMap = testFiles();
+    const { server, sent } = await startServer(fileMap, {
+      serverModule: configureIstarDiagram(new ServerModule(), SIZED_GLSP),
+      modules: [
+        new ContainerModule((bind) => {
+          bind(PistarFiles).toConstantValue(memoryPistarFiles(fileMap));
+        }),
+      ],
+    });
+    return openOn(server, sent, SIZED_GLSP, 'welcome.txt', {
+      clientId: `client-${SIZED_GLSP.diagramType}`,
+    });
+  }
+
+  test('moves an element inside a resized actor to the intended absolute position', async () => {
+    const s = await openSized();
+    // The boundary a client drawing with the contribution's sizes actually renders, not this
+    // package's own `gmodelBounds` — the test must not share the bug it is checking for.
+    const agentBox = actorBounds(s.state.model, AGENT, ISTAR_2_0, sizeOf);
+    const task = element(s.state.model, AGENT_TASK);
+    const taskSize = sizeOf(task.kind);
+    await edit(
+      s,
+      ChangeBoundsOperation.create([
+        {
+          elementId: AGENT_TASK,
+          newPosition: { x: task.x - agentBox.x + 15, y: task.y - agentBox.y },
+          newSize: taskSize,
+        },
+      ]),
+    );
+    expect(element(s.state.model, AGENT_TASK)).toMatchObject({ x: task.x + 15, y: task.y });
+    // Only the position changed: the size the correctly-sized client sends still matches this
+    // package's own `gmodelBounds`, so no spurious `display` size override is written (#182).
+    expect(element(s.state.model, AGENT_TASK).display).not.toMatchObject({
+      width: expect.anything(),
+      height: expect.anything(),
+    });
+  });
+
+  test('moves a resized actor itself to the intended absolute position', async () => {
+    const s = await openSized();
+    const agentBox = actorBounds(s.state.model, AGENT, ISTAR_2_0, sizeOf);
+    const agent = element(s.state.model, AGENT);
+    const agentTask = element(s.state.model, AGENT_TASK);
+    await edit(
+      s,
+      ChangeBoundsOperation.create([
+        {
+          elementId: AGENT,
+          newPosition: { x: agentBox.x + 20, y: agentBox.y },
+          newSize: { width: agentBox.width, height: agentBox.height },
+        },
+      ]),
+    );
+    expect(element(s.state.model, AGENT)).toMatchObject({ x: agent.x + 20, y: agent.y });
+    expect(element(s.state.model, AGENT_TASK)).toMatchObject({ x: agentTask.x + 20 });
+  });
+
+  test('without sizes overrides, behaviour is unchanged', async () => {
+    const s = await open(ISTAR_GLSP, 'welcome.txt');
+    const bounds = gmodelBounds(s.state.model, ISTAR_GLSP);
+    const agent = bounds.get(AGENT)!;
+    const task = element(s.state.model, AGENT_TASK);
+    const taskBox = bounds.get(AGENT_TASK)!;
+    await edit(
+      s,
+      ChangeBoundsOperation.create([
+        {
+          elementId: AGENT_TASK,
+          newPosition: { x: task.x - agent.x + 15, y: task.y - agent.y },
+          newSize: { width: taskBox.width, height: taskBox.height },
+        },
+      ]),
+    );
+    expect(element(s.state.model, AGENT_TASK)).toMatchObject({ x: task.x + 15, y: task.y });
   });
 });

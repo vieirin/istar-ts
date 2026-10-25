@@ -51,6 +51,19 @@ class TypeMappingSerializer extends DefaultGModelSerializer {
   }
 }
 
+/** `ModelToGModelOptions` built from a contribution's own `types`/`sizes` (#154, #182): the
+ * `IstarGModelFactory` and `gmodelBounds` (`translate.ts`) must agree on them, or GLSP's
+ * parent-relative positions get translated back against the wrong actor boundary. */
+export function gmodelOptions(contribution: {
+  readonly types?: GModelTypeOverrides;
+  readonly sizes?: ModelToGModelOptions['sizes'];
+}): ModelToGModelOptions {
+  return {
+    ...(contribution.types ? { types: contribution.types } : {}),
+    ...(contribution.sizes ? { sizes: contribution.sizes } : {}),
+  };
+}
+
 /**
  * The model's GModel as GLSP's classes: `modelToGModelSchema`'s schema, through the framework's
  * serializer. A session's `IstarGModelFactory` uses the session's own serializer instead.
