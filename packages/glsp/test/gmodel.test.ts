@@ -2,8 +2,16 @@ import { describe, expect, test } from 'vitest';
 import type { AnyIstarModel, AnyMetamodel } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
 import type { GModelElement } from '@eclipse-glsp/server';
+import type { GLabel } from '@eclipse-glsp/server';
 import { GEdge, GNode } from '@eclipse-glsp/server';
-import { LINK_ANCHOR_TYPE, gmodelTypes, modelToGModel } from '../src';
+import {
+  ACTOR_LABEL_CSS_CLASS,
+  ACTOR_SYMBOL_OFFSET,
+  LINK_ANCHOR_TYPE,
+  gmodelTypes,
+  labelId,
+  modelToGModel,
+} from '../src';
 import { fixture, loadFixtures, parseFixture } from './fixtures';
 
 function walk(element: GModelElement, visit: (element: GModelElement) => void): void {
@@ -97,6 +105,22 @@ describe('modelToGModel', () => {
       });
       expect(child.position.x).toBeGreaterThanOrEqual(10);
       expect(child.position.y).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  test('an actor’s name label is centred on the symbol circle, whatever its text (#120)', () => {
+    const model = parseFixture(fixture('pistar/welcome.txt'));
+    const meta = metamodelOf(model) as AnyMetamodel;
+    const root = modelToGModel(model);
+    const actors = [...model.elements.values()].filter(
+      (e) => meta.elements.get(e.kind)?.category === 'actor',
+    );
+    expect(actors.length).toBeGreaterThan(0);
+    for (const actor of actors) {
+      const node = root.children.find((c) => c.id === actor.id) as GNode;
+      const label = node.children.find((c) => c.id === labelId(actor.id)) as GLabel;
+      expect(label.position).toEqual({ x: ACTOR_SYMBOL_OFFSET, y: ACTOR_SYMBOL_OFFSET });
+      expect(label.cssClasses).toContain(ACTOR_LABEL_CSS_CLASS);
     }
   });
 

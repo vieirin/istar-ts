@@ -32,6 +32,14 @@ import { LINK_ANCHOR_TYPE, gmodelTypes } from './types';
 
 /** A collapsed actor's box, as the React canvas draws it. */
 export const COLLAPSED_ACTOR_SIZE: Size = { width: 60, height: 60 };
+/**
+ * Centre of the actor symbol circle, relative to the actor node's own box; matches
+ * `@istar-ts/react`'s `ACTOR_SYMBOL_OFFSET` (`packages/react/src/layout.ts`) and the stock
+ * client's own copy (`examples/glsp-client/src/istar-views.ts`'s `ACTOR_SYMBOL_OFFSET`).
+ */
+export const ACTOR_SYMBOL_OFFSET = 20;
+/** CSS class centring an actor's name label on the symbol circle, independent of text width. */
+export const ACTOR_LABEL_CSS_CLASS = 'istar-glsp-actor-label';
 /** Side of the anchor node on the middle of a link that links may target. */
 export const LINK_ANCHOR_SIZE = 12;
 /** Id of the root `graph` element. */
@@ -69,8 +77,10 @@ function center(box: Box): Point {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-function nameLabel(id: string, text: string, position: Point): GLabel {
-  return GLabel.builder().id(labelId(id)).text(text).position(position).build();
+function nameLabel(id: string, text: string, position: Point, cssClass?: string): GLabel {
+  const builder = GLabel.builder().id(labelId(id)).text(text).position(position);
+  if (cssClass !== undefined) builder.addCssClass(cssClass);
+  return builder.build();
 }
 
 /** The point halfway along a polyline. */
@@ -169,8 +179,17 @@ export function modelToGModel<EK extends string, LK extends string>(
       .type(typeOf(actor.kind))
       .position(box.x, box.y)
       .size(box.width, box.height)
-      // The name sits in the actor symbol, a circle centred 20px from the boundary's corner.
-      .add(nameLabel(actor.id, actor.name, { x: 20, y: 20 }));
+      // The name sits in the actor symbol, a circle centred `ACTOR_SYMBOL_OFFSET`px from the
+      // boundary's corner; the CSS class centres the text on that point regardless of its
+      // width (#120), instead of guessing the rendered text's size.
+      .add(
+        nameLabel(
+          actor.id,
+          actor.name,
+          { x: ACTOR_SYMBOL_OFFSET, y: ACTOR_SYMBOL_OFFSET },
+          ACTOR_LABEL_CSS_CLASS,
+        ),
+      );
     if (collapsed) {
       builder.addCssClass('collapsed');
       for (const child of inner) collapsedInto.set(child.id, actor.id);
