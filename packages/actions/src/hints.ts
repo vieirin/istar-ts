@@ -67,7 +67,9 @@ function ofCategory(metamodel: AnyMetamodel, category?: 'actor' | 'node'): strin
  * GLSP type hints of a metamodel. Shapes: every element kind (hubs can't be resized or
  * reparented; actors contain the node kinds that can be inner elements). Edges: every link kind,
  * its sources and targets from its rules, or by category for kinds with built-in rules (iStar
- * 2.0's). Edge hints are `dynamic`: `canLink` checks more than kinds.
+ * 2.0's), plus an n-ary kind's hub (`createEdge` onto a hub adds a leg to that link, #108). Edge
+ * hints are `repositionable` (their ends can be reconnected) and `dynamic`: `canLink` checks more
+ * than kinds.
  */
 export function typeHintsFor<EK extends string, LK extends string>(
   metamodel: Metamodel<EK, LK>,
@@ -90,13 +92,16 @@ export function typeHintsFor<EK extends string, LK extends string>(
   const edgeHints = [...meta.links.values()].map((d): EdgeTypeHint => {
     const rules = meta.links.get(effectiveLinkKind(meta, d.kind))?.rules;
     const builtIn = d.category === 'dependency' ? ofCategory(meta) : ofCategory(meta, d.category);
+    const targets = rules ? union(meta, rules.targets) : builtIn;
+    // An n-ary kind's `createEdge` onto its hub adds a leg to that link (#108).
+    const hub = d.parts?.hub;
     return {
       elementTypeId: d.kind,
-      repositionable: false,
+      repositionable: true,
       deletable: true,
       routable: true,
       sourceElementTypeIds: rules ? union(meta, rules.sources) : builtIn,
-      targetElementTypeIds: rules ? union(meta, rules.targets) : builtIn,
+      targetElementTypeIds: hub === undefined ? targets : [...targets, hub],
       dynamic: true,
     };
   });

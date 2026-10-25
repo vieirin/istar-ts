@@ -771,7 +771,8 @@ describe('an extended metamodel', () => {
     });
     expect(hints.response.edgeHints.find((h) => h.elementTypeId === 'x.Joint')).toMatchObject({
       sourceElementTypeIds: ['istar.Goal', 'x.Step'],
-      targetElementTypeIds: ['istar.Goal'],
+      // #108: an n-ary kind's hint targets its hub too, so `createEdge` onto it can add a leg.
+      targetElementTypeIds: ['istar.Goal', 'x.JointHub'],
     });
     // iStar 2.0's Task links take a Step, which behaves like a Task.
     expect(

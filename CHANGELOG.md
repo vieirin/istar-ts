@@ -176,6 +176,10 @@ Versions are published from GitHub release tags; see the release notes for full 
   message with `canLink`'s reason. Edge hints are `repositionable`, which GLSP reads as "can be
   reconnected", and an n-ary kind's hint targets its hub, so a leg can be drawn onto it.
   `mountGlspClient` takes `logActions` (`/glsp.html?debug=actions`) to log the action traffic.
+- **actions:** `typeHintsFor`'s edge hints are `repositionable`, and an n-ary kind's hint targets
+  its hub too (#108), the same gaps #107 worked around only inside `@istar-ts/glsp`'s
+  `gmodelTypeHints`. A client of the istar-ts action protocol that reads these hints the GLSP way
+  now gets reconnect handles and can draw a leg onto an n-ary link's hub.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
