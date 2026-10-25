@@ -180,3 +180,36 @@ export function contextActionsFor<EK extends string, LK extends string>(
   actions.sort((a, b) => (order(a) === order(b) ? 0 : order(a) < order(b) ? -1 : 1));
   return { actions, groups: palette.groups };
 }
+
+/**
+ * A minimal palette for a metamodel with none of its own: one toolbar entry per visible kind
+ * (declaration order, actors first), labelled from the kind's own `label`. Kinds generated for
+ * an n-ary link (a hub, leg or end — `role` set) are hidden, as a hand-written palette would
+ * hide them (`KAOS_PALETTE`'s `RefinementLinkHub: false`, for instance). The fallback
+ * `createActionDispatcher` and `contributionFor` (`@istar-ts/glsp`) both use when no palette
+ * was given.
+ */
+export function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
+  const elements: Record<string, PaletteEntryDescription | false> = {};
+  let order = 0;
+  for (const definition of metamodel.elements.values()) {
+    elements[definition.kind] =
+      definition.role !== undefined
+        ? false
+        : {
+            label: definition.label,
+            order: order++,
+            section: definition.category === 'actor' ? 'actors' : 'elements',
+            ...(definition.category === 'actor' ? { group: 'actors' } : {}),
+          };
+  }
+  const links: Record<string, readonly LinkToolEntryDescription[] | false> = {};
+  order = 0;
+  for (const definition of metamodel.links.values()) {
+    links[definition.kind] =
+      definition.role !== undefined
+        ? false
+        : [{ label: definition.label, order: order++, section: 'elements' }];
+  }
+  return { elements, links, groups: { actors: { label: 'Actor' } } };
+}

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
-import type { GoalDiagnostic, ModelStore, PistarFile } from '@istar-ts/core';
+import type { AnyPaletteDescription, GoalDiagnostic, ModelStore, PistarFile } from '@istar-ts/core';
 import {
   DEFAULT_PALETTE,
   ISTAR_2_0,
@@ -799,8 +799,8 @@ describe('requests', () => {
     expect(await check('istar.IsALink', 'a')).toMatchObject({ isValid: true });
   });
 
-  test('requestContextActions answers with the palette', async () => {
-    const env = setup();
+  test('requestContextActions answers with the palette option', async () => {
+    const env = setup({ palette: DEFAULT_PALETTE });
     const result = await env.dispatcher.dispatch({
       kind: 'requestContextActions',
       requestId: 'p',
@@ -851,6 +851,54 @@ describe('requests', () => {
       editorContext: { selectedElementIds: [] },
     });
     expect(result.ok && result.response?.actions.map((a) => a.label)).toEqual(['Objective']);
+  });
+
+  test('with no palette option, requestContextActions follows the model metamodel (#202)', async () => {
+    // No `palette` option: the default is `paletteFromMetamodel`'s, not `DEFAULT_PALETTE`
+    // (iStar 2.0's own, piStar-faithful palette with grouped contribution/dependency entries).
+    const env = setup();
+    const result = await env.dispatcher.dispatch({
+      kind: 'requestContextActions',
+      requestId: 'p',
+      contextId: 'tool-palette',
+      editorContext: { selectedElementIds: [] },
+    });
+    if (!result.ok || !result.response) throw new Error('expected a response');
+    const { actions, groups } = result.response;
+    expect(groups).toEqual({ actors: { label: 'Actor' } });
+    expect(actions.find((a) => a.id === 'istar.Actor')).toEqual({
+      id: 'istar.Actor',
+      label: 'Actor',
+      order: 0,
+      group: 'actors',
+      section: 'actors',
+      actions: [{ kind: 'triggerNodeCreation', elementTypeId: 'istar.Actor' }],
+    });
+    // Not piStar's grouped "Help (+)" contribution entries: one plain link entry per kind.
+    expect(actions.find((a) => a.label === 'Help (+)')).toBeUndefined();
+    expect(actions.find((a) => a.id === 'istar.ContributionLink#0')).toMatchObject({
+      label: 'Contribution',
+    });
+  });
+
+  test('a palette function is evaluated on each requestContextActions', async () => {
+    const palette = vi.fn<() => AnyPaletteDescription>(() => ({
+      elements: { 'istar.Goal': { label: 'Objective' } },
+      links: {},
+      groups: {},
+    }));
+    const env = setup({ palette });
+    expect(palette).not.toHaveBeenCalled();
+    const request = () =>
+      env.dispatcher.dispatch({
+        kind: 'requestContextActions',
+        requestId: 'p',
+        contextId: 'tool-palette',
+        editorContext: { selectedElementIds: [] },
+      });
+    await request();
+    await request();
+    expect(palette).toHaveBeenCalledTimes(2);
   });
 
   test('requestMarkers reports link issues, property issues and the host diagnostics', async () => {

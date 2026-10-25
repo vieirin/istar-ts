@@ -5,7 +5,6 @@
  * as `ModelSourceChangedAction`s, whoever made them.
  */
 import {
-  DEFAULT_PALETTE,
   MetamodelError,
   ModelOperationError,
   canLink,
@@ -54,7 +53,7 @@ import type {
   SetTypeHintsAction,
 } from './actions';
 import { isOperation, isRequestAction } from './actions';
-import { contextActionsFor, typeHintsFor } from './hints';
+import { contextActionsFor, paletteFromMetamodel, typeHintsFor } from './hints';
 import { diagnosticToMarker } from './markers';
 
 /** The response a request is answered with; `never` for other actions. */
@@ -138,8 +137,14 @@ export interface ActionDispatcherOptions<
   readonly guards?: readonly ActionGuard<EK, LK>[];
   /** Run after each operation is applied; see `ActionPostGuard`. */
   readonly postGuards?: readonly ActionPostGuard<EK, LK>[];
-  /** What `RequestContextActions` offers. Default: `DEFAULT_PALETTE` (iStar 2.0's). */
-  readonly palette?: AnyPaletteDescription;
+  /**
+   * What `RequestContextActions` offers: a fixed description, or a function evaluated on each
+   * request (so a host can track a registry or extensions that change after this dispatcher was
+   * created — a plain `AnyPaletteDescription` is read once, at creation). Default: derived from
+   * the model's current metamodel (`paletteFromMetamodel`), the same fallback `contributionFor`
+   * (`@istar-ts/glsp`) uses — not iStar 2.0's palette regardless of dialect.
+   */
+  readonly palette?: AnyPaletteDescription | (() => AnyPaletteDescription);
   /**
    * Property schemas an operation must not break: an operation that adds an issue
    * (`validateModelProperties`) is rejected. Their issues are also markers.
@@ -233,7 +238,11 @@ export function createActionDispatcher<
   const s = store as unknown as ModelStore<string, string>;
   const guards = (options.guards ?? []) as readonly ActionGuard<string, string>[];
   const postGuards = (options.postGuards ?? []) as readonly ActionPostGuard<string, string>[];
-  const palette = options.palette ?? (DEFAULT_PALETTE as unknown as AnyPaletteDescription);
+  const resolvePalette = (meta: AnyMetamodel): AnyPaletteDescription => {
+    const option = options.palette;
+    if (typeof option === 'function') return option();
+    return option ?? paletteFromMetamodel(meta);
+  };
   const sourceModelName = options.sourceModelName ?? '';
   const listeners = new Set<ActionListener<string, string>>();
 
@@ -737,12 +746,14 @@ export function createActionDispatcher<
         };
       case 'requestCheckEdge':
         return checkEdge(action);
-      case 'requestContextActions':
+      case 'requestContextActions': {
+        const meta = metaOf(model);
         return {
           kind: 'setContextActions',
           responseId: action.requestId,
-          ...contextActionsFor(palette, metaOf(model)),
+          ...contextActionsFor(resolvePalette(meta), meta),
         };
+      }
       case 'requestMarkers':
         return markers(action);
       default:

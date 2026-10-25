@@ -19,12 +19,11 @@
 import type {
   AnyMetamodel,
   AnyPaletteDescription,
-  LinkToolEntryDescription,
-  PaletteEntryDescription,
   PropertySchema,
   PropertyShape,
 } from '@istar-ts/core';
 import { DEFAULT_PALETTE, ISTAR_2_0 } from '@istar-ts/core';
+import { paletteFromMetamodel } from '@istar-ts/actions';
 import { GLSPModule } from '@eclipse-glsp/server';
 import type { interfaces } from 'inversify';
 import type { GModelSizeOverrides, GModelTypeOverrides } from './types';
@@ -105,36 +104,10 @@ export function paletteOf(contribution: IstarGlspContribution): AnyPaletteDescri
   return contribution.palette ?? (DEFAULT_PALETTE as unknown as AnyPaletteDescription);
 }
 
-/**
- * A minimal palette for a metamodel with none of its own: one toolbar entry per visible kind
- * (declaration order, actors first), labelled from the kind's own `label`. Kinds generated for
- * an n-ary link (a hub, leg or end — `role` set) are hidden, as a hand-written palette would
- * hide them (`KAOS_PALETTE`'s `RefinementLinkHub: false`, for instance).
- */
-export function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
-  const elements: Record<string, PaletteEntryDescription | false> = {};
-  let order = 0;
-  for (const definition of metamodel.elements.values()) {
-    elements[definition.kind] =
-      definition.role !== undefined
-        ? false
-        : {
-            label: definition.label,
-            order: order++,
-            section: definition.category === 'actor' ? 'actors' : 'elements',
-            ...(definition.category === 'actor' ? { group: 'actors' } : {}),
-          };
-  }
-  const links: Record<string, readonly LinkToolEntryDescription[] | false> = {};
-  order = 0;
-  for (const definition of metamodel.links.values()) {
-    links[definition.kind] =
-      definition.role !== undefined
-        ? false
-        : [{ label: definition.label, order: order++, section: 'elements' }];
-  }
-  return { elements, links, groups: { actors: { label: 'Actor' } } };
-}
+/** Re-exported for callers that already imported it from `@istar-ts/glsp`; the derivation
+ * itself moved to `@istar-ts/actions` (#202) so `createActionDispatcher` can share it without
+ * depending on this package. */
+export { paletteFromMetamodel } from '@istar-ts/actions';
 
 /**
  * `contribution`'s palette, with an entry for every kind of `metamodel` the contribution's own

@@ -25,7 +25,7 @@ import {
   useIstarEditor,
   useIstarStore,
 } from '@istar-ts/react';
-import { ISTAR_GLSP, contributionFor, gmodelTypes } from '@istar-ts/glsp';
+import { ISTAR_GLSP, contributionFor, gmodelTypes, paletteOf } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { mountGlspClient } from 'glsp-client';
 import type { MountedGlspClient } from 'glsp-client';
@@ -80,7 +80,13 @@ export function BothApp(): ReactElement {
   const [log] = useState(() => createLogStore());
   useEffect(() => log.attachStore(store), [log, store]);
 
-  const [dispatcher] = useState(() => createActionDispatcher(store));
+  // Matches the GLSP side's own answer (`host.ts`'s `paletteOf(contribution)`): same underlying
+  // model and session, so the React canvas and the stock GLSP client offer the same tools
+  // (#202: without it, the default palette follows the metamodel directly, piStar-faithful
+  // short labels like "And" aside).
+  const [dispatcher] = useState(() =>
+    createActionDispatcher(store, { palette: paletteOf(contribution) }),
+  );
   const [reactDispatcher] = useState(() => tagClient(dispatcher, 'React', log));
   // Same underlying dispatcher as `reactDispatcher`, tagged "GLSP" and reshaped to
   // `StoreActionDispatcher` (`isDirty`/`dispose` pass through), as `@istar-ts/glsp`'s
