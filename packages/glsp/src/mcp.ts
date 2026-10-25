@@ -28,6 +28,23 @@ export function withMcpServer(params: InitializeParameters, config: object): Ini
 }
 
 /**
+ * A tool error for a file-backed session (`!isShared`) whose GLSP client has not sent
+ * `requestModel` yet (#225): there is no loaded model to act on, so the call must not report
+ * success. A shared session never needs this — its model is the host's, already there when the
+ * session is created (`IstarStoreListener.initialize`, `updates.ts`).
+ */
+export function noModelToolResult(): CallToolResult {
+  const text = 'No model loaded for this session: the GLSP client must request a model first.';
+  return {
+    isError: true,
+    content: [
+      { type: 'text', text },
+      { type: 'text', text: JSON.stringify({ code: 'no-model' }) },
+    ],
+  };
+}
+
+/**
  * A rejection as a tool error: `{ code: 'rejected', diagnostics }` as a JSON text block, not
  * `structuredContent`. A tool with a declared output schema (`create-nodes`, ours too) would
  * fail the MCP SDK client's schema check even on an `isError: true` result once the client has
@@ -74,6 +91,7 @@ export function istarMcpDispatcher(base: {
         : undefined;
       if (!container?.isBound(IstarOperationRunner)) return super.dispatchDiagramTool(name, params);
       const runner = container.get(IstarOperationRunner);
+      if (!runner.state.isShared && !runner.state.root) return noModelToolResult();
       const rejections: GoalDiagnostic[] = [];
       const stop = runner.onRejected((d) => rejections.push(...d));
       let result: CallToolResult;

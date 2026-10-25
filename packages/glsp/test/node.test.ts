@@ -207,4 +207,44 @@ describe('MCP', () => {
       .map((e) => e.name);
     expect(names).toEqual(['G1']);
   });
+
+  // #225 follow-up: a file-backed (non-shared) session has no model at all before `requestModel`
+  // loads one — that must answer a typed tool error, never a success with no effect.
+  test('create-nodes on a file-backed session before requestModel answers a typed error', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'istar-glsp-'));
+    writeFileSync(join(root, 'model.txt'), welcome);
+    const files = diskPistarFiles(root);
+    const server = await start({ files, mcp: true });
+    const { client: glsp } = await client(server.url);
+    const result = (await glsp.initializeServer({
+      applicationId: 'test',
+      protocolVersion: '1.0.0',
+    })) as { mcpServer?: { url: string } };
+    await glsp.initializeClientSession({
+      clientSessionId: 's1',
+      diagramType: 'istar',
+      clientActionKinds: ['setModel', 'updateModel'],
+    });
+    // Deliberately no `RequestModelAction` here.
+
+    const mcp = new Client({ name: 'istar-glsp-test', version: '0.0.0' });
+    await mcp.connect(new StreamableHTTPClientTransport(new URL(result.mcpServer!.url)));
+    running.push(mcp);
+
+    const created = await mcp.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: 's1',
+        nodes: [
+          {
+            elementTypeId: 'node:istar.Goal',
+            position: { x: 300, y: 300 },
+            text: 'G1',
+          },
+        ],
+      },
+    });
+    expect(created.isError).toBe(true);
+    expect(JSON.stringify(created.content)).toContain('no-model');
+  });
 });
