@@ -5,9 +5,13 @@
 import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const version = process.argv[2]?.replace(/^v/, '');
+const keep = process.argv.includes('--keep');
+const version = process.argv
+  .slice(2)
+  .find((a) => !a.startsWith('--'))
+  ?.replace(/^v/, '');
 if (!version || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
-  console.error('usage: pnpm changelog:release X.Y.Z');
+  console.error('usage: pnpm changelog:release X.Y.Z [--keep]');
   process.exit(1);
 }
 const dir = 'changes/unreleased';
@@ -31,5 +35,7 @@ const next =
     ? `${changelog.trimEnd()}\n\n${section}`
     : changelog.slice(0, at) + section + changelog.slice(at);
 writeFileSync('CHANGELOG.md', next);
-for (const f of files) rmSync(join(dir, f));
-console.log(`## ${version}: gathered ${files.length} fragment(s) into CHANGELOG.md`);
+if (!keep) for (const f of files) rmSync(join(dir, f));
+console.log(
+  `## ${version}: ${keep ? 'copied' : 'gathered'} ${files.length} fragment(s) into CHANGELOG.md`,
+);
