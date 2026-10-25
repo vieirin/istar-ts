@@ -1,7 +1,7 @@
 {
   "name": "@istar-ts/glsp",
   "version": "0.0.0-development",
-  "description": "A GLSP server for istar-ts models, on @eclipse-glsp/server: GModel, diagram configuration, dialect contributions, and Web Worker, in-page and Node (WebSocket, MCP) launchers. Never depends on React.",
+  "description": "A GLSP server for istar-ts models, on @eclipse-glsp/server: GModel, diagram configuration, dialect contributions, and Web Worker, in-page (MCP) and Node (WebSocket, MCP) launchers. Never depends on React.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [

@@ -4,6 +4,14 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** an MCP server in the page (#128, epic #126 D1). `serveIstarGlsp` takes `mcp: true`
+  (or `{ route, name }`) and serves server-mcp 2.8.0's `WebMcpServerLauncher` through a
+  same-realm `fetch` (`server.mcp.fetch`, for the MCP SDK's `StreamableHTTPClientTransport`). It
+  needs no Service Worker. `serveIstarGlsp({ shared, mcp: true })` without a port runs headless,
+  with its own GLSP session for the tools. On both launchers, a tool call whose operations the
+  dispatcher rejects (a guard, say) now answers a tool error. `@eclipse-glsp/server-mcp` stays an
+  optional peer pinned to `2.8.0`, loaded on demand: a separate chunk of about 1 MB minified
+  (242 kB gzip). `docs/agent/verification.md` §5 settles D0's open question.
 - **docs:** `docs/agent/verification.md` (#127, epic #126 D0) — a research pass, no code,
   verifying DeepSeek's current models/tool-call/streaming/usage behaviour, a non-localhost CORS
   preflight, how a page client reaches `@eclipse-glsp/server-mcp` 2.8.0's browser bridge, that

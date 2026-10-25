@@ -179,12 +179,38 @@ directly to the launcher over bare `postMessage`, with no `fetch`/Service-Worker
 option this package supports — `AbstractMcpServerLauncher.getRequestHandler`/`handleRequest`
 only understand `Request`/`Response`.
 
-◐ **Not verified**: whether a same-realm shortcut (skip the Service Worker, run `McpWorkerBridge`
-and the MCP client in the same page/Worker with a plain `fetch` override instead of a real
-Service Worker) is viable — `AbstractMcpServerLauncher`'s constructor/DI requirements weren't
-read in this pass (out of scope: #127 names only `web-mcp-server-launcher.js` and
-`mcp-worker-bridge.js`). D1 should check `src/common/server/abstract-mcp-server-launcher.ts`
-before deciding between "real Service Worker" and "same-realm `fetch` monkey-patch."
+✅ **Same-realm shortcut: settled by D1 (#128).** No Service Worker is needed, and for a
+server in the page, no `McpWorkerBridge` either. Read from the same tarball:
+
+- `src/common/server/abstract-mcp-server-launcher.ts`: the launcher's constructor takes nothing.
+  Its dependencies are property injections (`Logger`, `McpServerOptions`, the handler
+  dispatcher, `ClientSessionManager`, the handler multi-bindings), all bound by
+  `AbstractMcpServerModule`, so it lives in the GLSP server container like any server module.
+  `initializeServer` starts it on the GLSP client's `initialize` and calls `bindTransport` (a
+  no-op on the web). `handleRequest(req: Request): Promise<Response>` does everything else: the
+  route and method checks, the `Host` and `MCP-Protocol-Version` checks, and the per-session
+  `WebStandardStreamableHTTPServerTransport` lookup. Nothing in it depends on where the
+  `Request` came from.
+- The MCP SDK's client transport takes the `fetch` it should use
+  (`StreamableHTTPClientTransportOptions.fetch`, `@modelcontextprotocol/sdk` 1.32
+  `client/streamableHttp.d.ts:81`). So the page client gets
+  `fetch: (input, init) => launcher.handleRequest(new Request(input, init))`. That is no global
+  `fetch` monkey-patch and no network.
+- `src/browser/server/browser-mcp-request-context.ts`: the browser request context holds one
+  request at a time, so the caller must serialize requests, as `McpWorkerBridge.enqueueDispatch`
+  does (up to the `Response`, not its body).
+- **Why not go through `McpWorkerBridge` in the same realm** (a `MessageChannel`, the bridge on
+  one end): it works, but `encodeBody` buffers the response (`response.arrayBuffer()`) when the
+  realm can't transfer a `ReadableStream` (Firefox, Safari: `canTransferReadableStream`). After
+  `notifications/initialized`, the SDK client opens its standalone GET SSE stream
+  (`client/streamableHttp.js:388-390`). That body never ends, so on those browsers the bridge's
+  serial `dispatchChain` would wait on it forever. Calling the launcher directly avoids this.
+
+`@istar-ts/glsp/browser`'s `serveIstarGlsp(…, { mcp: true })` implements the direct path
+(`server.mcp.fetch`), and `test/browser-mcp.test.ts` runs an SDK client through it. A server
+in a **worker** (`startIstarGlspWorker`) would need the bridge, with the page-side `fetch`
+posting `McpRequestMessage`s over a `MessagePort` it hands over with `mcp-init-port`. That still
+needs no Service Worker, but has the buffering caveat above. It is not built yet.
 
 ## 6. Whether every server-mcp tool goes only through GLSP operations
 
@@ -266,15 +292,15 @@ scope-change instruction; no code change made here.
 
 ## Summary for D1–D5
 
-| #   | Question                                                 | Verdict                                                                                                                |
-| --- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 1   | DeepSeek models, tool-call support, context, pricing     | ✅ — but model names changed from #126's assumption; see §1                                                            |
-| 2   | Streaming + tools                                        | ✅ supported; buffer deltas by `index`, see §2                                                                         |
-| 3   | `usage` block field names                                | ✅ see §3                                                                                                              |
-| 4   | CORS from a non-localhost origin                         | ✅ echoes any origin, see §4                                                                                           |
-| 5   | Page client ↔ server-mcp bridge handshake                | ✅ for the wire shapes and that a `fetch` shim (Service Worker) is required; ◐ same-realm shortcut not checked, see §5 |
-| 6   | Every server-mcp tool goes through GLSP operations       | ✅ see §6                                                                                                              |
-| 7   | `create-edges`' `args` can carry dependency/n-ary shapes | ✅ (unconstrained schema); ◐ model needs separate guidance, see §7                                                     |
+| #   | Question                                                 | Verdict                                                                                                       |
+| --- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | DeepSeek models, tool-call support, context, pricing     | ✅ — but model names changed from #126's assumption; see §1                                                   |
+| 2   | Streaming + tools                                        | ✅ supported; buffer deltas by `index`, see §2                                                                |
+| 3   | `usage` block field names                                | ✅ see §3                                                                                                     |
+| 4   | CORS from a non-localhost origin                         | ✅ echoes any origin, see §4                                                                                  |
+| 5   | Page client ↔ server-mcp bridge handshake                | ✅ wire shapes; ✅ (D1) a same-realm `fetch` reaches the launcher, no Service Worker or bridge needed, see §5 |
+| 6   | Every server-mcp tool goes through GLSP operations       | ✅ see §6                                                                                                     |
+| 7   | `create-edges`' `args` can carry dependency/n-ary shapes | ✅ (unconstrained schema); ◐ model needs separate guidance, see §7                                            |
 
 Two findings imply changes outside this issue's scope, both already flagged inline above and
 repeated here per #127's "Out of scope" instruction:

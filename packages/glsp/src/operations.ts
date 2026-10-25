@@ -124,6 +124,7 @@ export class IstarOperationRunner {
   protected readonly actions: ActionDispatcher;
   /** Whether the client shows markers of a rejection, to clear on the next accepted edit. */
   private rejectionMarkers = false;
+  private readonly rejectionListeners = new Set<(diagnostics: readonly GoalDiagnostic[]) => void>();
 
   constructor(
     @inject(ModelState) state: IstarModelState,
@@ -135,6 +136,16 @@ export class IstarOperationRunner {
 
   get contribution(): IstarGlspContribution {
     return this.state.contribution;
+  }
+
+  /**
+   * Calls `listener` with the diagnostics of every operation this session rejects, until the
+   * returned function is called: how an MCP tool call learns that its operations were refused
+   * (GLSP's dispatch has no failure answer).
+   */
+  onRejected(listener: (diagnostics: readonly GoalDiagnostic[]) => void): () => void {
+    this.rejectionListeners.add(listener);
+    return () => this.rejectionListeners.delete(listener);
   }
 
   /**
@@ -163,6 +174,7 @@ export class IstarOperationRunner {
   }
 
   protected rejected(diagnostics: readonly GoalDiagnostic[]): Command {
+    for (const listener of this.rejectionListeners) listener(diagnostics);
     const model = this.state.model;
     const markers = diagnostics
       .filter((d) => model.elements.has(d.elementId) || model.links.has(d.elementId))
