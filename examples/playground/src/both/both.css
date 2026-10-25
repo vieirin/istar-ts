@@ -67,8 +67,26 @@ body,
   height: 100%;
 }
 
+/* Bounds the aside's width the way `App.css`'s `.pg-aside` does for `/react.html` (#173): without
+   it the two sections below are unconstrained flex items, and the action log's nowrap+ellipsis
+   row (`ActionLog.tsx`'s `.pg-lab-log-payload`) reports its full, un-truncated text as a
+   min-content width that can grow without bound and squeeze `.istar-canvas-flow` to 0 — `overflow:
+   auto` opts back into flexbox's "automatic minimum size is 0" rule, so this can shrink instead. */
+.pg-both-aside {
+  width: max-content;
+  min-width: 14rem;
+  max-width: 20rem;
+  flex-shrink: 0;
+  overflow: auto;
+  border-left: 1px solid var(--pg-start-panel-border);
+}
+
 .pg-both-log {
   padding: 0.5rem;
+}
+
+.pg-both-log + .pg-both-log {
+  margin-top: 1rem;
 }
 
 /* The agent drawer and the change-set review it reuses from the protocol lab

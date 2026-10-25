@@ -201,7 +201,7 @@ export function BothApp(): ReactElement {
             registry={registry}
             palette="left"
             aside={
-              <>
+              <div className="pg-both-aside">
                 <LogPanel log={log} model={model} />
                 <section className="pg-both-log">
                   <h2 className="pg-aside-heading">Agent</h2>
@@ -213,7 +213,7 @@ export function BothApp(): ReactElement {
                     metamodel={metamodelOf(model) as AnyMetamodel}
                   />
                 </section>
-              </>
+              </div>
             }
           />
         </div>
