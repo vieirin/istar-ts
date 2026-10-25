@@ -4,6 +4,12 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **playground:** fix the agent drawer's Propose mode over backend A: an `undo`/`redo` MCP tool
+  call on the scratch session is now mirrored into the recorded change set (#163). A successful
+  `undo` moves the last active step onto a redo list (so it drops out of the review and of what
+  Apply dispatches); a `redo` moves it back; a new mutating step clears the redo list, as a store
+  does. `undo`/`redo` are not review steps themselves — the review's collapsed context section
+  shows what they did instead ("agent undid: create Task 'T8' in Actor 'Lab'").
 - **glsp:** every agent-facing MCP coordinate is now absolute model coordinates, not GModel-relative
   (#158). `create-nodes`' `position` already landed exactly where given — a regression test now
   locks that in, with and without a `containerId` — but the default `MarkdownMcpModelSerializer`

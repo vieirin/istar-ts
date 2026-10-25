@@ -104,12 +104,33 @@ export interface ProposedStep {
   readonly createdIds: readonly string[];
 }
 
+/** One operation the scratch session actually dispatched, the unit `glspUndo`/`glspRedo` act on
+ * (#163): a tool call's step can bundle several of these (e.g. `create-nodes`' node + label). */
+interface OpRecord {
+  readonly operation: IstarOperation<string, string>;
+  readonly description: readonly string[];
+  readonly createdIds: readonly string[];
+}
+
+function stepFromRecords(records: readonly OpRecord[]): ProposedStep {
+  return {
+    operations: records.map((r) => r.operation),
+    description: records.flatMap((r) => r.description),
+    createdIds: records.flatMap((r) => r.createdIds),
+  };
+}
+
 export interface GlspChangeSet extends ChangeSetTarget {
   /**
-   * `entry`'s step, or `undefined` for a call that isn't one: a read-only call, a refused one, or
-   * one that changed nothing (e.g. `set-view`). Only steps go into `apply`'s compound.
+   * `entry`'s step, or `undefined` for a call that isn't one: a read-only call, a refused one,
+   * one that changed nothing (e.g. `set-view`), or one every record of which a later `undo` (in
+   * the same run) has popped off the scratch session's undo stack (#163). Only steps go into
+   * `apply`'s compound.
    */
   step(entry: ChangeSetEntry): ProposedStep | undefined;
+  /** For a successful `undo`/`redo` call, what it undid/redid, in plain words (#163); `undefined`
+   * for every other call. The review's context section shows this instead of the tool's name. */
+  describeUndo(result: ToolResult): string | undefined;
 }
 
 /**
@@ -127,13 +148,31 @@ function createGlspChangeSet(
   getOptions: () => GlspMcpBackendOptions,
   contribution: IstarGlspContribution,
 ): GlspChangeSet {
-  const stepsByResult = new WeakMap<ToolResult, ProposedStep>();
+  // Each tool call's own records, fixed at call time; a record stops counting once a later
+  // `undo` (anywhere in the same run) pops it off `doneStack` below (#163).
+  const recordsByResult = new WeakMap<ToolResult, readonly OpRecord[]>();
+  const undoDescriptions = new WeakMap<ToolResult, string>();
+  // The scratch session's own undo/redo stacks, mirrored record-for-record (one per dispatched
+  // operation, not one per tool call: a call like `create-nodes` can dispatch several, and
+  // `undo` pops the scratch session's command stack one at a time, #163's handler docstring).
+  let doneStack: OpRecord[] = [];
+  let redoStack: OpRecord[] = [];
+
+  const activeStep = (result: ToolResult): ProposedStep | undefined => {
+    const records = recordsByResult.get(result);
+    if (!records) return undefined;
+    const active = records.filter((r) => doneStack.includes(r));
+    return active.length === 0 ? undefined : stepFromRecords(active);
+  };
 
   return {
     async openScratch(): Promise<ScratchSession> {
       const options = getOptions();
       const scratchStore = copyOf(options.store);
-      let bucket: ProposedStep[] | null = null;
+      doneStack = [];
+      redoStack = [];
+      let bucket: OpRecord[] | null = null;
+      let undoNotes: string[] | null = null;
       const baseDispatcher = createActionDispatcher(scratchStore, {
         ...(options.guards ? { guards: options.guards } : {}),
         ...(options.schemas ? { schemas: options.schemas } : {}),
@@ -145,13 +184,30 @@ function createGlspChangeSet(
         async dispatch(action: Parameters<ActionDispatcher<string, string>['dispatch']>[0]) {
           const before = scratchStore.getModel();
           const result = await baseDispatcher.dispatch(action);
-          if (bucket && result.ok && isOperation(action)) {
+          if (!result.ok) return result;
+          if (action.kind === 'glspUndo') {
+            const record = doneStack.pop();
+            if (record) {
+              redoStack.push(record);
+              undoNotes?.push(`agent undid: ${record.description.join('; ')}`);
+            }
+          } else if (action.kind === 'glspRedo') {
+            const record = redoStack.pop();
+            if (record) {
+              doneStack.push(record);
+              undoNotes?.push(`agent redid: ${record.description.join('; ')}`);
+            }
+          } else if (isOperation(action)) {
             const pinned = injectCreatedIds(action, result.createdIds, before);
-            bucket.push({
-              operations: [pinned],
+            const record: OpRecord = {
+              operation: pinned,
               description: describeOperation(pinned, [before, scratchStore.getModel()]),
               createdIds: result.createdIds,
-            });
+            };
+            // A new step, as a store's `dispatch` does: nothing left to redo (#163).
+            redoStack.length = 0;
+            doneStack.push(record);
+            bucket?.push(record);
           }
           return result;
         },
@@ -175,22 +231,28 @@ function createGlspChangeSet(
         list: () => registry.list(),
         prepare: registry.prepare?.bind(registry),
         async call(name, args, callOptions) {
-          const myBucket: ProposedStep[] = [];
+          const myBucket: OpRecord[] = [];
+          const myUndoNotes: string[] = [];
           bucket = myBucket;
+          undoNotes = myUndoNotes;
           try {
             const result = await registry.call(name, args, callOptions);
-            if (!result.ok || readOnlyNames.has(name) || myBucket.length === 0) return result;
-            const step: ProposedStep = {
-              operations: myBucket.flatMap((s) => s.operations),
-              description: myBucket.flatMap((s) => s.description),
-              createdIds: myBucket.flatMap((s) => s.createdIds),
-            };
+            if (!result.ok) return result;
+            if (myUndoNotes.length > 0) {
+              // `undo`/`redo` are not review steps themselves (#163): the context section shows
+              // what they did instead.
+              undoDescriptions.set(result, myUndoNotes.join('; '));
+              return result;
+            }
+            if (readOnlyNames.has(name) || myBucket.length === 0) return result;
+            const step = stepFromRecords(myBucket);
             // The review shows them (`resultText`); the model never reads `createdIds`.
             const proposed: ToolResult = { ...result, createdIds: step.createdIds };
-            stepsByResult.set(proposed, step);
+            recordsByResult.set(proposed, myBucket);
             return proposed;
           } finally {
             bucket = null;
+            undoNotes = null;
           }
         },
       };
@@ -204,9 +266,7 @@ function createGlspChangeSet(
       };
     },
     async apply(entries: readonly ChangeSetEntry[]): Promise<ToolResult> {
-      const operationList = entries.flatMap(
-        (entry) => stepsByResult.get(entry.result)?.operations ?? [],
-      );
+      const operationList = entries.flatMap((entry) => activeStep(entry.result)?.operations ?? []);
       if (operationList.length === 0) {
         return { ok: true, content: { createdIds: [] }, createdIds: [] };
       }
@@ -218,7 +278,8 @@ function createGlspChangeSet(
         createdIds: result.createdIds,
       };
     },
-    step: (entry) => stepsByResult.get(entry.result),
+    step: (entry) => activeStep(entry.result),
+    describeUndo: (result) => undoDescriptions.get(result),
   };
 }
 

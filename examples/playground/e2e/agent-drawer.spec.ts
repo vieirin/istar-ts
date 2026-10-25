@@ -146,6 +146,63 @@ test.describe('agent drawer', () => {
     await expect(elementsCount(page)).toHaveText('2');
   });
 
+  test('Propose mode: an undone step drops out of the review and the applied change set (#163)', async ({
+    page,
+  }) => {
+    await mockDeepSeek(page, (_body, index) => {
+      if (index === 0) {
+        return toolCalls([
+          'create-nodes',
+          {
+            nodes: [
+              {
+                elementTypeId: 'node:istar.Actor',
+                position: { x: 40, y: 40 },
+                args: { name: 'Auditor' },
+              },
+            ],
+          },
+        ]);
+      }
+      if (index === 1) return toolCalls(['undo', {}]);
+      if (index === 2) {
+        return toolCalls([
+          'create-nodes',
+          {
+            nodes: [
+              {
+                elementTypeId: 'node:istar.Actor',
+                position: { x: 120, y: 40 },
+                args: { name: 'Reviewer' },
+              },
+            ],
+          },
+        ]);
+      }
+      return answer('Done.');
+    });
+
+    await openDrawer(page);
+    await page
+      .getByRole('textbox', { name: 'Task' })
+      .fill('Add Auditor, undo it, then add Reviewer.');
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+    await expect(page.getByText('Review the proposed change set')).toBeVisible();
+    // The undone `create-nodes` is not a step: only Reviewer's is (#163).
+    await expect(page.locator('.pg-lab-agent-step')).toHaveCount(1);
+    await expect(page.locator('.pg-lab-agent-step')).toContainText("create Actor 'Reviewer'");
+    await page.locator('.pg-lab-agent-context > summary').click();
+    await expect(page.locator('.pg-lab-agent-context-item')).toContainText('agent undid');
+
+    await page.getByRole('button', { name: 'Apply as one compound' }).click();
+    await expect(page.getByText('Applied.')).toBeVisible();
+    await expect(elementsCount(page)).toHaveText('1');
+    await expect(canvasPane(page).getByText('Reviewer')).toBeVisible();
+    await expect(canvasPane(page).getByText('Auditor')).not.toBeVisible();
+  });
+
   test('Propose mode: later steps that name a node the proposal created apply with its id', async ({
     page,
   }) => {
