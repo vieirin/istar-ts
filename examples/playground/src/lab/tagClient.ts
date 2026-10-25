@@ -57,7 +57,8 @@ export function tagClient<EK extends string = ElementKind, LK extends string = L
       enabled = next;
     },
     async dispatch<A extends IstarAction<EK, LK>>(action: A, _options?: DispatchOptions) {
-      const startedAt = performance.now();
+      const startedAt = Date.now();
+      const start = performance.now();
       if (!enabled) {
         const result = disabledResult(client);
         log.append({ client, action, result, startedAt, durationMs: 0 });
@@ -66,7 +67,7 @@ export function tagClient<EK extends string = ElementKind, LK extends string = L
       // This client's own tag wins: the point of this wrapper is to mark everything it carries
       // with where it came from.
       const result = await dispatcher.dispatch(action, { origin: client });
-      log.append({ client, action, result, startedAt, durationMs: performance.now() - startedAt });
+      log.append({ client, action, result, startedAt, durationMs: performance.now() - start });
       return result;
     },
     subscribe(listener: ActionListener<EK, LK>) {
