@@ -59,6 +59,15 @@ describe('KAOS', () => {
     expect(keys).toEqual(DSM3_FILE_KEYS.filter((key) => keys.includes(key)));
   });
 
+  it('gives every element and link kind a non-empty description', () => {
+    for (const definition of KAOS.elements.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+    for (const definition of KAOS.links.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+  });
+
   it('reserves its namespace: an extension may not add kaos kinds', () => {
     expect(() =>
       extendMetamodel(KAOS, { name: 'x', elements: [{ kind: 'kaos.Obstacle', category: 'node' }] }),

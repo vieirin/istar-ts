@@ -141,6 +141,7 @@ export function validateFileMetamodel(
       optionalString(entry, 'label', at);
       optionalString(entry, 'behavesLike', at);
       optionalString(entry, 'pistarType', at);
+      optionalString(entry, 'description', at);
       if (kind === 'element') {
         if (
           entry.category !== undefined &&

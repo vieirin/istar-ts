@@ -61,6 +61,42 @@ describe('reading a file’s own metamodel', () => {
     }
   });
 
+  test('a kind’s own description parses, applies and round-trips', () => {
+    const text = JSON.stringify(
+      {
+        actors: [],
+        metamodel: {
+          name: 'x',
+          elements: [
+            {
+              kind: 'x.Belief',
+              category: 'node',
+              description: 'What the actor believes to be true.',
+            },
+          ],
+          links: [
+            {
+              kind: 'x.SupportsLink',
+              rules: { sources: ['x.Belief'], targets: ['node'] },
+              description: 'A belief supporting an intentional element.',
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    );
+    const model = parsePistar(text, { fileMetamodel: true });
+    const metamodel = metamodelOf(model);
+    expect(metamodel.elements.get('x.Belief')?.description).toBe(
+      'What the actor believes to be true.',
+    );
+    expect(metamodel.links.get('x.SupportsLink')?.description).toBe(
+      'A belief supporting an intentional element.',
+    );
+    expect(toPistar(model)).toBe(text);
+  });
+
   test('an empty block round-trips exactly', () => {
     const text = JSON.stringify(
       { actors: [], saveDate: 'Thu, 08 Oct 2026 12:00:00 GMT', metamodel: { name: 'nothing' } },

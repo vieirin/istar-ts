@@ -133,6 +133,43 @@ describe('ISTAR_2_0', () => {
   });
 });
 
+describe('kind descriptions', () => {
+  test('every ISTAR_2_0 element and link kind has a non-empty description', () => {
+    for (const kind of ELEMENT_KINDS) {
+      expect(ISTAR_2_0.elements.get(kind)?.description).toMatch(/\S/);
+    }
+    for (const kind of LINK_KINDS) {
+      expect(ISTAR_2_0.links.get(kind)?.description).toMatch(/\S/);
+    }
+  });
+
+  test('extendMetamodel keeps a declared description and leaves it out otherwise', () => {
+    const m = extendMetamodel(ISTAR_2_0, {
+      name: 'described',
+      elements: [
+        { kind: 'described.Thing', category: 'node', description: 'A thing, for testing.' },
+        { kind: 'described.Other', category: 'node' },
+      ],
+      links: [
+        {
+          kind: 'described.Link',
+          rules: { sources: ['described.Thing'], targets: ['described.Other'] },
+          description: 'Links a Thing to an Other, for testing.',
+        },
+      ],
+    });
+    expect(m.elements.get('described.Thing')?.description).toBe('A thing, for testing.');
+    expect(m.elements.get('described.Other')?.description).toBeUndefined();
+    expect(m.links.get('described.Link')?.description).toBe(
+      'Links a Thing to an Other, for testing.',
+    );
+    // Base kinds keep their own descriptions through the extension.
+    expect(m.elements.get('istar.Goal')?.description).toBe(
+      ISTAR_2_0.elements.get('istar.Goal')?.description,
+    );
+  });
+});
+
 describe('extendMetamodel', () => {
   test('adds kinds after the base ones, resolving behavesLike', () => {
     const m = RATIONAL_AGENTS;
