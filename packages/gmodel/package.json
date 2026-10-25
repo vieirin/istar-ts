@@ -1,0 +1,59 @@
+{
+  "name": "@istar-ts/gmodel",
+  "version": "0.0.0-development",
+  "description": "The GModel (GLSP's notation model) of an istar-ts model, as plain schema JSON: framework-free, depends only on @istar-ts/core and @istar-ts/actions.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "istar",
+    "istar2",
+    "goal-model",
+    "glsp",
+    "gmodel",
+    "pistar"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieirin/istar-ts.git",
+    "directory": "packages/gmodel"
+  },
+  "exports": {
+    ".": {
+      "@istar-ts/source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "prepack": "cp ../../LICENSE . && pnpm build"
+  },
+  "dependencies": {
+    "@istar-ts/actions": "workspace:^",
+    "@istar-ts/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@istar-ts/dsm3-kaos": "workspace:^",
+    "@istar-ts/dsm3-nfr": "workspace:^"
+  }
+}

@@ -225,6 +225,9 @@ importers:
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../core
+      '@istar-ts/gmodel':
+        specifier: workspace:^
+        version: link:../gmodel
       inversify:
         specifier: ^6.2.2
         version: 6.2.2(reflect-metadata@0.2.2)
@@ -253,6 +256,22 @@ importers:
       zod:
         specifier: ^4.0.0
         version: 4.6.7
+
+  packages/gmodel:
+    dependencies:
+      '@istar-ts/actions':
+        specifier: workspace:^
+        version: link:../actions
+      '@istar-ts/core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@istar-ts/dsm3-kaos':
+        specifier: workspace:^
+        version: link:../dsm3-kaos
+      '@istar-ts/dsm3-nfr':
+        specifier: workspace:^
+        version: link:../dsm3-nfr
 
   packages/react:
     dependencies:

@@ -119,6 +119,7 @@
     "@eclipse-glsp/server": "^2.8.0",
     "@istar-ts/actions": "workspace:^",
     "@istar-ts/core": "workspace:^",
+    "@istar-ts/gmodel": "workspace:^",
     "inversify": "^6.2.2",
     "reflect-metadata": "^0.2.2",
     "vscode-jsonrpc": "8.2.0"
