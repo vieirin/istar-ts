@@ -4,6 +4,10 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** fix the GLSP client: actor name labels are now centred on the circle, not offset
+  (#120). The label's top-left corner is positioned at an offset that accounts for the estimated
+  label size, so the label's centre aligns with the circle's centre at (20, 20) in both expanded
+  and collapsed actors.
 - **playground:** fix the agent drawer's Propose mode over backend A: an `undo`/`redo` MCP tool
   call on the scratch session is now mirrored into the recorded change set (#163). A successful
   `undo` moves the last active step onto a redo list (so it drops out of the review and of what

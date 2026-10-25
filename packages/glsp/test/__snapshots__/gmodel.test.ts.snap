@@ -14,8 +14,8 @@ exports[`modelToGModel > a small iStar model 1`] = `
           "cssClasses": [],
           "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b_label",
           "position": {
-            "x": 20,
-            "y": 20,
+            "x": 0,
+            "y": 12,
           },
           "text": "SampleRobot",
           "type": "label",

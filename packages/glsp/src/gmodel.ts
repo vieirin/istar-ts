@@ -169,8 +169,9 @@ export function modelToGModel<EK extends string, LK extends string>(
       .type(typeOf(actor.kind))
       .position(box.x, box.y)
       .size(box.width, box.height)
-      // The name sits in the actor symbol, a circle centred 20px from the boundary's corner.
-      .add(nameLabel(actor.id, actor.name, { x: 20, y: 20 }));
+      // Position the label to centre on the actor's circle (at offset 20,20 with radius 40).
+      // Estimated label dimensions (40×16) are subtracted to align the label's centre, not its top-left.
+      .add(nameLabel(actor.id, actor.name, { x: 0, y: 12 }));
     if (collapsed) {
       builder.addCssClass('collapsed');
       for (const child of inner) collapsedInto.set(child.id, actor.id);

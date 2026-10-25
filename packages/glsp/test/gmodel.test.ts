@@ -160,3 +160,32 @@ describe('modelToGModel', () => {
 function elementsOfKind(model: AnyIstarModel, kind: string): string[] {
   return [...model.elements.values()].filter((e) => e.kind === kind).map((e) => e.id);
 }
+
+describe('actor label centering', () => {
+  test('every actor kind has its label centred at the circle centre within 1px', () => {
+    const f = fixture('goal-controller/dissertationExamples/singleGoal.txt');
+    const model = parseFixture(f);
+    const meta = metamodelOf(model) as AnyMetamodel;
+    const ACTOR_SYMBOL_OFFSET = 20;
+    const circleCentre = { x: ACTOR_SYMBOL_OFFSET, y: ACTOR_SYMBOL_OFFSET };
+
+    const gmodel = modelToGModel(model);
+    for (const actor of model.elements.values()) {
+      if (meta.elements.get(actor.kind)?.category !== 'actor') continue;
+      const node = gmodel.children.find((c) => c.id === actor.id) as GNode;
+      expect(node).toBeDefined();
+      const label = node.children.find((c) => c.id === `${actor.id}_label`);
+      expect(label).toBeDefined();
+      if (!label) continue;
+      const labelPos = (label as any).position as { x: number; y: number };
+      const estimatedLabelWidth = 40;
+      const estimatedLabelHeight = 16;
+      const labelCentre = {
+        x: labelPos.x + estimatedLabelWidth / 2,
+        y: labelPos.y + estimatedLabelHeight / 2,
+      };
+      expect(Math.abs(labelCentre.x - circleCentre.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(labelCentre.y - circleCentre.y)).toBeLessThanOrEqual(1);
+    }
+  });
+});
