@@ -197,6 +197,13 @@ Versions are published from GitHub release tags; see the release notes for full 
   100ms debounced live validation (`ModelSubmissionHandler`); under a loaded machine either could
   land after the window closed. They now wait for the actual `updateModel`, and for each session's
   initial live-validation cycle to clear, before asserting exact message counts.
+- **glsp:** a disposed session no longer logs an unhandled `ActionQueue is stopped` rejection
+  (#116). `ModelSubmissionHandler` debounces live validation by 100ms after every model
+  submission with no public way to cancel it; a session disposed inside that window (test
+  teardown, or a real client closing) still fired the debounced validation into its now-stopped
+  `ActionQueue`. `IstarModelSubmissionHandler` exposes `cancelPendingLiveValidation()`;
+  `IstarStoreListener` calls it on `sessionDisposed`, alongside unsubscribing and disposing the
+  model state.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
