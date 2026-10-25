@@ -10,7 +10,8 @@
  * routing points keep them. An actor is a container: its node's position is its boundary's
  * top-left corner, and its elements are its children, positioned relative to that corner
  * (`child.x - boundary.x`, `child.y - boundary.y`), as GLSP nests bounds. The boundary is core's
- * `actorBounds` (after piStar's `updateBoundary`), shared with the React canvas's `modelToFlow`:
+ * `actorBounds` (after piStar's `updateBoundary`); the React canvas renders this schema itself
+ * (`@istar-ts/react`'s `gmodelToFlow`), so both clients draw the same boundary:
  * the kind's default size at the actor's `x`/`y`, grown to hold every element plus 10px padding.
  *
  * Sizes come from the element's `display` width/height (a resized element) or its kind's default
