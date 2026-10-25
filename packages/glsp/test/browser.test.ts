@@ -13,6 +13,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/browser';
 import type { IstarAction } from '@istar-ts/actions';
+import { createMirrorStore } from '@istar-ts/actions';
 import { ISTAR_GLSP, createIstarSharedModel } from '../src';
 import type { GlspPortLike } from '../src/browser';
 import { serveIstarGlsp, startIstarGlspWorker } from '../src/browser';
@@ -120,10 +121,14 @@ describe('startIstarGlspWorker', () => {
     // An edit through the dispatcher port reaches the GLSP client…
     const heard: string[] = [];
     remote.subscribe((action) => heard.push(action.kind));
+    const mirror = createMirrorStore(remote, { metamodel: ISTAR_GLSP.metamodel });
+    await mirror.ready;
     const created = await remote.dispatch(createGoal(640));
     expect(created.ok).toBe(true);
     const id = created.ok ? created.createdIds?.[0] : undefined;
     expect(shared.store.getModel().elements.has(id!)).toBe(true);
+    // …and a mirror in the page shows it once the dispatch resolves (the worker pushes models)…
+    expect(mirror.getModel().elements.has(id!)).toBe(true);
     const { action } = await next(received, 'updateModel');
     expect(JSON.stringify(action)).toContain(id);
     // …and the port hears the change, as a remote canvas would.

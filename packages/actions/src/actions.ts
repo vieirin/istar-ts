@@ -320,6 +320,12 @@ export interface ModelSourceChangedAction extends Action {
   readonly source: 'edit' | 'undo' | 'redo' | 'load';
   /** What an edit did; empty for undo, redo and load. */
   readonly changes: readonly ModelChange[];
+  /**
+   * The new model as a piStar save file (`toPistarObject`), when the dispatcher was created with
+   * `sendModel`: what a mirror (`createMirrorStore`) follows without asking for it. An iStar
+   * extra.
+   */
+  readonly newRoot?: PistarFile;
 }
 
 /** Saves the model through the host's `save` callback. */

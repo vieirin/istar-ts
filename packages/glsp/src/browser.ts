@@ -398,7 +398,8 @@ export interface IstarGlspWorker {
  * Runs the GLSP server in this Web Worker, for the page's client on the worker itself (as
  * `GLSPWebWorkerProvider` connects). The model lives here, in one store every session shares;
  * a page also edits it through `connectWorkerDispatcher` (`@istar-ts/glsp/page`), whose ports
- * this serves with `connectDispatcher`. Call it first thing in the worker: messages that arrive
+ * this serves with `connectDispatcher` (each change's notification carries the model, for a
+ * `createMirrorStore` in the page). Call it first thing in the worker: messages that arrive
  * while the model loads are kept until the server listens.
  */
 export async function startIstarGlspWorker(
@@ -420,6 +421,9 @@ export async function startIstarGlspWorker(
     createIstarSharedModel(contribution, {
       model: options.model ?? (options.url ? await (await fetch(options.url)).text() : undefined),
       sourceModelName: sourceUri,
+      // The page's dispatcher ports are there to mirror the model (`createMirrorStore`): push it
+      // with every change rather than have each mirror ask for it.
+      sendModel: true,
       save: async (file, action) => {
         await files.write(action.fileUri ?? sourceUri, JSON.stringify(file, null, 2));
       },

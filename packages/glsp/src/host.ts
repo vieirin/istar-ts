@@ -84,6 +84,8 @@ export interface IstarSharedModelOptions {
   readonly save?: (file: PistarFile, action: SaveModelAction) => void | Promise<void>;
   /** `sourceModelChanged`'s `sourceModelName`, e.g. the file name. */
   readonly sourceModelName?: string;
+  /** The dispatcher's `sendModel`: every `sourceModelChanged` carries the new model. */
+  readonly sendModel?: boolean;
 }
 
 /**
@@ -111,6 +113,7 @@ export function createIstarSharedModel(
     ...(contribution.schemas ? { schemas: contribution.schemas } : {}),
     ...(options.save ? { save: options.save } : {}),
     ...(options.sourceModelName === undefined ? {} : { sourceModelName: options.sourceModelName }),
+    ...(options.sendModel ? { sendModel: true } : {}),
   });
   return { store, dispatcher };
 }
