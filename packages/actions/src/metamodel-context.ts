@@ -11,7 +11,7 @@
 import { effectiveLinkKind } from '@istar-ts/core';
 import type { AnyIstarModel, AnyMetamodel, PropertySchema, PropertyShape } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
-import { isHub, ofCategory, union } from './hints';
+import { isHub, ofCategory, union } from './kind-selectors';
 import type { HostContextProvider } from './host';
 
 export interface MetamodelPropertyContext {
