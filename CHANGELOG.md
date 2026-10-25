@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.5
+## 0.15.0-beta.6
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -538,6 +538,13 @@ Added e2e test: palette refresh without remounting the client.
   answer, which described changes that were dropped. Calls on one session run one at a time.
 - **actions:** `injectCreatedIds(operation, createdIds, model)`, moved from the playground: an
   accepted operation with the ids it created pinned as explicit ids.
+- **glsp:** on the Node launcher's shared-model sessions, an MCP tool call made before the GLSP
+  client's own `requestModel` now still acts on the model (#225) — the GModel root is built as
+  soon as the session is created, since a shared model is already there, instead of only once a
+  client asks for it. On a file-backed (non-shared) session, where there is no model at all
+  before `requestModel` loads one, a diagram tool call now answers a typed error
+  (`{ code: 'no-model' }`) instead. Previously `create-nodes` (and every other tool) reported
+  success while creating nothing, on both kinds of session.
 - **gmodel/react:** a frameless actor (registry `boundary: false`) now renders at its own x/y
   instead of its GModel boundary box's corner, when an inner element sits above or left of it
   (#194).
@@ -554,6 +561,10 @@ Added e2e test: palette refresh without remounting the client.
   the dispatcher sends them: a `createActionDispatcher` with `sendModel: true` now includes
   `canUndo` and `canRedo` fields in each `sourceModelChanged` notification, and a mirror reads
   them instead of counting notifications (#178).
+- **actions:** fixed a flaky `createMirrorStore` test (`two remote clients interleaving edits`):
+  it compared `toPistar` snapshots taken at different real times, which stamp a fresh `saveDate`
+  on a model with none of its own, so a wall-clock second crossed between two snapshots of the
+  same content could make an otherwise-passing comparison fail (#228).
 - **playground:** the start page's cards and the pages' back links are relative, so they work from the GitHub Pages subpath (https://vieirin.github.io/istar-ts/) instead of 404ing.
 - **gmodel:** new package `@istar-ts/gmodel`, a GLSP-free GModel builder (#164, G1 of #143).
   `modelToGModelSchema(model, { types, sizes })` returns plain GModel schema JSON (GLSP's wire
