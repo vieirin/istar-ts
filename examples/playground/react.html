@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The agent drawer (#126 D4, #131) calls DeepSeek's chat API directly from the browser
+         with a pasted key (BYOK); this is the only external host the page may ever connect to. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="connect-src 'self' https://api.deepseek.com"
+    />
     <title>istar-ts playground — React</title>
   </head>
   <body>

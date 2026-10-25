@@ -23,6 +23,11 @@ export default defineConfig({
       },
     },
   },
+  // Every `new Worker(url, { type: 'module' })` in this app (glsp/worker.ts, remote-worker.ts) is
+  // an ES module worker; the agent drawer's lazy chunk (#131) makes Rollup share a common chunk
+  // with one of them, which needs `worker.format: 'es'` too (the default `'iife'` rejects
+  // code-split output).
+  worker: { format: 'es' },
   resolve: {
     alias: [
       {
@@ -36,6 +41,10 @@ export default defineConfig({
       {
         find: '@istar-ts/actions',
         replacement: path.resolve(rootDir, '../../packages/actions/src/index.ts'),
+      },
+      {
+        find: '@istar-ts/agent',
+        replacement: path.resolve(rootDir, '../../packages/agent/src/index.ts'),
       },
       // The dialects' React-free entry points (as `@istar-ts/glsp/kaos` and `/nfr` import them):
       // matched before the plain `@istar-ts/dsm3-{kaos,nfr}` aliases below, since Vite's alias

@@ -70,3 +70,58 @@ body,
 .pg-both-log {
   padding: 0.5rem;
 }
+
+/* The agent drawer and the change-set review it reuses from the protocol lab
+   (`../lab/ChangeSetPanel.tsx`): minimal styling, `App.css`'s own copy for `/react.html`. */
+.pg-agent-panel,
+.pg-agent-drawer,
+.pg-agent-field,
+.pg-agent-approval,
+.pg-lab-agent,
+.pg-lab-agent-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pg-agent-log {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--pg-start-panel-border);
+  border-radius: 4px;
+  padding: 0.35rem;
+}
+
+.pg-agent-log p {
+  margin: 0;
+}
+
+.pg-agent-log-assistant {
+  white-space: pre-wrap;
+}
+
+.pg-lab-agent-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.pg-lab-agent-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.pg-lab-hint {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--pg-start-muted);
+}
+
+.pg-lab-accept {
+  color: #16a34a;
+}
+
+.pg-lab-reject {
+  color: #dc2626;
+}

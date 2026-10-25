@@ -1,4 +1,4 @@
-import type { ActionDispatcher } from '@istar-ts/actions';
+import type { ActionDispatcher, StoreActionDispatcher } from '@istar-ts/actions';
 import { connectDispatcher } from '@istar-ts/actions';
 import type { AnyIstarModel, AnyMetamodel, ModelStore, PropertySchema } from '@istar-ts/core';
 import {
@@ -36,6 +36,7 @@ import { createLogStore } from './lab/log';
 import { createSwitchableGuardDispatcher } from './lab/switchableGuardDispatcher';
 import type { SwitchableGuardDispatcher } from './lab/switchableGuardDispatcher';
 import { tagClient } from './lab/tagClient';
+import type { TaggedDispatcher } from './lab/tagClient';
 import { Sidebar } from './Sidebar';
 
 /** The protocol lab's guards switch (#47): one demo guard, described for its tab's label. */
@@ -182,8 +183,15 @@ export default function App(): ReactElement {
   );
   // The pseudo-agent change set (#47) gets its own client tag: #42's lesson is that every
   // kind of sender shows up on its own row in the log, not lumped in with the script console.
-  const [agentDispatcher] = useState(() =>
-    tagClient(dispatcher as unknown as ActionDispatcher, 'Agent', log),
+  // Reshaped to `StoreActionDispatcher` (`isDirty`/`dispose` pass through, as `/both.html`'s
+  // `glspDispatcher` is): the agent drawer's headless `serveIstarGlsp` (#126 D4, #131 item 7)
+  // shares it as `IstarSharedModel`'s dispatcher, which requires the full shape.
+  const [agentDispatcher] = useState<TaggedDispatcher & StoreActionDispatcher<string, string>>(
+    () =>
+      Object.assign(tagClient(dispatcher as unknown as ActionDispatcher, 'Agent', log), {
+        isDirty: () => guardDispatcher.isDirty(),
+        dispose: () => guardDispatcher.dispose(),
+      }) as TaggedDispatcher & StoreActionDispatcher<string, string>,
   );
   const labDispatchers = useMemo(
     () => [
@@ -479,6 +487,9 @@ export default function App(): ReactElement {
               guards={guardsEnabled ? [DEMO_GUARD] : []}
               agentDispatcher={agentDispatcher}
               store={store}
+              agentFramework={
+                extensionId === 'kaos' || extensionId === 'nfr' ? extensionId : 'none'
+              }
             />
           }
         />
