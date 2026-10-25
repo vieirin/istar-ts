@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.8
+## 0.15.0-beta.9
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -472,6 +472,13 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
   `@istar-ts/glsp` and `@modelcontextprotocol/sdk` are this subpath's own optional peer
   dependencies, so the package root stays GLSP-free (#232).
 - **playground:** the agent drawer switches to `@istar-ts/agent/glsp`, removing its private copy.
+- **agent:** `@istar-ts/agent/glsp`'s `GlspMcpBackendOptions` gets `postGuards`, `hostTools` and
+  `context`: `postGuards` reaches the scratch dispatcher `openScratch` builds, so a host's
+  `ActionPostGuard`s (#203) refuse at preview time, on the scratch session, instead of only at
+  `apply`; `hostTools`/`context` (#175) are forwarded as `mcp: { hostTools, context }` to both the
+  scratch and the live GLSP MCP server, so a host's own tools and context providers are served
+  next to the istar ones on either session, and a host can use `openGlspMcpSession` as its only
+  MCP server. All three are optional and read fresh per run, like `guards`/`schemas` (#239).
 - **actions:** `HostContextProvider` and `HostTool`, a host's context (static text, or a function
   of the model) and tools (name, JSON Schema, handler, `readOnly`) for the agent: opaque data
   plus a handler, the same values for every backend. A read-only tool's dispatcher takes requests
@@ -491,6 +498,22 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
 - **core:** `suggestPosition(model, { kind, containerId?, near? })` returns a free spot for a new
   element, overlapping no existing one and staying inside a container's boundary when given
   (#204).
+- **actions:** `metamodelContext`/`metamodelContextText`/`metamodelContextProvider`, a built-in,
+  dialect-agnostic `HostContextProvider` describing a model's own metamodel (element and link
+  kinds, containment, link rules and value sets, property schemas), rendered as compact,
+  deterministic markdown (#240).
+- **glsp:** every MCP launcher (Node, in-page, worker) carries the built-in metamodel context
+  provider by default, before a host's own `context`; opt out with `metamodelContext: false`
+  (#240).
+- **agent:** `runAgent`'s system prompt (`systemPromptWith`) and `@istar-ts/agent/glsp`'s
+  `openGlspMcpSession`/`createGlspChangeSet` include the built-in metamodel context provider by
+  default too, same opt-out (#240).
+- **playground:** drops its own "kinds summary" host context provider, now covered by the
+  built-in one (#240).
+- **core, dsm3-kaos, dsm3-nfr:** element and link kind definitions carry an optional
+  `description?: string`, kept through `extendMetamodel` and a file's own `"metamodel"` block.
+  Every kind of iStar 2.0, KAOS (including obstacle analysis) and the NFR Framework has a cited
+  base description (#241).
 - **react:** `<IstarCanvas>` renders from the GModel (#165, G2 of #143): its React Flow nodes and
   edges come from `@istar-ts/gmodel`'s `modelToGModelSchema`, the graph the GLSP server sends,
   through the new `gmodelToFlow(schema, metamodel, registry)`, instead of `modelToFlow`'s own walk
