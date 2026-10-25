@@ -4,6 +4,11 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **docs:** `docs/agent/verification.md` (#127, epic #126 D0) — a research pass, no code,
+  verifying DeepSeek's current models/tool-call/streaming/usage behaviour, a non-localhost CORS
+  preflight, how a page client reaches `@eclipse-glsp/server-mcp` 2.8.0's browser bridge, that
+  every server-mcp tool dispatches through GLSP operations, and that `create-edges`' `args` can
+  already carry dependency/n-ary edge shapes. Flags two follow-ups for #126 itself.
 - **react (tests):** the rejected-create rollback tests no longer flake (#94). The rollback was
   already correct; the tests read the editor through a passive effect, which can run a task after
   the commit that shows the notice. They now read it in a layout effect and check the commit itself,
