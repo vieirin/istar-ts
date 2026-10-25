@@ -32,9 +32,18 @@ import {
 } from '@istar-ts/core';
 import type { IstarExtension } from '@istar-ts/react';
 import type { IstarSurface } from '@istar-ts/react';
-import { IstarCanvas, metamodelWithExtensions, useIstarStore } from '@istar-ts/react';
+import {
+  IstarCanvas,
+  applyExtensions,
+  defaultRegistry,
+  metamodelWithExtensions,
+  paletteDescriptionFor,
+  registryForMetamodel,
+  useIstarStore,
+} from '@istar-ts/react';
+import type { AnyIstarRegistry } from '@istar-ts/react';
 import type { ChangeEvent, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { goalControllerExtension, goalControllerSchemas } from './extensions/goal-controller';
 import { demoDiagnosticsFor, mutroseExtension, mutroseSchemas } from './extensions/mutrose';
 import { rationalAgentsExtension } from './extensions/rationalAgents';
@@ -94,6 +103,24 @@ function extensionSet(
     metamodel: metamodelWithExtensions(extensions, root),
     ...(palette ? { palette } : {}),
   };
+}
+
+/**
+ * What `active`'s own dispatcher (`guardDispatcher` below) answers `requestContextActions`
+ * with: `active.palette` when it has one (KAOS, NFR), else a description derived from the same
+ * registry `<IstarCanvas>`'s own provider would build for `active.extensions` — the registry
+ * `paletteDescriptionFor` needs (#202; `IstarCanvas` can't derive this on its own here, since a
+ * `dispatcher` prop is given).
+ */
+function paletteFor(active: ExtensionSet): AnyPaletteDescription {
+  if (active.palette) return active.palette;
+  const metamodel = active.metamodel;
+  const base: AnyIstarRegistry =
+    metamodel.framework !== 'istar-2.0' || metamodel.extensions.length > 0
+      ? (registryForMetamodel(metamodel, defaultRegistry) as unknown as AnyIstarRegistry)
+      : (defaultRegistry as unknown as AnyIstarRegistry);
+  const registry = active.extensions.length ? applyExtensions(base, active.extensions) : base;
+  return paletteDescriptionFor(registry, active.extensions);
 }
 
 const EXTENSIONS: Record<string, ExtensionSet> = {
@@ -164,10 +191,25 @@ function unknownKinds(model: AnyIstarModel, metamodel: AnyMetamodel): string[] {
 export default function App(): ReactElement {
   const topChromeRef = useRef<HTMLDivElement>(null);
   const { store, model } = useIstarStore<string, string>(() => createEmptyModel());
+  const [extensionId, setExtensionIdState] = useState(
+    () => extensionForPath(initialFixturePath) ?? 'none',
+  );
+  const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
+  // `guardDispatcher`'s palette option (below) reads this ref, so it always answers with
+  // `active`'s current palette without the dispatcher (created once) being recreated.
+  const activeRef = useRef(active);
+  useLayoutEffect(() => {
+    activeRef.current = active;
+  });
   // The protocol lab's guards switch (#47): recreates the dispatcher with the demo guard on or
-  // off, over the same `store` — so the model and the undo history survive the switch.
+  // off, over the same `store` — so the model and the undo history survive the switch. The
+  // `palette` option below only wraps `activeRef` in a closure, stored, not called, here; it
+  // reads `.current` later, per `requestContextActions`, never during this (one-time) render.
+  // oxlint-disable-next-line react/refs
   const [guardDispatcher] = useState<SwitchableGuardDispatcher>(() =>
-    createSwitchableGuardDispatcher(store as unknown as ModelStore, DEMO_GUARD),
+    createSwitchableGuardDispatcher(store as unknown as ModelStore, DEMO_GUARD, {
+      palette: () => paletteFor(activeRef.current),
+    }),
   );
   const dispatcher: ActionDispatcher<string, string> =
     guardDispatcher as unknown as ActionDispatcher<string, string>;
@@ -224,13 +266,9 @@ export default function App(): ReactElement {
   const [remoteDemoRunning, setRemoteDemoRunning] = useState(false);
   const [selectedPath, setSelectedPath] = useState(initialFixturePath);
   const [parseError, setParseError] = useState<string | null>(null);
-  const [extensionId, setExtensionIdState] = useState(
-    () => extensionForPath(initialFixturePath) ?? 'none',
-  );
   const [bar, setBar] = useState<'left' | 'top' | 'bottom'>('left');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [links, setLinks] = useState<'straight' | 'curved'>('straight');
-  const active = EXTENSIONS[extensionId] ?? EXTENSIONS.none!;
 
   /**
    * Switching extensions keeps the current model, under the new metamodel, unless it uses

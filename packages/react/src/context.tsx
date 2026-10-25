@@ -8,6 +8,7 @@ import { createActionDispatcher } from '@istar-ts/actions';
 import type {
   ActorKind,
   AnyMetamodel,
+  AnyPaletteDescription,
   ConstraintCode,
   DependencyLinkKind,
   DiagnosticsStore,
@@ -41,7 +42,13 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
+import type {
+  AnyIstarRegistry,
+  ElementActions,
+  IstarExtension,
+  IstarRegistry,
+  LinkActions,
+} from './registry';
 import {
   applyExtensions,
   defaultRegistry,
@@ -289,6 +296,21 @@ export interface IstarProviderProps<EK extends string = ElementKind, LK extends 
   readonly children?: ReactNode;
 }
 
+/**
+ * `createActionDispatcher`'s `palette` option, reading `registry`/`extensions` off refs kept
+ * current by a layout effect, so it always answers with the latest ones without the dispatcher
+ * (created once, in `useState`) being recreated — e.g. after a dynamically swapped `extensions`
+ * prop.
+ */
+function ownPaletteOption(
+  registryRef: { readonly current: AnyIstarRegistry },
+  extensionsRef: {
+    readonly current: readonly { readonly palette?: AnyPaletteDescription }[] | undefined;
+  },
+): () => AnyPaletteDescription {
+  return () => paletteDescriptionFor(registryRef.current, extensionsRef.current ?? []);
+}
+
 /** A `setProperties` patch (`undefined` removes) as `istar.updateProperties`' (`null` removes). */
 function patchToProperties(
   patch: Readonly<Record<string, string | undefined>>,
@@ -322,14 +344,19 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
         : baseRegistry;
     return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
   }, [metamodel, baseRegistry, props.extensions]);
-  // The palette is fixed at creation time, from the registry and extensions this provider
-  // mounted with (like the rest of this dispatcher's options); it does not track later changes
-  // (e.g. a dynamically swapped `extensions` prop), the same limitation `createActionDispatcher`'s
-  // other options already have.
+  const registryRef = useRef(registry);
+  useLayoutEffect(() => {
+    registryRef.current = registry;
+  });
+  const extensionsRef = useRef(props.extensions);
+  useLayoutEffect(() => {
+    extensionsRef.current = props.extensions;
+  });
+  // `ownPaletteOption` only wraps the refs in a closure stored as `palette`; it reads `.current`
+  // later, per `requestContextActions`, never during this (one-time, `useState`) render.
+  // oxlint-disable-next-line react/refs
   const [ownDispatcher] = useState(() =>
-    createActionDispatcher(store, {
-      palette: paletteDescriptionFor(registry, props.extensions ?? []),
-    }),
+    createActionDispatcher(store, { palette: ownPaletteOption(registryRef, extensionsRef) }),
   );
   useEffect(() => () => ownDispatcher.dispose(), [ownDispatcher]);
   const dispatcher = props.dispatcher ?? ownDispatcher;
@@ -418,9 +445,12 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
   const [contextActions, setContextActions] = useState<readonly LabeledAction[] | null>(null);
   const requestSeq = useRef(0);
 
-  // Type hints and the palette are pure functions of the metamodel (never the model's content),
-  // so one fetch per dispatcher/metamodel pair is enough; re-fetched only if either changes
-  // (a new dispatcher, or a metamodel swapped in on the same store).
+  // Type hints and the palette are pure functions of the metamodel and the registry (never the
+  // model's content), so one fetch per (dispatcher, metamodel, registry) is enough; re-fetched
+  // if any changes — a new dispatcher, a metamodel swapped in on the same store, or `registry`
+  // (which itself changes with `extensions`, see the `useMemo` above) — so a host dispatcher
+  // whose reply tracks the registry/extensions (e.g. `() => paletteDescriptionFor(...)`) is
+  // re-asked too, not just this provider's own dispatcher.
   useEffect(() => {
     let current = true;
     void dispatcher
@@ -431,7 +461,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
     return () => {
       current = false;
     };
-  }, [dispatcher, metamodel]);
+  }, [dispatcher, metamodel, registry]);
 
   useEffect(() => {
     let current = true;
@@ -448,7 +478,7 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
     return () => {
       current = false;
     };
-  }, [dispatcher, metamodel]);
+  }, [dispatcher, metamodel, registry]);
 
   // A ref, not state: it's a cache (mutating it should never schedule a render). Replaced (in an
   // effect, never during render) on every model change, so a stale answer (e.g. an element that
