@@ -1,4 +1,5 @@
-import type { AnyMetamodel } from '@istar-ts/core';
+import type { AnyIstarModel, AnyMetamodel } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import { typeHintsFor } from '@istar-ts/actions';
 import { GEdge, GNode, ServerLayoutKind, getDefaultMapping } from '@eclipse-glsp/server';
 import type {
@@ -62,6 +63,16 @@ export function gmodelTypeHints(
  * The diagram configuration of the session's contribution. Layout is stored in the model and
  * sizes come from it (`ServerLayoutKind.NONE`, `needsClientLayout: false`), so a change is sent
  * as one `updateModel`, without a `requestBounds` round trip (framework-notes §2).
+ *
+ * Built once, from the contribution's own metamodel: GLSP constructs it before any file is
+ * loaded, in the diagram module's own tier (framework-notes §1), so it must not depend on the
+ * session's `ModelState` — a file's own `"metamodel"` block (#97) is covered instead by
+ * `liveTypeHints` (`IstarRequestTypeHintsActionHandler`, `updates.ts`), which reads the loaded
+ * model's metamodel directly wherever it is actually needed, session by session. `typeMapping`
+ * stays fixed at the contribution's own kinds for the same reason — GLSP's `GModelSerializer`
+ * walks a type string up to its `node:`/`edge:` prefix when an exact entry is missing
+ * (`getConfiguredConstructor`), so a file-declared kind resolves through that fallback without
+ * needing its own entry.
  */
 @injectable()
 export class IstarDiagramConfiguration implements DiagramConfiguration {
@@ -83,4 +94,19 @@ export class IstarDiagramConfiguration implements DiagramConfiguration {
     for (const kind of metamodel.elements.keys()) this.typeMapping.set(types.of(kind)!, GNode);
     for (const kind of metamodel.links.keys()) this.typeMapping.set(types.of(kind)!, GEdge);
   }
+}
+
+/**
+ * `gmodelTypeHints`, of a loaded model's own metamodel rather than a contribution's fixed one:
+ * what `IstarRequestTypeHintsActionHandler` answers `requestTypeHints` with, and what
+ * `IstarStoreChangedHandler` resends as `setTypeHints` once a load (anyone's) extends the
+ * metamodel with a file's own kinds (#97).
+ */
+export function liveTypeHints(
+  contribution: IstarGlspContribution,
+  model: AnyIstarModel,
+): { shapeTypeHints: ShapeTypeHint[]; edgeTypeHints: EdgeTypeHint[] } {
+  const metamodel = metamodelOf(model) as unknown as AnyMetamodel;
+  const types = gmodelTypes(metamodel, contribution.types);
+  return gmodelTypeHints(metamodel, types);
 }

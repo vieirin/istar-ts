@@ -86,4 +86,39 @@ test.describe('GLSP client', () => {
       Math.abs(luminance(rgbChannels(labelFill)) - luminance(rgbChannels(pageBg))),
     ).toBeGreaterThan(64);
   });
+
+  // #97: a kind only the fixture's own `"metamodel"` block declares (`ra4.Plan`, in
+  // `fixtures/extensions/fileMetamodel.txt`) must be offered in the palette and creatable.
+  test('a file-declared kind appears in the palette and can be created', async ({ page }) => {
+    await page.goto('/glsp.html');
+    await page.locator('#pg-glsp-fixture').selectOption({ label: 'iStar 2.0 — file metamodel' });
+
+    const diagram = page.locator('.pg-glsp-diagram svg');
+    await expect(diagram).toBeVisible();
+    const plans = page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:ra4.Plan"]');
+    // The fixture's own two `ra4.Plan` elements (the dependum and "Delivery plan"), not a
+    // premature read before the GModel finishes rendering (#97's fixture takes a moment longer
+    // to settle than the other fixtures, under CI load).
+    await expect(plans).toHaveCount(2);
+    const before = await plans.count();
+
+    await page.getByText('Plan', { exact: true }).first().click();
+    // Just above and left of the "Nurse" role's one child ("Sample collected"): inside the role's
+    // boundary, clear of that child and of the tool palette (which sits over the canvas's right
+    // edge, overlapping the role's own bounding box here).
+    const goalBox = await page
+      .locator(
+        '.pg-glsp-diagram [data-svg-metadata-type="node:istar.Role"] [data-svg-metadata-type="node:istar.Goal"]',
+      )
+      .boundingBox();
+    const diagramBox = await diagram.boundingBox();
+    if (!goalBox || !diagramBox) throw new Error('goal or diagram has no layout box');
+    await diagram.click({
+      position: {
+        x: goalBox.x - diagramBox.x + 10,
+        y: goalBox.y - diagramBox.y - 20,
+      },
+    });
+    await expect(plans).toHaveCount(before + 1);
+  });
 });

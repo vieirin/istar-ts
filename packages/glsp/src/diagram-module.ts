@@ -1,4 +1,8 @@
-import { DiagramModule, RequestCheckEdgeActionHandler } from '@eclipse-glsp/server';
+import {
+  DiagramModule,
+  RequestCheckEdgeActionHandler,
+  RequestTypeHintsActionHandler,
+} from '@eclipse-glsp/server';
 import type {
   ActionHandlerConstructor,
   BindingTarget,
@@ -14,6 +18,7 @@ import type {
   ModelValidator,
   MultiBinding,
   OperationHandlerConstructor,
+  OperationHandlerRegistry,
   ServerModule,
   SourceModelStorage,
   ToolPaletteItemProvider,
@@ -24,12 +29,18 @@ import { IstarContributionModule } from './contribution';
 import { IstarDiagramConfiguration } from './diagram-configuration';
 import { IstarGModelFactory } from './gmodel-factory';
 import { IstarModelState } from './model-state';
-import { ISTAR_OPERATION_HANDLERS, IstarCommandStack, IstarOperationRunner } from './operations';
+import {
+  ISTAR_OPERATION_HANDLERS,
+  IstarCommandStack,
+  IstarOperationHandlerRegistry,
+  IstarOperationRunner,
+} from './operations';
 import { IstarSourceModelStorage } from './storage';
 import {
   IstarLabelEditValidator,
   IstarModelValidator,
   IstarRequestCheckEdgeActionHandler,
+  IstarRequestTypeHintsActionHandler,
   IstarToolPaletteItemProvider,
 } from './tools';
 import {
@@ -98,6 +109,7 @@ export class IstarDiagramModule extends DiagramModule {
   ): void {
     super.configureActionHandlers(binding);
     binding.rebind(RequestCheckEdgeActionHandler, IstarRequestCheckEdgeActionHandler);
+    binding.rebind(RequestTypeHintsActionHandler, IstarRequestTypeHintsActionHandler);
     binding.add(IstarStoreChangedHandler);
   }
 
@@ -106,6 +118,12 @@ export class IstarDiagramModule extends DiagramModule {
     binding: InstanceMultiBinding<OperationHandlerConstructor>,
   ): void {
     binding.addAll(...ISTAR_OPERATION_HANDLERS);
+  }
+
+  /** Routes `createNode`/`createEdge` by operation kind only, so a type a file's own metamodel
+   * block adds reaches the handler too (#97, `operations.ts`). */
+  protected override bindOperationHandlerRegistry(): BindingTarget<OperationHandlerRegistry> {
+    return IstarOperationHandlerRegistry;
   }
 
   protected override bindCommandStack(): BindingTarget<CommandStack> {

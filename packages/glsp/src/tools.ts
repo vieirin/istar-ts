@@ -12,6 +12,8 @@ import {
   GModelRoot,
   ModelState,
   RequestCheckEdgeAction,
+  RequestTypeHintsAction,
+  SetTypeHintsAction,
   ToolPaletteItemProvider,
   TriggerEdgeCreationAction,
   TriggerNodeCreationAction,
@@ -28,7 +30,8 @@ import type {
   PaletteItem,
 } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
-import { IstarGlspContribution, paletteOf } from './contribution';
+import { IstarGlspContribution, effectivePaletteFor } from './contribution';
+import { liveTypeHints } from './diagram-configuration';
 import type { IstarModelState } from './model-state';
 import { GLSP_ARGS, modelIdOf } from './translate';
 import { gmodelTypes } from './types';
@@ -38,20 +41,32 @@ import { gmodelTypes } from './types';
  * in its order, under one group per palette `section` ("Actors", "Elements"; entries without a
  * section go under "Nodes" or "Edges", as GLSP's default palette groups them). Each entry
  * triggers its GModel type, with the entry's presets as GLSP's flat args (`GLSP_ARGS`).
+ *
+ * Built from the session's loaded model's metamodel, not the contribution's own: a file's own
+ * `"metamodel"` block (#97) adds kinds the contribution's `PaletteDescription` never declared,
+ * which `effectivePaletteFor` falls back to deriving from the metamodel itself.
  */
 @injectable()
 export class IstarToolPaletteItemProvider extends ToolPaletteItemProvider {
   protected readonly contribution: IstarGlspContribution;
+  protected readonly state: IstarModelState;
 
-  constructor(@inject(IstarGlspContribution) contribution: IstarGlspContribution) {
+  constructor(
+    @inject(IstarGlspContribution) contribution: IstarGlspContribution,
+    @inject(ModelState) state: IstarModelState,
+  ) {
     super();
     this.contribution = contribution;
+    this.state = state;
   }
 
   getItems(_args?: Args): PaletteItem[] {
-    const { metamodel } = this.contribution;
+    const metamodel = metamodelOf(this.state.model) as unknown as AnyMetamodel;
     const types = gmodelTypes(metamodel, this.contribution.types);
-    const { actions } = contextActionsFor(paletteOf(this.contribution), metamodel);
+    const { actions } = contextActionsFor(
+      effectivePaletteFor(this.contribution, metamodel),
+      metamodel,
+    );
     const groups = new Map<string, PaletteItem[]>();
     actions.forEach((entry, i) => {
       const [trigger] = entry.actions;
@@ -101,6 +116,31 @@ export class IstarToolPaletteItemProvider extends ToolPaletteItemProvider {
 /** Kind → GModel type, and back, of the session's model (the contribution's, plus the file's). */
 function typesOf(state: IstarModelState) {
   return gmodelTypes(metamodelOf(state.model) as unknown as AnyMetamodel, state.contribution.types);
+}
+
+/**
+ * `requestTypeHints` answered from the session's loaded model's metamodel, not the contribution's
+ * fixed one: replaces GLSP's own handler (`RequestTypeHintsActionHandler`), which reads
+ * `DiagramConfiguration`'s hints — computed once, before any file is loaded, and so blind to a
+ * file's own `"metamodel"` block (#97). `IstarStoreChangedHandler` resends the same hints
+ * (`setTypeHints`) when another client's load changes the metamodel mid-session.
+ */
+@injectable()
+export class IstarRequestTypeHintsActionHandler implements ActionHandler {
+  readonly actionKinds: string[] = [RequestTypeHintsAction.KIND];
+  protected readonly state: IstarModelState;
+
+  constructor(@inject(ModelState) state: IstarModelState) {
+    this.state = state;
+  }
+
+  execute(_action: Action): Action[] {
+    const { shapeTypeHints, edgeTypeHints } = liveTypeHints(
+      this.state.contribution,
+      this.state.model,
+    );
+    return [SetTypeHintsAction.create({ shapeHints: shapeTypeHints, edgeHints: edgeTypeHints })];
+  }
 }
 
 /**

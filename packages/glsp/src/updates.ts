@@ -8,6 +8,8 @@
  * Also here: the quiet forwarder, so actions GLSP sends to a client that never asked for them
  * are dropped instead of failing.
  */
+import type { AnyMetamodel } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import {
   ActionDispatcher,
   CenterAction,
@@ -55,6 +57,7 @@ import type {
   ClientSessionListener,
 } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
+import { liveTypeHints } from './diagram-configuration';
 import type { IstarModelState } from './model-state';
 
 /**
@@ -99,6 +102,10 @@ export class IstarStoreListener implements ClientSessionInitializer {
   protected readonly clientId: string;
   protected readonly submission: IstarModelSubmissionHandler;
   private pending: 'model' | 'dirty' | undefined;
+  /** Whether the pending `'model'` update also needs a fresh `setTypeHints` (the metamodel
+   * changed since the last one was sent — #97, a load extended it with a file's own kinds). */
+  private pendingHints = false;
+  private lastMetamodel: AnyMetamodel;
 
   constructor(
     @inject(ModelState) state: IstarModelState,
@@ -114,12 +121,20 @@ export class IstarStoreListener implements ClientSessionInitializer {
     this.sessions = sessions;
     this.clientId = clientId;
     this.submission = submission;
+    this.lastMetamodel = metamodelOf(state.model) as unknown as AnyMetamodel;
   }
 
   initialize(): void {
     const unsubscribe = this.state.dispatcher.subscribe((action) => {
       if (this.state.isOwnChange) return;
-      if (action.kind === 'sourceModelChanged') this.schedule('model');
+      if (action.kind === 'sourceModelChanged') {
+        const metamodel = metamodelOf(this.state.model) as unknown as AnyMetamodel;
+        if (metamodel !== this.lastMetamodel) {
+          this.lastMetamodel = metamodel;
+          this.pendingHints = true;
+        }
+        this.schedule('model');
+      }
       // A save made through GLSP is reported by GLSP's own save handler.
       else if (
         action.kind === 'setDirtyState' &&
@@ -144,6 +159,13 @@ export class IstarStoreListener implements ClientSessionInitializer {
   take(): 'model' | 'dirty' | undefined {
     const pending = this.pending;
     this.pending = undefined;
+    return pending;
+  }
+
+  /** Whether the update just taken also needs a fresh `setTypeHints`; clears it. */
+  takeHints(): boolean {
+    const pending = this.pendingHints;
+    this.pendingHints = false;
     return pending;
   }
 
@@ -182,7 +204,18 @@ export class IstarStoreChangedHandler implements ActionHandler {
     if (pending === 'dirty') {
       return [SetDirtyStateAction.create(this.state.dispatcher.isDirty(), { reason: 'save' })];
     }
-    return this.submission.submitModel('external');
+    const update = await this.submission.submitModel('external');
+    // Another client's load extended the metamodel (#97): the file-declared kinds' type hints,
+    // sent again as `IstarRequestTypeHintsActionHandler` would answer them now.
+    if (!this.listener.takeHints()) return update;
+    const hints = liveTypeHints(this.state.contribution, this.state.model);
+    return [
+      ...update,
+      SetTypeHintsAction.create({
+        shapeHints: hints.shapeTypeHints,
+        edgeHints: hints.edgeTypeHints,
+      }),
+    ];
   }
 }
 

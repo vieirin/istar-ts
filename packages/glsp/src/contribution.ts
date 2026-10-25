@@ -111,7 +111,7 @@ export function paletteOf(contribution: IstarGlspContribution): AnyPaletteDescri
  * an n-ary link (a hub, leg or end — `role` set) are hidden, as a hand-written palette would
  * hide them (`KAOS_PALETTE`'s `RefinementLinkHub: false`, for instance).
  */
-function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
+export function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
   const elements: Record<string, PaletteEntryDescription | false> = {};
   let order = 0;
   for (const definition of metamodel.elements.values()) {
@@ -134,6 +134,26 @@ function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
         : [{ label: definition.label, order: order++, section: 'elements' }];
   }
   return { elements, links, groups: { actors: { label: 'Actor' } } };
+}
+
+/**
+ * `contribution`'s palette, with an entry for every kind of `metamodel` the contribution's own
+ * palette leaves undeclared: a file's own `"metamodel"` block (#97) adds kinds after the
+ * contribution's `PaletteDescription` was written, so those fall back to `paletteFromMetamodel`'s
+ * derived entry, one per section the contribution's own entries don't already cover for that
+ * kind. A kind the contribution's palette hides (`false`) stays hidden.
+ */
+export function effectivePaletteFor(
+  contribution: IstarGlspContribution,
+  metamodel: AnyMetamodel,
+): AnyPaletteDescription {
+  const base = paletteOf(contribution);
+  const derived = paletteFromMetamodel(metamodel);
+  return {
+    elements: { ...derived.elements, ...base.elements },
+    links: { ...derived.links, ...base.links },
+    groups: { ...derived.groups, ...base.groups },
+  };
 }
 
 /**
