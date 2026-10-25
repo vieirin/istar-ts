@@ -1,14 +1,21 @@
 import type { ActionDispatcher, StoreActionDispatcher } from '@istar-ts/actions';
 import { connectDispatcher } from '@istar-ts/actions';
-import type { AnyIstarModel, AnyMetamodel, ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyIstarModel,
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import {
   KAOS,
   KAOS_OBSTACLES,
+  KAOS_OBSTACLES_PALETTE,
   KAOS_OBSTACLE_PROPERTY_SCHEMAS,
   KAOS_PROPERTY_SCHEMAS,
   kaosExtension,
 } from '@istar-ts/dsm3-kaos';
-import { NFR, nfrExtension } from '@istar-ts/dsm3-nfr';
+import { NFR, NFR_PALETTE, nfrExtension } from '@istar-ts/dsm3-nfr';
 import {
   ISTAR_2_0,
   createEmptyModel,
@@ -70,14 +77,23 @@ interface ExtensionSet {
   readonly schemas: readonly PropertySchema[];
   /** The metamodel models are read and created with: the root plus the extensions' kinds. */
   readonly metamodel: AnyMetamodel;
+  /** The GLSP drawer's own palette for this dialect, if it has one (DSM3-goals' KAOS and NFR);
+   * default: the drawer's `contributionFor` derives one from `metamodel`'s kinds. */
+  readonly palette?: AnyPaletteDescription;
 }
 
 function extensionSet(
   extensions: readonly IstarExtension<string, string>[],
   schemas: readonly PropertySchema[],
   root: AnyMetamodel = ISTAR_2_0 as unknown as AnyMetamodel,
+  palette?: AnyPaletteDescription,
 ): ExtensionSet {
-  return { extensions, schemas, metamodel: metamodelWithExtensions(extensions, root) };
+  return {
+    extensions,
+    schemas,
+    metamodel: metamodelWithExtensions(extensions, root),
+    ...(palette ? { palette } : {}),
+  };
 }
 
 const EXTENSIONS: Record<string, ExtensionSet> = {
@@ -95,11 +111,13 @@ const EXTENSIONS: Record<string, ExtensionSet> = {
     [kaosExtension as IstarExtension<string, string>],
     [...KAOS_PROPERTY_SCHEMAS, ...KAOS_OBSTACLE_PROPERTY_SCHEMAS] as readonly PropertySchema[],
     KAOS_OBSTACLES as unknown as AnyMetamodel,
+    KAOS_OBSTACLES_PALETTE as unknown as AnyPaletteDescription,
   ),
   nfr: extensionSet(
     [nfrExtension as IstarExtension<string, string>],
     [],
     NFR as unknown as AnyMetamodel,
+    NFR_PALETTE as unknown as AnyPaletteDescription,
   ),
 };
 
@@ -487,9 +505,8 @@ export default function App(): ReactElement {
               guards={guardsEnabled ? [DEMO_GUARD] : []}
               agentDispatcher={agentDispatcher}
               store={store}
-              agentFramework={
-                extensionId === 'kaos' || extensionId === 'nfr' ? extensionId : 'none'
-              }
+              agentMetamodel={active.metamodel}
+              agentPalette={active.palette}
             />
           }
         />

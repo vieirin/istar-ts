@@ -5,14 +5,18 @@
  * path, `@eclipse-glsp/server-mcp` or the MCP SDK.
  */
 import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
-import type { ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import type { ChangeSetEntry } from '@istar-ts/agent';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 import { ChangeSetPanel } from '../lab/ChangeSetPanel';
 import type { ChangeSetPreview } from '../lab/ChangeSetPanel';
 import { useApiKey } from './apiKey';
-import type { GlspFramework } from './glspMcpBackend';
 import { AGENT_MODELS, useAgentSession } from './useAgentSession';
 import type { ChatLogEntry } from './useAgentSession';
 
@@ -42,19 +46,29 @@ export default function AgentDrawer({
   dispatcher,
   guards,
   schemas,
-  framework,
+  metamodel,
+  palette,
 }: {
   readonly store: ModelStore<string, string>;
   /** The "Agent"-tagged dispatcher every applied edit goes through. */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards: readonly ActionGuard<string, string>[];
   readonly schemas: readonly PropertySchema[];
-  readonly framework: GlspFramework;
+  readonly metamodel: AnyMetamodel;
+  readonly palette?: AnyPaletteDescription;
 }): ReactElement {
   const { apiKey, remember, setApiKey, setRemember } = useApiKey();
   const [prompt, setPrompt] = useState('');
   const [included, setIncluded] = useState<readonly boolean[]>([]);
-  const session = useAgentSession({ store, dispatcher, guards, schemas, framework, open: true });
+  const session = useAgentSession({
+    store,
+    dispatcher,
+    guards,
+    schemas,
+    metamodel,
+    palette,
+    open: true,
+  });
   // Re-synced once a run's change set actually arrives (`session.changeSet` is still the
   // previous run's, or undefined, at the moment `run` is called): derived during render from the
   // last change set object seen, the pattern React's docs recommend over an effect for this.

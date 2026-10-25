@@ -28,15 +28,20 @@ export async function gotoApp(page: Page): Promise<void> {
   await expect(page.locator('.react-flow__pane')).toBeVisible();
 }
 
-/** Switches the active extension to plain piStar, then starts a fresh empty model. */
-export async function resetToEmptyModel(page: Page): Promise<void> {
+/** Switches the active extension, then starts a fresh empty model under it. */
+export async function switchExtension(page: Page, extensionId: string): Promise<void> {
   // Both toolbar <select>s match `getByLabel`/`getByRole(..., {name})` ambiguously (the label's
   // accessible name picks up its select's own option text); the "Extension" select is the only
   // one with a "none" option, so select it that way instead.
-  await page.locator('select:has(option[value="none"])').selectOption('none');
+  await page.locator('select:has(option[value="none"])').selectOption(extensionId);
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(elementsCount(page)).toHaveText('0');
   await expect(linksCount(page)).toHaveText('0');
+}
+
+/** Switches the active extension to plain piStar, then starts a fresh empty model. */
+export async function resetToEmptyModel(page: Page): Promise<void> {
+  await switchExtension(page, 'none');
 }
 
 export function elementsCount(page: Page): Locator {
