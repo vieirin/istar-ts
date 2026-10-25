@@ -155,6 +155,14 @@ export class IstarStoreListener implements ClientSessionInitializer {
     this.sessions.addListener(listener, this.clientId);
   }
 
+  /**
+   * Pushes the model again, as after another client's change: the session's GModel showed a
+   * draft that was then dropped (`IstarOperationRunner.group`).
+   */
+  refresh(): void {
+    this.schedule('model');
+  }
+
   /** What the queued update has to send; clears it. */
   take(): 'model' | 'dirty' | undefined {
     const pending = this.pending;

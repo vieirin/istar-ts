@@ -89,7 +89,7 @@ export function hostToolHandlers(
         const state = istarStateOf(this.modelState);
         const result = await tool.handler(
           args,
-          hostToolContext(tool, state.dispatcher, () => state.model),
+          hostToolContext(tool, state.editor, () => state.model),
         );
         if (!result.ok) return rejectedToolResult(result.diagnostics as readonly GoalDiagnostic[]);
         const { content } = result;

@@ -271,6 +271,15 @@ await client.callTool({ name: 'create-nodes', arguments: { sessionId: server.ses
   `structuredContent` against a tool's declared output schema even on an error result, once
   `tools/list` has cached it, #136), on both launchers. server-mcp alone would answer success,
   since GLSP has no failure answer to an operation.
+- **One tool call is one undo step, all or nothing** (#223), for every mutating tool, server-mcp's
+  and istar's alike. A tool can dispatch several operations (`create-nodes` with `text` creates
+  the node, reads it back, then edits its label; `modify-nodes` one per node): they are applied
+  to a draft copy of the model while the tool runs, then dispatched to the host's dispatcher as
+  one `compound` (a lone operation as itself), so the store records one undo step, listeners hear
+  one `sourceModelChanged`, and guards and postGuards see the whole call. If any is rejected, or
+  the tool answers an error, nothing is applied. The host's guards run on that final dispatch;
+  core's constraints and the contribution's property schemas already refuse in the draft. Calls
+  on one session run one at a time.
 - Three istar-specific tools fill the gap server-mcp has no equivalent for (#126 §4, #129):
   `set-properties` (an element's or link's custom properties), `set-link-value` (a link's
   declared value, e.g. a Contribution link's make/help/hurt/break) and `check-edge` (would a
@@ -332,7 +341,8 @@ serveIstarGlsp({ shared, mcp: { hostTools: [stamp], context: [notation] } });
   `set-properties` with `sessionId` added to their `inputSchema` (a JSON Schema object, turned
   into the zod schema server-mcp validates with by `z.fromJSONSchema`: zod 4.2 or later). A
   handler gets the session's dispatcher and `getModel()`: its edits go through the host's guards
-  and schemas, onto the session's one undo stack (the MCP `undo` tool takes them back). It
+  and schemas, onto the session's one undo stack, all of a call's as one step (the MCP `undo`
+  tool takes them back). It
   answers `{ ok: true, content }` (a string as is, anything else as JSON text) or
   `{ ok: false, diagnostics }`, which becomes the same `{ code: 'rejected', diagnostics }` tool
   error as a rejected operation. `readOnly: true` sets `readOnlyHint` (`@istar-ts/agent`'s

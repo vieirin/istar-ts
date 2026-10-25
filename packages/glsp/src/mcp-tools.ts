@@ -110,7 +110,7 @@ export function istarMcpDiagramModule(
       const realId = this.aliasService.lookup(elementId);
       const modelId = modelIdOf(state.model, realId);
       if (modelId === undefined) throw new mcp.McpElementsNotFoundError([elementId]);
-      const result = await state.dispatcher.dispatch({
+      const result = await state.edit({
         kind: 'istar.updateProperties',
         elementId: modelId,
         properties,
@@ -164,7 +164,7 @@ export function istarMcpDiagramModule(
       const realId = this.aliasService.lookup(linkId);
       const modelId = modelIdOf(state.model, realId);
       if (modelId === undefined) throw new mcp.McpElementsNotFoundError([linkId]);
-      const result = await state.dispatcher.dispatch({
+      const result = await state.edit({
         kind: 'istar.setLinkValue',
         linkId: modelId,
         value,
@@ -230,7 +230,7 @@ export function istarMcpDiagramModule(
         else modelIds.push(modelId);
       }
       if (missing.length > 0) throw new mcp.McpElementsNotFoundError(missing);
-      const result = await state.dispatcher.dispatch({
+      const result = await state.edit({
         kind: 'istar.changeLinkKind',
         linkIds: modelIds,
         elementTypeId,

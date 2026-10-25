@@ -16,11 +16,11 @@ import {
   type ActionDispatcher,
   type ActionResult,
   createActionDispatcher,
+  injectCreatedIds,
   isOperation,
   type IstarAction,
 } from '@istar-ts/actions';
 import { type AnyIstarModel, createModelStore } from '@istar-ts/core';
-import { injectCreatedIds } from './createdIds';
 import type { LogEntry } from './log';
 
 /** True for the entries replay acts on: accepted operations, `glspUndo` and `glspRedo`. Requests

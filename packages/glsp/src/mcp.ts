@@ -51,12 +51,14 @@ export function rejectedToolResult(
 }
 
 /**
- * server-mcp's diagram handler dispatcher, with a tool call whose operations the session's
- * dispatcher rejected (a guard, `canLink`, a property schema) answered as a tool error. Without
- * it the call succeeds: GLSP has no failure answer to an operation, and server-mcp's handlers
- * only infer one (`create-nodes` lists "likely failed" under `errors`, `modify-nodes` nothing).
- * The error's text is the rejection's diagnostics, then the tool's own answer, since a tool
- * that applies several operations may have applied some.
+ * server-mcp's diagram handler dispatcher, with each diagram tool call run as one edit
+ * (`IstarOperationRunner.group`, #223): one undo step, all or nothing, whichever tool it is and
+ * however many operations it dispatches. A call whose operations the session's dispatcher
+ * rejected (a guard, `canLink`, a property schema) is answered as a tool error, with nothing
+ * applied. Without it the call succeeds: GLSP has no failure answer to an operation, and
+ * server-mcp's handlers only infer one (`create-nodes` lists "likely failed" under `errors`,
+ * `modify-nodes` nothing). The error's text is the rejection's diagnostics; the tool's own
+ * answer, describing changes that were then dropped, is not passed on.
  */
 export function istarMcpDispatcher(base: {
   DefaultMcpDiagramHandlerDispatcher: typeof DefaultMcpDiagramHandlerDispatcher;
@@ -71,16 +73,20 @@ export function istarMcpDispatcher(base: {
         ? this.clientSessionManager.getSession(sessionId)?.container
         : undefined;
       if (!container?.isBound(IstarOperationRunner)) return super.dispatchDiagramTool(name, params);
+      const runner = container.get(IstarOperationRunner);
       const rejections: GoalDiagnostic[] = [];
-      const stop = container.get(IstarOperationRunner).onRejected((d) => rejections.push(...d));
+      const stop = runner.onRejected((d) => rejections.push(...d));
       let result: CallToolResult;
       try {
-        result = await super.dispatchDiagramTool(name, params);
+        result = await runner.group(
+          () => super.dispatchDiagramTool(name, params),
+          (answer) => !answer.isError,
+        );
       } finally {
         stop();
       }
       if (rejections.length === 0) return result;
-      return rejectedToolResult(rejections, result.content);
+      return rejectedToolResult(rejections);
     }
 
     /**

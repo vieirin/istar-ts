@@ -55,7 +55,7 @@ async function mcpClient(mcp: WorkerMcp): Promise<Client> {
  * suite) — a worker with MCP still needs a GLSP client on the worker port, as `?server=worker`'s
  * stock client provides in the playground.
  */
-async function initializeWorker(port: unknown): Promise<void> {
+async function initializeWorker(port: unknown): Promise<ActionMessage[]> {
   const glsp = new BaseJsonrpcGLSPClient({
     id: 'worker-mcp-test',
     connectionProvider: createMessageConnection(
@@ -76,6 +76,7 @@ async function initializeWorker(port: unknown): Promise<void> {
   await vi.waitFor(() => {
     if (!received.some((m) => m.action.kind === 'setModel')) throw new Error('no setModel yet');
   });
+  return received;
 }
 
 const goal = (name: string) => ({
@@ -156,5 +157,81 @@ describe('startIstarGlspWorker with mcp', () => {
     expect(JSON.stringify(result.content)).toContain('no new nodes today');
     expect(result.structuredContent).toBeUndefined();
     expect(shared.store.getModel()).toBe(before);
+  });
+
+  // #223: one tool call, one undo step, all or nothing — in the worker as in-page
+  // (`mcp-one-undo.test.ts`).
+  test('create-nodes with text is one undo step', async () => {
+    const { port1: page, port2: self } = channel();
+    const worker = startIstarGlspWorker({
+      model: welcome,
+      sourceUri: 'welcome.txt',
+      scope: self as unknown as GlspPortLike,
+      mcp: true,
+    });
+    await initializeWorker(page);
+    const mcp = connectWorkerMcp({
+      postMessage: (message, transfer) => page.postMessage(message, transfer as never),
+    });
+    cleanup.push(() => mcp.close());
+    const client = await mcpClient(mcp);
+    const { shared } = await worker;
+    const before = shared.store.getModel();
+    const result = await client.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: 'worker-mcp-test',
+        nodes: [{ ...goal('unused'), args: undefined, text: 'G1' }, goal('G2')],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const created = [...shared.store.getModel().elements.values()]
+      .filter((e) => !before.elements.has(e.id))
+      .map((e) => e.name);
+    expect(created).toEqual(['G1', 'G2']);
+    await shared.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(shared.store.getModel()).toBe(before);
+  });
+
+  test('a refused item of a multi-item call leaves the model, and the client’s GModel, unchanged', async () => {
+    const { port1: page, port2: self } = channel();
+    const store = createModelStore(parsePistar(welcome));
+    const refuseOne: ActionGuard = (operation) =>
+      operation.kind === 'createNode' && operation.args?.name === 'Refused'
+        ? [{ elementId: AGENT, severity: 'error', message: 'not this one', code: 'demo' }]
+        : undefined;
+    const dispatcher = createActionDispatcher(store, {
+      palette: paletteOf(ISTAR_GLSP),
+      guards: [refuseOne],
+    });
+    void startIstarGlspWorker({
+      shared: { store, dispatcher },
+      sourceUri: 'welcome.txt',
+      scope: self as unknown as GlspPortLike,
+      mcp: true,
+    });
+    const received = await initializeWorker(page);
+    const mcp = connectWorkerMcp({
+      postMessage: (message, transfer) => page.postMessage(message, transfer as never),
+    });
+    cleanup.push(() => mcp.close());
+    const client = await mcpClient(mcp);
+    await client.listTools();
+    const before = store.getModel();
+    const result = await client.callTool({
+      name: 'create-nodes',
+      arguments: { sessionId: 'worker-mcp-test', nodes: [goal('Drafted'), goal('Refused')] },
+    });
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain('not this one');
+    expect(store.getModel()).toBe(before);
+    // The client saw the draft while the call ran, then the store's model again.
+    const updates = () => received.filter((m) => m.action.kind === 'updateModel');
+    await vi.waitFor(() => {
+      expect(updates().some((m) => JSON.stringify(m.action).includes('Drafted'))).toBe(true);
+    });
+    await vi.waitFor(() => {
+      expect(JSON.stringify(updates().at(-1)?.action)).not.toContain('Drafted');
+    });
   });
 });

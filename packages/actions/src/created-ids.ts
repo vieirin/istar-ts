@@ -1,16 +1,17 @@
 /**
  * An accepted operation with the ids it created injected back as explicit ids, so dispatching it
- * again against the same model state creates the same ids: the protocol lab's replay (#46,
- * `replayLog.ts`) and the agent drawer's Propose mode (#155, `../agent/glspMcpBackend.ts`, whose
- * apply must reproduce the scratch run's ids for later steps that name them) both need it.
+ * again against the same model state creates the same ids. The playground's protocol lab replay
+ * (#46) and agent Propose mode (#155, whose apply must reproduce the scratch run's ids for later
+ * steps that name them) need it, and so does `@istar-ts/glsp`'s grouping of an MCP tool call
+ * (#223), which applies a draft's operations again on the store as one `compound`.
  */
-import type { IstarOperation } from '@istar-ts/actions';
+import type { IstarOperation } from './actions';
 import { type AnyIstarModel, type AnyMetamodel, metamodelOf } from '@istar-ts/core';
 
 type Operation = IstarOperation<string, string>;
 
 /** How many new element ids, then new link ids, `operation` creates, mirroring the dispatcher's
- * `createdIds` diff (`packages/actions/src/dispatcher.ts`) and `connect`/`addDependency`/`addLeg`
+ * `createdIds` diff (`dispatcher.ts`) and `connect`/`addDependency`/`addLeg`
  * (`packages/core/src/operations.ts`). */
 function countCreatedIds(
   operation: Operation,
