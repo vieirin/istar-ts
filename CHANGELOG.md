@@ -19,6 +19,18 @@ Versions are published from GitHub release tags; see the release notes for full 
   `GoalDiagnostic`s. Propose mode (the default) dry-runs on a `parsePistar(toPistar(model))`
   copy and applies the reviewed change set as one `compound`; Auto applies live. The transcript
   (messages, tool calls, results, usage, latency) never holds the API key.
+- **glsp:** three istar-specific MCP diagram tools (#129, epic #126 D2): `set-properties` (an
+  element's or link's custom properties), `set-link-value` (a link's declared value, e.g. a
+  Contribution link's make/help/hurt/break) and `check-edge` (would a candidate edge be
+  accepted, without creating anything — `requestCheckEdge`'s reason as plain tool output, not
+  an error). Loaded into every session's container alongside server-mcp's own tools; all three
+  go through the same dispatcher, guards and single undo stack as every other tool, and a
+  `set-properties`/`set-link-value` rejection answers a tool error the same way.
+  Also fixes #136: a rejected tool call's diagnostics now travel as a JSON text content block
+  instead of `structuredContent`, since the MCP SDK client validates `structuredContent`
+  against a tool's declared output schema even on an `isError: true` result, once `tools/list`
+  has cached it — this was silently breaking every rejection (old and new tools alike) for any
+  client that lists tools before calling them, which is every real agent harness.
 - **glsp:** an MCP server in the page (#128, epic #126 D1). `serveIstarGlsp` takes `mcp: true`
   (or `{ route, name }`) and serves server-mcp 2.8.0's `WebMcpServerLauncher` through a
   same-realm `fetch` (`server.mcp.fetch`, for the MCP SDK's `StreamableHTTPClientTransport`). It

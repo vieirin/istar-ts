@@ -25,6 +25,29 @@ export function withMcpServer(params: InitializeParameters, config: object): Ini
 }
 
 /**
+ * A rejection as a tool error: `{ code: 'rejected', diagnostics }` as a JSON text block, not
+ * `structuredContent`. A tool with a declared output schema (`create-nodes`, ours too) would
+ * fail the MCP SDK client's schema check even on an `isError: true` result once the client has
+ * called `tools/list` and cached the schema (`Client.callTool` validates `structuredContent`
+ * unconditionally) — #136. `@istar-ts/agent`'s `createMcpToolRegistry` reads a JSON text block
+ * carrying `diagnostics` the same way it would have read `structuredContent`.
+ */
+export function rejectedToolResult(
+  diagnostics: readonly GoalDiagnostic[],
+  content: CallToolResult['content'] = [],
+): CallToolResult {
+  const text = `Rejected: ${diagnostics.map((d) => d.message).join('; ')}`;
+  return {
+    isError: true,
+    content: [
+      { type: 'text', text },
+      { type: 'text', text: JSON.stringify({ code: 'rejected', diagnostics }) },
+      ...content,
+    ],
+  };
+}
+
+/**
  * server-mcp's diagram handler dispatcher, with a tool call whose operations the session's
  * dispatcher rejected (a guard, `canLink`, a property schema) answered as a tool error. Without
  * it the call succeeds: GLSP has no failure answer to an operation, and server-mcp's handlers
@@ -54,12 +77,7 @@ export function istarMcpDispatcher(base: {
         stop();
       }
       if (rejections.length === 0) return result;
-      const text = `Rejected: ${rejections.map((d) => d.message).join('; ')}`;
-      return {
-        isError: true,
-        content: [{ type: 'text', text }, ...result.content],
-        structuredContent: { code: 'rejected', diagnostics: rejections },
-      };
+      return rejectedToolResult(rejections, result.content);
     }
   }
   decorate(injectable(), IstarMcpDiagramHandlerDispatcher);

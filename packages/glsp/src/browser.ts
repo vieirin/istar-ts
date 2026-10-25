@@ -44,6 +44,7 @@ import { memoryPistarFiles } from './files';
 import type { IstarGlspHostOptions, IstarMcpBaseOptions } from './host';
 import { createIstarServerModules, createIstarSharedModel } from './host';
 import { istarMcpDispatcher, withMcpServer } from './mcp';
+import { istarMcpDiagramModule } from './mcp-tools';
 import type { IstarSharedModel } from './model-state';
 import { isDispatcherPortMessage } from './page';
 
@@ -296,6 +297,7 @@ interface McpModules {
  */
 async function mcpModules(config: Required<IstarMcpBaseOptions>): Promise<McpModules> {
   const mcp = await import('@eclipse-glsp/server-mcp/browser.js');
+  const z = await import('zod/v4');
   let resolveStarted!: (handler: (request: Request) => Promise<Response>) => void;
   const started = new Promise<(request: Request) => Promise<Response>>((resolve) => {
     resolveStarted = resolve;
@@ -327,7 +329,7 @@ async function mcpModules(config: Required<IstarMcpBaseOptions>): Promise<McpMod
   }
   return {
     server: new IstarBrowserMcpServerModule(),
-    diagram: new mcp.DefaultMcpDiagramModule(),
+    diagram: new (istarMcpDiagramModule(mcp, z))(),
     started,
   };
 }
