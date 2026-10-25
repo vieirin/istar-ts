@@ -358,13 +358,19 @@ export interface NewLink<K extends string = LinkKind> {
   readonly source: string;
   /** An element id, or a link id for kinds whose rules target links. */
   readonly target: string;
-  /** The new link's id (for an n-ary kind whose target is not yet a hub: the new hub's). */
+  /**
+   * The new link's id: for an n-ary kind whose target is not yet a hub, the new hub's; for an
+   * n-ary kind whose target already is a hub, the new leg's (same as `legId` there).
+   */
   readonly id?: string;
   /** Contribution value: make, help, hurt or break. */
   readonly label?: string;
   readonly name?: string;
   readonly customProperties?: CustomProperties;
-  /** For an n-ary kind whose target is not yet a hub: the id of the leg it creates. */
+  /**
+   * The id of the leg it creates: for a target that is not yet a hub, the new leg from `source`;
+   * for a target that already is a hub, the new leg instead of `id`.
+   */
   readonly legId?: string;
   /** For an n-ary kind whose target is not yet a hub: the id of the end it creates. */
   readonly endId?: string;
@@ -418,10 +424,10 @@ export function connectResultToDiagnostic<
  * Adds a link between two elements if the iStar constraints allow it.
  *
  * With an n-ary kind (`arity: 'n'`), a `target` that is one of the kind's hubs gets a new leg
- * from `source` (see `addLeg`). Any other target gets a new hub, centred between source and
- * target, with a leg from `source` and an end to `target`. `input.id` and `customProperties`
- * then go to the hub, `label` and `name` to the end, and `legId`/`endId` (default fresh ids) to
- * the leg and end.
+ * from `source` (see `addLeg`), taking `input.id` or `input.legId` (default a fresh id) as the
+ * leg's id. Any other target gets a new hub, centred between source and target, with a leg from
+ * `source` and an end to `target`. `input.id` and `customProperties` then go to the hub, `label`
+ * and `name` to the end, and `legId`/`endId` (default fresh ids) to the leg and end.
  */
 export function connect<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
@@ -488,7 +494,11 @@ function connectHub<EK extends string, LK extends string>(
   const parts = definition.parts!;
   const { source, target } = input;
   if (m.elements.get(target)?.kind === parts.hub) {
-    return addLeg(typed<EK, LK>(m), target, source, options);
+    const legId = input.id ?? input.legId;
+    return addLeg(typed<EK, LK>(m), target, source, {
+      ...options,
+      ...(legId === undefined ? {} : { id: legId }),
+    });
   }
   if (!options.force) {
     const check = canLink(m, source, target, definition.kind);

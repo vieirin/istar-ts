@@ -4,6 +4,9 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **actions, core:** `createEdge` for an n-ary kind whose target already is a hub takes
+  `args.id` or `args.legId` for the new leg's id, like the new-hub path already did (#138);
+  `createdIds` lists it, so a dry run on a scratch copy and a live apply give the same ids.
 - **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
   loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
   backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for
