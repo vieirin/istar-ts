@@ -163,4 +163,48 @@ describe('MCP', () => {
     expect(undo.isError).toBeFalsy();
     expect(shared.store.getModel()).toBe(before);
   });
+
+  // #225: a tool call before the GLSP client's own `requestModel` must still create the node
+  // (the shared model is already there) — never report success without an effect.
+  test('create-nodes before requestModel still creates the node', async () => {
+    const shared = createIstarSharedModel(ISTAR_GLSP, { model: welcome });
+    const server = await start({ shared, mcp: true });
+    const { client: glsp } = await client(server.url);
+    const result = (await glsp.initializeServer({
+      applicationId: 'test',
+      protocolVersion: '1.0.0',
+    })) as { mcpServer?: { url: string } };
+    await glsp.initializeClientSession({
+      clientSessionId: 's1',
+      diagramType: 'istar',
+      clientActionKinds: ['setModel', 'updateModel'],
+    });
+    // Deliberately no `RequestModelAction` here.
+
+    const mcp = new Client({ name: 'istar-glsp-test', version: '0.0.0' });
+    await mcp.connect(new StreamableHTTPClientTransport(new URL(result.mcpServer!.url)));
+    running.push(mcp);
+
+    const before = shared.store.getModel();
+    const created = await mcp.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: 's1',
+        nodes: [
+          {
+            elementTypeId: 'node:istar.Goal',
+            position: { x: 300, y: 300 },
+            containerId: 'fcf67803-5e5a-4bae-8690-1f12af4446d6',
+            text: 'G1',
+          },
+        ],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    expect(created.structuredContent).toMatchObject({ errors: [] });
+    const names = [...shared.store.getModel().elements.values()]
+      .filter((e) => !before.elements.has(e.id))
+      .map((e) => e.name);
+    expect(names).toEqual(['G1']);
+  });
 });
