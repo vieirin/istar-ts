@@ -4,5 +4,5 @@
     "isolatedDeclarations": false,
     "declaration": false
   },
-  "include": ["src", "test", "*.config.ts", "../../test-support"]
+  "include": ["src", "test", "*.config.ts"]
 }

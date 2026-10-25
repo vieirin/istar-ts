@@ -7,5 +7,5 @@
     "experimentalDecorators": true,
     "declaration": false
   },
-  "include": ["src", "test", "scripts", "*.config.ts", "../../test-support"]
+  "include": ["src", "test", "scripts", "*.config.ts"]
 }
