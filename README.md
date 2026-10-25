@@ -3,13 +3,13 @@
 TypeScript libraries for [iStar 2.0](https://istarwiki.org/) goal models, ported from
 [piStar](https://github.com/jhcp/piStar).
 
-| Package                                     | What it is                                                                                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@istar-ts/core`](packages/core)           | Framework-free model: typed metamodel, iStar 2.0 link constraints, piStar-compatible JSON (de)serialization, an undoable store, and typed custom-property schemas.                          |
-| [`@istar-ts/react`](packages/react)         | A React Flow–based canvas for editing iStar models, with a registry that lets you override how each element kind renders, its default properties, its inspector form and its palette entry. |
-| [`@istar-ts/dsm3-kaos`](packages/dsm3-kaos) | KAOS goal models from [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/): metamodel, property schemas, shapes and a registry extension for the canvas.                                  |
-| [`@istar-ts/dsm3-nfr`](packages/dsm3-nfr)   | NFR Framework models from [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/): metamodel, contribution labels, shapes and a registry extension for the canvas.                           |
-| [`@istar-ts/glsp`](packages/glsp)           | A GLSP server diagram module on `@eclipse-glsp/server` (read side so far): the model as a GModel, type hints, and dialect contributions for iStar 2.0, KAOS and NFR. No React.              |
+| Package                                     | What it is                                                                                                                                                                                                                                                     |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@istar-ts/core`](packages/core)           | Framework-free model: typed metamodel, iStar 2.0 link constraints, piStar-compatible JSON (de)serialization, an undoable store, and typed custom-property schemas.                                                                                             |
+| [`@istar-ts/react`](packages/react)         | A React Flow–based canvas for editing iStar models, with a registry that lets you override how each element kind renders, its default properties, its inspector form and its palette entry.                                                                    |
+| [`@istar-ts/dsm3-kaos`](packages/dsm3-kaos) | KAOS goal models from [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/): metamodel, property schemas, shapes and a registry extension for the canvas.                                                                                                     |
+| [`@istar-ts/dsm3-nfr`](packages/dsm3-nfr)   | NFR Framework models from [DSM3-goals](https://www.cin.ufpe.br/~jhcp/dsm3goals/): metamodel, contribution labels, shapes and a registry extension for the canvas.                                                                                              |
+| [`@istar-ts/glsp`](packages/glsp)           | A GLSP server diagram module on `@eclipse-glsp/server`: the model as a GModel, operations, undo, the palette and dialect contributions for iStar 2.0, KAOS and NFR, over the same action dispatcher as the canvas. No React. See [docs/glsp.md](docs/glsp.md). |
 
 Files saved by the piStar web tool load and save byte-for-byte compatibly, including arbitrary
 `customProperties` and keys the library does not know about.
