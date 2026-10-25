@@ -4,6 +4,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** every agent-facing MCP coordinate is now absolute model coordinates, not GModel-relative
+  (#158). `create-nodes`' `position` already landed exactly where given — a regression test now
+  locks that in, with and without a `containerId` — but the default `MarkdownMcpModelSerializer`
+  read a `GNode`'s `position` straight from the GModel tree, which is relative to an actor's
+  boundary for its children; `query-elements`/`diagram-model` now report an element's actual
+  (always absolute) model `x`/`y` instead (`IstarMcpModelSerializer`). `modify-nodes` documents
+  `position` as parent-relative to match that old convention; `IstarModifyNodesMcpToolHandler`
+  now converts the absolute position it's given to parent-relative before building the
+  `ChangeBoundsOperation`, so an agent reading a position back from a query and creating or
+  moving a node there lands exactly where it read.
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a
