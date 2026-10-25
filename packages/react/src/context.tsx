@@ -1,8 +1,14 @@
-import type { ActionDispatcher, IstarAction } from '@istar-ts/actions';
+import type {
+  ActionDispatcher,
+  IstarAction,
+  LabeledAction,
+  SetTypeHintsAction,
+} from '@istar-ts/actions';
 import { createActionDispatcher } from '@istar-ts/actions';
 import type {
   ActorKind,
   AnyMetamodel,
+  ConstraintCode,
   DependencyLinkKind,
   DiagnosticsStore,
   ElementKind,
@@ -17,7 +23,6 @@ import type {
   ModelStoreOptions,
 } from '@istar-ts/core';
 import {
-  canLink,
   createDiagnosticsStore,
   createModelStore,
   groupDiagnostics,
@@ -37,10 +42,24 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from './registry';
-import { applyExtensions, defaultRegistry, registryForMetamodel } from './registry';
+import {
+  applyExtensions,
+  defaultRegistry,
+  paletteDescriptionFromRegistry,
+  registryForMetamodel,
+} from './registry';
 import { linkIdOfAnchor } from './layout';
 import type { ElementIssue } from './issues';
 import { diagnosticToIssue, issueToDiagnostic } from './issues';
+
+/** No hints yet (before the first `requestTypeHints` reply). */
+const NO_TYPE_HINTS: Pick<SetTypeHintsAction, 'shapeHints' | 'edgeHints'> = {
+  shapeHints: [],
+  edgeHints: [],
+};
+
+/** Optimistic: valid until `requestCheckEdge` says otherwise (see `checkConnection`). */
+const NEUTRAL_CHECK: LinkCheck = { ok: true };
 
 /** The active toolbar tool. `EK`/`LK` default to iStar 2.0's kinds. */
 export type Tool<EK extends string = ElementKind, LK extends string = LinkKind> =
@@ -95,8 +114,25 @@ export interface IstarEditor {
   readonly notice: Notice | null;
   notify(message: string, tone?: Notice['tone']): void;
   dismissNotice(): void;
-  /** Checks a connection for the current tool (dependencies check depender → dependee). */
+  /**
+   * Checks a connection for the current tool (dependencies check depender → dependee), through
+   * `requestCheckEdge`, cached per (kind, source, target) for the model's current state. The
+   * dispatcher answers asynchronously; see `checkConnection`'s implementation for how a pending
+   * answer is handled without blocking or dropping a click (#105).
+   */
   checkConnection(source: string, target: string, tool?: Tool | null): LinkCheck;
+  /**
+   * The metamodel's shape and edge hints (GLSP's `requestTypeHints`), fetched through the
+   * dispatcher and cached until the metamodel changes. Empty before the first reply.
+   */
+  readonly typeHints: Pick<SetTypeHintsAction, 'shapeHints' | 'edgeHints'>;
+  /**
+   * The tool palette (GLSP's `requestContextActions`), fetched through the dispatcher and
+   * cached until the metamodel changes. `null` before the first reply: `<IstarPalette>`
+   * falls back to the registry directly so the palette is never empty, including on first
+   * render (the dispatcher's answer is async; see `IstarProvider`).
+   */
+  readonly contextActions: readonly LabeledAction[] | null;
   /**
    * `surface` tags the call for `dispatcherFor` (see `dispatcherFor`). Pass `'inspector'` only
    * from a component rendered in the inspector panel (`<IstarInspector>` itself, or a per-kind
@@ -286,7 +322,13 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
         : baseRegistry;
     return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
   }, [metamodel, baseRegistry, props.extensions]);
-  const [ownDispatcher] = useState(() => createActionDispatcher(store));
+  // The palette is fixed at creation time, from the registry this provider mounted with (like
+  // the rest of this dispatcher's options); it does not track later registry changes (e.g. a
+  // dynamically swapped `extensions` prop), the same limitation `createActionDispatcher`'s other
+  // options already have.
+  const [ownDispatcher] = useState(() =>
+    createActionDispatcher(store, { palette: paletteDescriptionFromRegistry(registry) }),
+  );
   useEffect(() => () => ownDispatcher.dispose(), [ownDispatcher]);
   const dispatcher = props.dispatcher ?? ownDispatcher;
   const propsDispatcherFor = props.dispatcherFor;
@@ -370,18 +412,103 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
     return () => clearTimeout(timer);
   }, [notice]);
 
+  const [typeHints, setTypeHints] = useState(NO_TYPE_HINTS);
+  const [contextActions, setContextActions] = useState<readonly LabeledAction[] | null>(null);
+  const requestSeq = useRef(0);
+
+  // Type hints and the palette are pure functions of the metamodel (never the model's content),
+  // so one fetch per dispatcher/metamodel pair is enough; re-fetched only if either changes
+  // (a new dispatcher, or a metamodel swapped in on the same store).
+  useEffect(() => {
+    let current = true;
+    void dispatcher
+      .dispatch({ kind: 'requestTypeHints', requestId: `type-hints-${++requestSeq.current}` })
+      .then((result) => {
+        if (current && result.ok && result.response) setTypeHints(result.response);
+      });
+    return () => {
+      current = false;
+    };
+  }, [dispatcher, metamodel]);
+
+  useEffect(() => {
+    let current = true;
+    void dispatcher
+      .dispatch({
+        kind: 'requestContextActions',
+        requestId: `context-actions-${++requestSeq.current}`,
+        contextId: 'tool-palette',
+        editorContext: { selectedElementIds: [] },
+      })
+      .then((result) => {
+        if (current && result.ok && result.response) setContextActions(result.response.actions);
+      });
+    return () => {
+      current = false;
+    };
+  }, [dispatcher, metamodel]);
+
+  // A ref, not state: it's a cache (mutating it should never schedule a render). Replaced (in an
+  // effect, never during render) on every model change, so a stale answer (e.g. an element that
+  // moved out of its actor) is never reused.
+  const checkCacheRef = useRef(new Map<string, LinkCheck>());
+  useEffect(() => {
+    checkCacheRef.current = new Map();
+  }, [model]);
+
+  /**
+   * `requestCheckEdge`, cached per (kind, source, target). The dispatcher answers
+   * asynchronously, but a connect preview needs an answer on the same tick it is drawn or
+   * dropped on a handle: the chosen fix is the one #105 (GLSP's stock client) got wrong by not
+   * choosing one. Here, an uncached pair reads as valid (`NEUTRAL_CHECK`) at once, and a request
+   * goes out in the background; nothing is ever blocked on it, and the UI never flickers to
+   * "invalid" while waiting. A click that lands on an unresolved pair is never dropped either:
+   * `onConnect` always dispatches `createEdge`, which the store's own `canLink` check decides
+   * for real, rejecting (with a `notify`) whatever this preview got optimistic about. Once the
+   * real answer arrives it's cached, so a connection still being hovered over picks it up on its
+   * next (frequent, React Flow re-queries continuously while dragging) call.
+   */
   const checkConnection = useCallback(
     (source: string, target: string, forTool: Tool | null = tool): LinkCheck => {
-      const current = store.getModel();
       if (!forTool || forTool.type === 'element') {
         return { ok: false, code: 'unknown-link-kind', reason: 'select a link type first' };
       }
       const kind =
         forTool.type === 'dependency' ? (forTool.linkKind ?? 'istar.DependencyLink') : forTool.kind;
       // Dropping on a link's anchor node targets the link itself.
-      return canLink(current, source, linkIdOfAnchor(target) ?? target, kind);
+      const targetId = linkIdOfAnchor(target) ?? target;
+      const key = `${kind}|${source}|${targetId}`;
+      // Captured once: a reply that lands after the model (and so the cache) has already moved
+      // on writes into the cache that was current when it was asked, which nothing reads anymore.
+      const cache = checkCacheRef.current;
+      const cached = cache.get(key);
+      if (cached) return cached;
+      cache.set(key, NEUTRAL_CHECK);
+      void dispatcher
+        .dispatch({
+          kind: 'requestCheckEdge',
+          requestId: `check-edge-${++requestSeq.current}`,
+          edgeType: kind,
+          sourceElementId: source,
+          targetElementId: targetId,
+        })
+        .then((result) => {
+          if (!result.ok || !result.response) return;
+          const { isValid, reason, code } = result.response;
+          cache.set(
+            key,
+            isValid
+              ? { ok: true }
+              : {
+                  ok: false,
+                  reason: reason ?? 'rejected',
+                  code: (code ?? 'invalid-target') as ConstraintCode,
+                },
+          );
+        });
+      return NEUTRAL_CHECK;
     },
-    [store, tool],
+    [dispatcher, tool],
   );
 
   /** Dispatches an operation, notifying a rejection; fire-and-forget (the model already
@@ -451,6 +578,8 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       notify,
       dismissNotice: () => setNotice(null),
       checkConnection,
+      typeHints,
+      contextActions,
       elementActions,
       linkActions,
       dispatcher,
@@ -475,6 +604,8 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
       select,
       setEditingId,
       checkConnection,
+      typeHints,
+      contextActions,
       elementActions,
       linkActions,
       dispatcher,

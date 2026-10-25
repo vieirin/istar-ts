@@ -74,8 +74,10 @@ test.describe('protocol lab', () => {
     await expect(linksCount(page)).toHaveText('0');
 
     const rows = await logRowTexts(page);
-    expect(rows).toHaveLength(7);
-    expect(rows.filter((r) => r.startsWith('Canvas')).length).toBe(6);
+    // #142: the And-Refinement connect also sends a `requestCheckEdge`, logged like any other
+    // canvas action.
+    expect(rows).toHaveLength(8);
+    expect(rows.filter((r) => r.startsWith('Canvas')).length).toBe(7);
     expect(rows.filter((r) => r.startsWith('Script')).length).toBe(1);
     expect(rows[3]).toContain('Script');
     await expect(elementsCount(page)).toHaveText('4');
@@ -98,7 +100,7 @@ test.describe('protocol lab', () => {
     await expect(undoButton(page)).toBeDisabled();
 
     const rowsAfterUndo = await logRowTexts(page);
-    expect(rowsAfterUndo).toHaveLength(7);
+    expect(rowsAfterUndo).toHaveLength(8);
 
     // Redo replays the same shared stack forward again.
     await redoButton(page).click();

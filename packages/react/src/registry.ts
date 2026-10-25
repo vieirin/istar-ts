@@ -10,6 +10,7 @@
 import type {
   ActorKind,
   AnyMetamodel,
+  AnyPaletteDescription,
   CustomProperties,
   ElementKind,
   IstarElement,
@@ -748,4 +749,43 @@ export function elementSize<EK extends string = ElementKind, LK extends string =
     width: typeof element.display?.width === 'number' ? element.display.width : base.width,
     height: typeof element.display?.height === 'number' ? element.display.height : base.height,
   };
+}
+
+/** Strips a `PaletteEntry`'s presentation fields (`icon`, `title`), keeping its data. */
+function stripPresentation<E extends { icon?: unknown; title?: unknown }>(
+  entry: E,
+): Omit<E, 'icon' | 'title'> {
+  const { icon: _icon, title: _title, ...data } = entry;
+  return data;
+}
+
+/**
+ * The registry's palette data as a core `PaletteDescription` (`@istar-ts/actions`'
+ * `contextActionsFor` takes one), so a dispatcher created over this registry's model answers
+ * `requestContextActions` with the same entries the registry would otherwise render locally —
+ * including an extension's, which only exists as a registry (`IstarExtension`), not a
+ * standalone `PaletteDescription`. Icons and titles stay out: they travel back from the
+ * registry by kind when the reply is rendered (see `Palette.tsx`), never over the protocol.
+ */
+export function paletteDescriptionFromRegistry(registry: AnyIstarRegistry): AnyPaletteDescription {
+  const elements: Record<string, unknown> = {};
+  for (const [kind, config] of Object.entries(registry.elements)) {
+    const palette = config.palette;
+    if (palette === false) {
+      elements[kind] = false;
+    } else if (Array.isArray(palette)) {
+      elements[kind] = palette.map(stripPresentation);
+    } else {
+      elements[kind] = stripPresentation(palette as PaletteEntry);
+    }
+  }
+  const links: Record<string, unknown> = {};
+  for (const [kind, config] of Object.entries(registry.links)) {
+    const palette = config.palette;
+    links[kind] = palette === false ? false : palette.map(stripPresentation);
+  }
+  const groups: Record<string, { label: string }> = {};
+  for (const [id, group] of Object.entries(registry.paletteGroups))
+    groups[id] = { label: group.label };
+  return { elements, links, groups } as AnyPaletteDescription;
 }

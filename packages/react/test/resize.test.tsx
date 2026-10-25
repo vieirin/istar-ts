@@ -102,7 +102,9 @@ describe('node resize', () => {
       });
     });
 
-    expect(kinds).toEqual(['compound']);
+    // The provider also asks the dispatcher for type hints and the palette on mount (#142); the
+    // resize itself still dispatches exactly one `compound`.
+    expect(kinds).toEqual(['requestTypeHints', 'requestContextActions', 'compound']);
     const current = store.getModel().elements.get(goal.id)!;
     expect(current.display?.width).toBe(150);
     expect(current.display?.height).toBe(80);
