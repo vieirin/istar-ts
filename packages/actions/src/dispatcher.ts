@@ -680,7 +680,10 @@ export function createActionDispatcher<
       else if (typeof value === 'string') next[key] = value;
       else reject(`the value of "${key}" must be a string or null`, id, 'invalid-value');
     }
-    const customProperties: CustomProperties | null = Object.keys(next).length > 0 ? next : null;
+    // Removing the last property keeps an empty object, as piStar's exports do
+    // ("customProperties": {}); an owner that never had the key and ends up with none stays without it.
+    if (Object.keys(next).length === 0 && owner.customProperties === undefined) return;
+    const customProperties: CustomProperties = next;
     if (model.elements.has(id)) s.updateElement(id, { customProperties });
     else s.updateLink(id, { customProperties });
   };

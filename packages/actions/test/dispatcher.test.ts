@@ -259,7 +259,57 @@ describe('operations', () => {
       elementId: 'g1',
       properties: { 'a#b': null, c: null },
     });
-    expect(env.store.getModel().elements.get('g1')?.customProperties).toBeUndefined();
+    // Removing the last property keeps an empty object, as piStar writes it (#219).
+    expect(env.store.getModel().elements.get('g1')?.customProperties).toEqual({});
+  });
+
+  test('removing the last custom property serializes "customProperties": {} on elements and links (#219)', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 't',
+      targetElementId: 'g1',
+      args: { id: 'l' },
+    });
+    for (const elementId of ['g1', 'l']) {
+      await env.dispatcher.dispatch({
+        kind: 'istar.updateProperties',
+        elementId,
+        properties: { a: '1' },
+      });
+      await env.dispatcher.dispatch({
+        kind: 'istar.updateProperties',
+        elementId,
+        properties: { a: null },
+      });
+    }
+    const model = env.store.getModel();
+    expect(model.elements.get('g1')?.customProperties).toEqual({});
+    expect(model.links.get('l')?.customProperties).toEqual({});
+    const file = JSON.parse(toPistar(model)) as {
+      actors: { nodes: { id: string; customProperties?: unknown }[] }[];
+      links: { id: string; customProperties?: unknown }[];
+    };
+    const node = file.actors.flatMap((a) => a.nodes).find((n) => n.id === 'g1');
+    expect(node).toHaveProperty('customProperties', {});
+    expect(file.links.find((l) => l.id === 'l')).toHaveProperty('customProperties', {});
+  });
+
+  test('removing a property an owner never had leaves its customProperties as they were (#219)', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      args: { id: 'fresh' },
+    });
+    const before = env.store.getModel().elements.get('fresh')?.customProperties;
+    await env.dispatcher.dispatch({
+      kind: 'istar.updateProperties',
+      elementId: 'fresh',
+      properties: { a: null },
+    });
+    expect(env.store.getModel().elements.get('fresh')?.customProperties).toEqual(before);
   });
 
   test('applyLabelEdit on a link: an empty text removes its name, as piStar writes it', async () => {
