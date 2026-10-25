@@ -94,13 +94,20 @@ export interface CreateEdgeArgs<EK extends string = ElementKind> {
   readonly value?: string;
   readonly name?: string;
   readonly customProperties?: CustomProperties;
-  /** The new link's id (for an n-ary kind: the new hub's). Default: a fresh UUID. */
+  /**
+   * The new link's id: for an n-ary kind whose target is not yet a hub, the new hub's; for an
+   * n-ary kind whose target already is a hub, the new leg's (same as `legId` there). Default: a
+   * fresh UUID.
+   */
   readonly id?: string;
   /** For a dependency kind: the dependum to create. */
   readonly dependum?: DependumArgs<EK>;
   /** For a dependency kind: the ids of its two links. */
   readonly linkIds?: readonly [string, string];
-  /** For an n-ary kind whose target is not yet a hub: the id of the leg it creates. */
+  /**
+   * The id of the leg it creates: for a target that is not yet a hub, the new leg from source;
+   * for a target that already is a hub, the new leg instead of `id`.
+   */
   readonly legId?: string;
   /** For an n-ary kind whose target is not yet a hub: the id of the end it creates. */
   readonly endId?: string;

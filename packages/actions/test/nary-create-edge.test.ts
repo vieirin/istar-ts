@@ -6,7 +6,13 @@
  */
 import { describe, expect, test } from 'vitest';
 import type { LinkKind } from '@istar-ts/core';
-import { ISTAR_2_0, createModelStore, extendMetamodel, toPistar } from '@istar-ts/core';
+import {
+  ISTAR_2_0,
+  createModelStore,
+  extendMetamodel,
+  parsePistar,
+  toPistar,
+} from '@istar-ts/core';
 import type { IstarAction } from '../src';
 import { createActionDispatcher } from '../src';
 
@@ -74,5 +80,63 @@ describe('createEdge for a new n-ary hub', () => {
     });
     expect(replayedResult).toEqual(originalResult);
     expect(toPistar(replay.store.getModel())).toBe(originalFile);
+  });
+});
+
+describe('createEdge for an existing n-ary hub', () => {
+  async function addHub(dispatcher: ReturnType<typeof setup>['dispatcher']) {
+    const result = await dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'x.Joint',
+      sourceElementId: 'g1',
+      targetElementId: 'g2',
+      args: { id: 'hub', legId: 'leg1', endId: 'end' },
+    });
+    if (!result.ok) throw new Error('expected the hub-creating createEdge to be accepted');
+    return result;
+  }
+
+  test('takes an explicit id for the new leg (#138)', async () => {
+    const { store, dispatcher } = setup();
+    await addHub(dispatcher);
+    store.addElement({ kind: 'istar.Goal', id: 'g3', x: 100, y: 100, parent: 'a' });
+    const result = await dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'x.Joint',
+      sourceElementId: 'g3',
+      targetElementId: 'hub',
+      args: { id: 'leg2' },
+    });
+    expect(result).toEqual({ ok: true, createdIds: ['leg2'] });
+    expect(store.getModel().links.get('leg2')).toMatchObject({ source: 'g3', target: 'hub' });
+  });
+
+  test('a dry run on a copy and a live apply give identical ids and an identical toPistar', async () => {
+    const { store, dispatcher } = setup();
+    await addHub(dispatcher);
+    store.addElement({ kind: 'istar.Goal', id: 'g3', x: 100, y: 100, parent: 'a' });
+    const newLeg = {
+      kind: 'createEdge',
+      elementTypeId: 'x.Joint',
+      sourceElementId: 'g3',
+      targetElementId: 'hub',
+    } as const satisfies IstarAction<string, LinkKind | 'x.Joint'>;
+
+    // Propose mode's scratch copy (#126 §9): a parsePistar/toPistar round trip of the live model.
+    const scratchStore = createModelStore(
+      parsePistar(toPistar(store.getModel()), { metamodel: METAMODEL, fileMetamodel: true }),
+      { metamodel: METAMODEL, createId },
+    );
+    const scratchDispatcher = createActionDispatcher(scratchStore);
+    const dryRunResult = await scratchDispatcher.dispatch(newLeg);
+    if (!dryRunResult.ok) throw new Error('expected the dry-run createEdge to be accepted');
+    const dryRunFile = toPistar(scratchStore.getModel());
+
+    const liveResult = await dispatcher.dispatch({
+      ...newLeg,
+      args: { legId: dryRunResult.createdIds[0] },
+    });
+    expect(liveResult).toEqual(dryRunResult);
+    expect(toPistar(store.getModel())).toBe(dryRunFile);
   });
 });
