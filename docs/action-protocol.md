@@ -152,6 +152,50 @@ const dialectRules: ActionGuard = (operation) => {
 The guard's diagnostics come back through `ActionResult` like any other rejection; the model is
 untouched either way.
 
+### `postGuards`: a rule on the model after the edit
+
+`options.postGuards?: ActionPostGuard[]` run **after** each operation is applied (and after each
+operation of a `compound` one, plus once more on the compound's own result), inside the same
+`store.transaction` — before `guards`, these only saw the model the operation was about to change;
+a `postGuard` sees `(operation, modelAfter, modelBefore)`, so a check that needs the resulting
+model (goal-controller's edgeV2 engine check, P(violation) on the model after the edit) doesn't
+have to re-apply the operation itself to get it. An `error` diagnostic rolls the transaction back
+exactly like a pre-guard's: the model is untouched, there is no undo entry, and no
+`sourceModelChanged` fires. Other severities come back with `ok: true` as warnings, merged after
+`guards`' own.
+
+```ts
+import { createModelStore, ISTAR_2_0 } from '@istar-ts/core';
+import { createActionDispatcher } from '@istar-ts/actions';
+import type { ActionPostGuard } from '@istar-ts/actions';
+
+const noForbiddenName: ActionPostGuard = (operation, modelAfter) => {
+  if (operation.kind !== 'applyLabelEdit') return;
+  if ([...modelAfter.elements.values()].some((e) => e.name === 'forbidden')) {
+    return [{ elementId: '', severity: 'error', message: 'that name is reserved' }];
+  }
+};
+
+const store = createModelStore(undefined, { metamodel: ISTAR_2_0 });
+const dispatcher = createActionDispatcher(store, { postGuards: [noForbiddenName] });
+const actor = await dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Actor' });
+if (!actor.ok) throw new Error('setup failed');
+const [actorId] = actor.createdIds;
+
+const rejected = await dispatcher.dispatch({
+  kind: 'applyLabelEdit',
+  labelId: actorId,
+  text: 'forbidden',
+});
+// rejected = { ok: false, diagnostics: [{ elementId: '', severity: 'error', message: 'that name is reserved' }] }
+// store.getModel() is still the model before this dispatch; store.canUndo() is unchanged.
+```
+
+Like a pre-guard, a post-guard is plain data in, plain data out: it works the same in-process or
+across the transport (`createRemoteDispatcher`), and for a mirror following it
+(`createMirrorStore`) — a rejection reaches a remote client as the same typed `ActionResult`, and
+the mirror sees no change.
+
 ## Transport
 
 `connectDispatcher(port)` / `createRemoteDispatcher(port)` (`packages/actions/src/transport.ts`)

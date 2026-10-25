@@ -116,11 +116,28 @@ export type ActionGuard<EK extends string = ElementKind, LK extends string = Lin
   model: IstarModel<EK, LK>,
 ) => readonly GoalDiagnostic[] | void;
 
+/**
+ * A host's rule, run after each operation is applied (and after each operation of a compound
+ * one, plus once more on the compound's own result), inside the operation's transaction. Sees
+ * the model as the operation leaves it (`modelAfter`) and as it was before (`modelBefore`), so
+ * it can check things a pre-guard can't without re-applying the operation itself (goal-controller's
+ * edgeV2 engine check is the motivating case). Diagnostics of severity `error` roll the
+ * transaction back: the model is untouched and there is no undo entry. Others are returned with
+ * the result, merged with pre-guards' warnings.
+ */
+export type ActionPostGuard<EK extends string = ElementKind, LK extends string = LinkKind> = (
+  operation: IstarOperation<EK, LK>,
+  modelAfter: IstarModel<EK, LK>,
+  modelBefore: IstarModel<EK, LK>,
+) => readonly GoalDiagnostic[] | void;
+
 export interface ActionDispatcherOptions<
   EK extends string = ElementKind,
   LK extends string = LinkKind,
 > {
   readonly guards?: readonly ActionGuard<EK, LK>[];
+  /** Run after each operation is applied; see `ActionPostGuard`. */
+  readonly postGuards?: readonly ActionPostGuard<EK, LK>[];
   /** What `RequestContextActions` offers. Default: `DEFAULT_PALETTE` (iStar 2.0's). */
   readonly palette?: AnyPaletteDescription;
   /**
@@ -215,6 +232,7 @@ export function createActionDispatcher<
 ): StoreActionDispatcher<EK, LK> {
   const s = store as unknown as ModelStore<string, string>;
   const guards = (options.guards ?? []) as readonly ActionGuard<string, string>[];
+  const postGuards = (options.postGuards ?? []) as readonly ActionPostGuard<string, string>[];
   const palette = options.palette ?? (DEFAULT_PALETTE as unknown as AnyPaletteDescription);
   const sourceModelName = options.sourceModelName ?? '';
   const listeners = new Set<ActionListener<string, string>>();
@@ -269,8 +287,28 @@ export function createActionDispatcher<
     if (errors.length > 0) throw new Rejection(errors);
   };
 
+  const runPostGuards = (
+    operation: IstarOperation<string, string>,
+    before: AnyIstarModel,
+    warnings: GoalDiagnostic[],
+  ) => {
+    const errors: GoalDiagnostic[] = [];
+    for (const guard of postGuards) {
+      for (const d of guard(operation, s.getModel(), before) ?? []) {
+        (d.severity === 'error' ? errors : warnings).push(d);
+      }
+    }
+    if (errors.length > 0) throw new Rejection(errors);
+  };
+
   const apply = (operation: IstarOperation<string, string>, warnings: GoalDiagnostic[]): void => {
     runGuards(operation, warnings);
+    const before = s.getModel();
+    doApply(operation, warnings);
+    runPostGuards(operation, before, warnings);
+  };
+
+  const doApply = (operation: IstarOperation<string, string>, warnings: GoalDiagnostic[]): void => {
     const model = s.getModel();
     const meta = metaOf(model);
     switch (operation.kind) {

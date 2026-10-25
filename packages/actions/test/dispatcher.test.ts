@@ -13,7 +13,13 @@ import {
   toPistar,
   toPistarObject,
 } from '@istar-ts/core';
-import type { ActionDispatcher, ActionDispatcherOptions, ActionGuard, IstarAction } from '../src';
+import type {
+  ActionDispatcher,
+  ActionDispatcherOptions,
+  ActionGuard,
+  ActionPostGuard,
+  IstarAction,
+} from '../src';
 import { createActionDispatcher, diagnosticToMarker, markerToDiagnostic } from '../src';
 import { loadFixtures } from './fixtures';
 
@@ -636,6 +642,67 @@ describe('guards', () => {
       ok: true,
       diagnostics: [{ severity: 'warning', message: 'are you sure?' }],
     });
+  });
+});
+
+describe('postGuards', () => {
+  test('an error rolls back the transaction: no model change, no undo entry, no notification', async () => {
+    const rejectRenamed: ActionPostGuard = (operation, modelAfter) => {
+      if (operation.kind !== 'applyLabelEdit') return;
+      if (modelAfter.elements.get('g1')?.name === 'forbidden') {
+        return [{ elementId: 'g1', severity: 'error', message: 'that name is reserved' }];
+      }
+    };
+    const env = setup({ postGuards: [rejectRenamed] });
+    const notifications: IstarAction[] = [];
+    env.dispatcher.subscribe((action) => notifications.push(action));
+
+    const diagnostics = await expectRejected(env, {
+      kind: 'applyLabelEdit',
+      labelId: 'g1',
+      text: 'forbidden',
+    });
+    expect(diagnostics).toEqual([
+      { elementId: 'g1', severity: 'error', message: 'that name is reserved' },
+    ]);
+    expect(notifications).toEqual([]);
+  });
+
+  test('a warning passes through with ok:true, merged after pre-guard warnings', async () => {
+    const warnBefore: ActionGuard = () => [{ elementId: '', severity: 'warning', message: 'pre' }];
+    const warnAfter: ActionPostGuard = () => [
+      { elementId: '', severity: 'warning', message: 'post' },
+    ];
+    const env = setup({ guards: [warnBefore], postGuards: [warnAfter] });
+    const result = await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      containerId: 'a',
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      diagnostics: [
+        { severity: 'warning', message: 'pre' },
+        { severity: 'warning', message: 'post' },
+      ],
+    });
+  });
+
+  test('runs after each child of a compound, and once more on the final result', async () => {
+    const seen: string[] = [];
+    const track: ActionPostGuard = (operation, after, before) => {
+      seen.push(`${operation.kind}:${before.elements.size}->${after.elements.size}`);
+    };
+    const env = setup({ postGuards: [track] });
+    const result = await env.dispatcher.dispatch({
+      kind: 'compound',
+      operationList: [
+        { kind: 'createNode', elementTypeId: 'istar.Goal', containerId: 'a' },
+        { kind: 'createNode', elementTypeId: 'istar.Goal', containerId: 'a' },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    expect(seen).toEqual(['createNode:5->6', 'createNode:6->7', 'compound:5->7']);
   });
 });
 

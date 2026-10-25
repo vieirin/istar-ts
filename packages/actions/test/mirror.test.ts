@@ -9,7 +9,12 @@ import {
   toPistar,
 } from '@istar-ts/core';
 import type { AnyIstarModel, ModelChangeEvent, ModelStore } from '@istar-ts/core';
-import type { ActionDispatcher, MirrorStore } from '../src';
+import type {
+  ActionDispatcher,
+  ActionDispatcherOptions,
+  ActionPostGuard,
+  MirrorStore,
+} from '../src';
 import {
   connectDispatcher,
   createActionDispatcher,
@@ -23,11 +28,15 @@ const fixture = (path: string): string =>
 const SMART_HOME = fixture('pistar/smartHome.txt');
 
 /** A server over `model`, and a client of it on a real `MessageChannel`. */
-function serve(model: AnyIstarModel | undefined, sendModel: boolean) {
+function serve(
+  model: AnyIstarModel | undefined,
+  sendModel: boolean,
+  options: Omit<ActionDispatcherOptions<string, string>, 'sendModel'> = {},
+) {
   const store = model
     ? createModelStore(model)
     : createModelStore(undefined, { metamodel: ISTAR_2_0 });
-  const server = createActionDispatcher(store, { sendModel });
+  const server = createActionDispatcher(store, { ...options, sendModel });
   const connect = (): ActionDispatcher => {
     const { port1, port2 } = new MessageChannel();
     connectDispatcher(port1, server);
@@ -213,6 +222,33 @@ describe.each([
       elementTypeId: 'istar.NoSuchKind' as 'istar.Goal',
     });
     expect(result.ok).toBe(false);
+    await mirror.synced();
+    expect(mirror.getModel()).toBe(before);
+    expect(events).toEqual([]);
+  });
+
+  test('a postGuard rejection reaches a remote client as typed diagnostics, and the mirror sees no change', async () => {
+    const rejectRenamed: ActionPostGuard<string, string> = (operation, modelAfter) => {
+      if (operation.kind !== 'istar.updateDiagram') return;
+      if (modelAfter.diagram?.name === 'forbidden') {
+        return [{ elementId: '', severity: 'error', message: 'that name is reserved' }];
+      }
+    };
+    const { connect } = serve(parsePistar(SMART_HOME), sendModel, { postGuards: [rejectRenamed] });
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+    const before = mirror.getModel();
+    const events: ModelChangeEvent[] = [];
+    mirror.subscribe((event) => events.push(event));
+
+    const result = await mirror.dispatcher.dispatch({
+      kind: 'istar.updateDiagram',
+      diagram: { name: 'forbidden' },
+    });
+    expect(result).toEqual({
+      ok: false,
+      diagnostics: [{ elementId: '', severity: 'error', message: 'that name is reserved' }],
+    });
     await mirror.synced();
     expect(mirror.getModel()).toBe(before);
     expect(events).toEqual([]);
