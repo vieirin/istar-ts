@@ -13,8 +13,8 @@
  */
 import type { StoreActionDispatcher } from '@istar-ts/actions';
 import { createActionDispatcher } from '@istar-ts/actions';
-import type { AnyIstarModel } from '@istar-ts/core';
-import { createEmptyModel, parsePistar, toPistar } from '@istar-ts/core';
+import type { AnyIstarModel, AnyMetamodel } from '@istar-ts/core';
+import { createEmptyModel, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
 import { IstarCanvas, useIstarEditor, useIstarStore } from '@istar-ts/react';
 import { ISTAR_GLSP, gmodelTypes } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
@@ -182,7 +182,7 @@ export function BothApp(): ReactElement {
                     dispatcher={agentDispatcher}
                     guards={[]}
                     schemas={[]}
-                    framework="none"
+                    metamodel={metamodelOf(model) as AnyMetamodel}
                   />
                 </section>
               </>

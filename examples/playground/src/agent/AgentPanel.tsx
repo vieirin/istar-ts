@@ -5,10 +5,14 @@
  * `/react.html`'s first-load bundle is unaffected (verified in the PR description).
  */
 import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
-import type { ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import type { ReactElement } from 'react';
 import { Suspense, lazy, useState } from 'react';
-import type { GlspFramework } from './glspMcpBackend';
 
 const AgentDrawer = lazy(() => import('./AgentDrawer'));
 
@@ -17,14 +21,18 @@ export function AgentPanel({
   dispatcher,
   guards,
   schemas,
-  framework,
+  metamodel,
+  palette,
 }: {
   readonly store: ModelStore<string, string>;
   /** The "Agent"-tagged dispatcher every applied edit goes through. */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards: readonly ActionGuard<string, string>[];
   readonly schemas: readonly PropertySchema[];
-  readonly framework: GlspFramework;
+  /** The active model's own metamodel, whatever its dialect. */
+  readonly metamodel: AnyMetamodel;
+  /** The active extension's own palette, if it has one; default: one derived from `metamodel`. */
+  readonly palette?: AnyPaletteDescription;
 }): ReactElement {
   const [open, setOpen] = useState(false);
   return (
@@ -39,7 +47,8 @@ export function AgentPanel({
             dispatcher={dispatcher}
             guards={guards}
             schemas={schemas}
-            framework={framework}
+            metamodel={metamodel}
+            palette={palette}
           />
         </Suspense>
       )}

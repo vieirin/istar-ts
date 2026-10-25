@@ -19,6 +19,8 @@
 import type {
   AnyMetamodel,
   AnyPaletteDescription,
+  LinkToolEntryDescription,
+  PaletteEntryDescription,
   PropertySchema,
   PropertyShape,
 } from '@istar-ts/core';
@@ -49,16 +51,80 @@ export interface IstarGlspContribution {
 /** Service identifier of the session's `IstarGlspContribution`. */
 export const IstarGlspContribution: unique symbol = Symbol('IstarGlspContribution');
 
+/** What a `contributionFor` caller may give beyond the metamodel itself. */
+export interface ContributionOptions {
+  /** Default: the metamodel's own `framework` (its root's name). */
+  readonly diagramType?: string;
+  /** Default: a palette derived from the metamodel's kinds (`paletteFromMetamodel`). */
+  readonly palette?: AnyPaletteDescription;
+  readonly types?: GModelTypeOverrides;
+  readonly schemas?: readonly PropertySchema<PropertyShape, string>[];
+  readonly fileMetamodel?: boolean;
+}
+
+/**
+ * Builds an `IstarGlspContribution` from any metamodel at runtime: iStar 2.0, KAOS, NFR, or an
+ * `extendMetamodel` result of a host's own. `ISTAR_GLSP`, `KAOS_GLSP` and `NFR_GLSP` are just
+ * calls to this with their own palette and schemas; a dialect with none is no special case,
+ * it falls back to `paletteFromMetamodel`.
+ */
+export function contributionFor(
+  metamodel: AnyMetamodel,
+  options: ContributionOptions = {},
+): IstarGlspContribution {
+  return {
+    diagramType: options.diagramType ?? metamodel.framework,
+    metamodel,
+    palette: options.palette ?? paletteFromMetamodel(metamodel),
+    ...(options.types ? { types: options.types } : {}),
+    ...(options.schemas ? { schemas: options.schemas } : {}),
+    ...(options.fileMetamodel !== undefined ? { fileMetamodel: options.fileMetamodel } : {}),
+  };
+}
+
 /** iStar 2.0, the default contribution. */
-export const ISTAR_GLSP: IstarGlspContribution = {
-  diagramType: 'istar',
-  metamodel: ISTAR_2_0 as unknown as AnyMetamodel,
-  palette: DEFAULT_PALETTE as unknown as AnyPaletteDescription,
-};
+export const ISTAR_GLSP: IstarGlspContribution = contributionFor(
+  ISTAR_2_0 as unknown as AnyMetamodel,
+  {
+    diagramType: 'istar',
+    palette: DEFAULT_PALETTE as unknown as AnyPaletteDescription,
+  },
+);
 
 /** The palette a contribution offers: its own, or iStar 2.0's. */
 export function paletteOf(contribution: IstarGlspContribution): AnyPaletteDescription {
   return contribution.palette ?? (DEFAULT_PALETTE as unknown as AnyPaletteDescription);
+}
+
+/**
+ * A minimal palette for a metamodel with none of its own: one toolbar entry per visible kind
+ * (declaration order, actors first), labelled from the kind's own `label`. Kinds generated for
+ * an n-ary link (a hub, leg or end — `role` set) are hidden, as a hand-written palette would
+ * hide them (`KAOS_PALETTE`'s `RefinementLinkHub: false`, for instance).
+ */
+function paletteFromMetamodel(metamodel: AnyMetamodel): AnyPaletteDescription {
+  const elements: Record<string, PaletteEntryDescription | false> = {};
+  let order = 0;
+  for (const definition of metamodel.elements.values()) {
+    elements[definition.kind] =
+      definition.role !== undefined
+        ? false
+        : {
+            label: definition.label,
+            order: order++,
+            section: definition.category === 'actor' ? 'actors' : 'elements',
+            ...(definition.category === 'actor' ? { group: 'actors' } : {}),
+          };
+  }
+  const links: Record<string, readonly LinkToolEntryDescription[] | false> = {};
+  order = 0;
+  for (const definition of metamodel.links.values()) {
+    links[definition.kind] =
+      definition.role !== undefined
+        ? false
+        : [{ label: definition.label, order: order++, section: 'elements' }];
+  }
+  return { elements, links, groups: { actors: { label: 'Actor' } } };
 }
 
 /**

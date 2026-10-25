@@ -11,6 +11,7 @@ import {
   resetToEmptyModel,
   selectActorTool,
   selectTool,
+  switchExtension,
   undoButton,
 } from './helpers';
 import { HANG, answer, mockDeepSeek, toolCalls } from './mock-deepseek';
@@ -251,5 +252,62 @@ test.describe('agent drawer', () => {
 
     const rows = await logRowTexts(page);
     expect(rows.at(-1)).toContain('Agent');
+  });
+
+  // #151: the drawer's GLSP contribution comes from the active model's own metamodel, not a
+  // hard-coded framework switch — so an extension with no dedicated GLSP contribution (unlike
+  // KAOS/NFR) still works, through `contributionFor`'s fallback. goal-controller relabels
+  // `istar.Resource` as "Variable" but adds no new kind, so the agent creates one of those:
+  // an actor to hold it (`istar.Resource` can't sit on the paper), then the resource itself.
+  test('with the goal-controller extension active, the agent creates one of its kinds', async ({
+    page,
+  }) => {
+    await switchExtension(page, 'goal-controller');
+
+    await mockDeepSeek(page, (body, index) => {
+      if (index === 0) {
+        return toolCalls([
+          'create-nodes',
+          {
+            nodes: [
+              {
+                elementTypeId: 'node:istar.Actor',
+                position: { x: 40, y: 40 },
+                args: { name: 'Controller' },
+              },
+            ],
+          },
+        ]);
+      }
+      if (index === 1) {
+        const last = body.messages.at(-1) as { role: string; content: string };
+        const parsed = JSON.parse(last.content) as {
+          result: { createdNodes: Array<{ id: string }> };
+        };
+        const actorId = parsed.result.createdNodes[0]!.id;
+        return toolCalls([
+          'create-nodes',
+          {
+            nodes: [
+              {
+                elementTypeId: 'node:istar.Resource',
+                position: { x: 20, y: 90 },
+                containerId: actorId,
+                args: { name: 'Budget' },
+              },
+            ],
+          },
+        ]);
+      }
+      return answer('Added the controller and a variable.');
+    });
+
+    await openDrawer(page);
+    await page.getByRole('radio', { name: 'Auto (apply as it goes)' }).check();
+    await page.getByRole('textbox', { name: 'Task' }).fill('Add a controller with a variable.');
+    await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+
+    await expect(elementsCount(page)).toHaveText('2');
   });
 });

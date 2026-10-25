@@ -4,11 +4,16 @@
  * pending change set and the usage/cost readout `AgentDrawer.tsx` renders.
  */
 import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
-import type { ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import { DEEPSEEK, costPerMillionTokens, createChatClient, runAgent } from '@istar-ts/agent';
 import type { AgentEvent, ApprovalMode, ChangeSetEntry, Transcript } from '@istar-ts/agent';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GlspFramework, GlspMcpSession } from './glspMcpBackend';
+import type { GlspMcpSession } from './glspMcpBackend';
 import { openGlspMcpSession } from './glspMcpBackend';
 
 /** DeepSeek's current models that take tool calls (`docs/agent/verification.md` §1). */
@@ -23,7 +28,10 @@ export interface AgentSessionOptions<EK extends string = string, LK extends stri
   readonly dispatcher: ActionDispatcher<EK, LK>;
   readonly guards: readonly ActionGuard<EK, LK>[];
   readonly schemas: readonly PropertySchema[];
-  readonly framework: GlspFramework;
+  /** The active model's own metamodel, whatever its dialect. */
+  readonly metamodel: AnyMetamodel;
+  /** The active extension's own palette, if it has one; default: one derived from `metamodel`. */
+  readonly palette?: AnyPaletteDescription;
   /** Opens the session on first `true` (the drawer's first open), closes it on `false`. */
   readonly open: boolean;
 }
@@ -124,7 +132,8 @@ export function useAgentSession<EK extends string = string, LK extends string = 
       dispatcher: optionsRef.current.dispatcher as unknown as ActionDispatcher<string, string>,
       guards: optionsRef.current.guards as readonly ActionGuard<string, string>[],
       schemas: optionsRef.current.schemas,
-      framework: optionsRef.current.framework,
+      metamodel: optionsRef.current.metamodel,
+      palette: optionsRef.current.palette,
     }))
       .then((session) => {
         if (cancelled) {

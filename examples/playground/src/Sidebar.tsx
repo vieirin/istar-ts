@@ -1,11 +1,16 @@
 import type { ActionDispatcher, ActionGuard } from '@istar-ts/actions';
-import type { AnyIstarModel, ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyIstarModel,
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import { validateModel, validateModelProperties } from '@istar-ts/core';
 import { IstarInspector, useIstarEditor } from '@istar-ts/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { AgentPanel } from './agent/AgentPanel';
-import type { GlspFramework } from './agent/glspMcpBackend';
 import { ProtocolLab } from './lab/ProtocolLab';
 import type { LogStore } from './lab/log';
 import type { TaggedDispatcher } from './lab/tagClient';
@@ -29,7 +34,8 @@ export function Sidebar({
   guards,
   agentDispatcher,
   store,
-  agentFramework,
+  agentMetamodel,
+  agentPalette,
 }: {
   readonly model: AnyIstarModel;
   /** Property schemas contributed by the active extension, if any. */
@@ -43,8 +49,10 @@ export function Sidebar({
   readonly guards: readonly ActionGuard[];
   readonly agentDispatcher: ActionDispatcher;
   readonly store: ModelStore<string, string>;
-  /** The GLSP contribution the agent drawer's backend A picks for the active extension. */
-  readonly agentFramework: GlspFramework;
+  /** The active model's own metamodel, for the agent drawer's backend A contribution. */
+  readonly agentMetamodel: AnyMetamodel;
+  /** The active extension's own palette, if it has one. */
+  readonly agentPalette?: AnyPaletteDescription;
 }): ReactElement {
   const issues = validateModel(model);
   const propertyIssues = validateModelProperties(model, schemas);
@@ -89,7 +97,8 @@ export function Sidebar({
           dispatcher={agentDispatcher as ActionDispatcher<string, string>}
           guards={guards as readonly ActionGuard<string, string>[]}
           schemas={schemas}
-          framework={agentFramework}
+          metamodel={agentMetamodel}
+          palette={agentPalette}
         />
       </section>
       <section className="pg-aside-section">

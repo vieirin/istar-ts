@@ -21,13 +21,16 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { createActionDispatcher, isOperation } from '@istar-ts/actions';
 import type { ActionDispatcher, ActionGuard, IstarOperation } from '@istar-ts/actions';
 import { createModelStore, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
-import type { AnyMetamodel, ModelStore, PropertySchema } from '@istar-ts/core';
+import type {
+  AnyMetamodel,
+  AnyPaletteDescription,
+  ModelStore,
+  PropertySchema,
+} from '@istar-ts/core';
 import type { IstarGlspContribution } from '@istar-ts/glsp';
-import { ISTAR_GLSP, paletteOf } from '@istar-ts/glsp';
+import { contributionFor, paletteOf } from '@istar-ts/glsp';
 import type { IstarGlspMcpServer } from '@istar-ts/glsp/browser';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
-import { KAOS_OBSTACLES_GLSP } from '@istar-ts/glsp/kaos';
-import { NFR_GLSP } from '@istar-ts/glsp/nfr';
 import { createMcpToolRegistry } from '@istar-ts/agent';
 import type {
   ChangeSetEntry,
@@ -37,25 +40,17 @@ import type {
   ToolResult,
 } from '@istar-ts/agent';
 
-export type GlspFramework = 'kaos' | 'nfr' | 'none';
-
-/** The GLSP contribution for the playground's active extension, matching `App.tsx`'s choice of
- * root metamodel per `FRAMEWORKS`. Extensions that only add presentation (goal-controller,
- * MutRoSe, a React-only `IstarExtension`) stay on `ISTAR_GLSP`, as `/both.html` already does for
- * every extension — a known scope limit for the drawer's Backend A, noted in the PR. */
-export function contributionFor(framework: GlspFramework): IstarGlspContribution {
-  if (framework === 'kaos') return KAOS_OBSTACLES_GLSP;
-  if (framework === 'nfr') return NFR_GLSP;
-  return ISTAR_GLSP;
-}
-
 export interface GlspMcpBackendOptions {
   readonly store: ModelStore<string, string>;
   /** The "Agent"-tagged dispatcher every applied edit goes through. */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards?: readonly ActionGuard<string, string>[];
   readonly schemas?: readonly PropertySchema[];
-  readonly framework?: GlspFramework;
+  /** The active model's own metamodel (`App.tsx`'s `active.metamodel`), whatever its dialect. */
+  readonly metamodel: AnyMetamodel;
+  /** The active extension's own palette, if it has one (`App.tsx`'s `active.palette`); default:
+   * a palette derived from `metamodel`'s kinds (`contributionFor`'s own fallback). */
+  readonly palette?: AnyPaletteDescription;
 }
 
 interface McpConnection {
@@ -200,13 +195,13 @@ export interface GlspMcpSession {
  * Opens the drawer's backend A session: the live MCP server (Auto mode) and the Propose-mode
  * change set, both over the live store/dispatcher. Call once per drawer open; `getOptions` is
  * re-read on every Propose-mode run, so guards/schemas toggled later still apply (the live
- * session's store/dispatcher/framework are read once, at open time, and never change).
+ * session's store/dispatcher/metamodel are read once, at open time, and never change).
  */
 export async function openGlspMcpSession(
   getOptions: () => GlspMcpBackendOptions,
 ): Promise<GlspMcpSession> {
   const initial = getOptions();
-  const contribution = contributionFor(initial.framework ?? 'none');
+  const contribution = contributionFor(initial.metamodel, { palette: initial.palette });
   const live = await connectMcp(initial.store, initial.dispatcher, contribution);
   return {
     liveRegistry: live.registry,

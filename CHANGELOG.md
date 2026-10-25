@@ -4,6 +4,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** `contributionFor(metamodel, options?)` (#151), a generic factory that builds an
+  `IstarGlspContribution` from any metamodel at runtime — iStar 2.0, KAOS, NFR or a host's own
+  `extendMetamodel` result — with an optional palette, schemas and type overrides; it falls back
+  to a palette derived from the metamodel's own kinds when none is given. `ISTAR_GLSP`,
+  `KAOS_GLSP`, `KAOS_OBSTACLES_GLSP` and `NFR_GLSP` are now calls to it, with identical output.
+- **playground:** the agent drawer and `/both.html` build their GLSP contribution from the
+  active model's own metamodel (plus the active extension's palette and schemas, if it has
+  them) instead of a hard-coded `kaos`/`nfr`/`none` framework switch — so every
+  `IstarExtension` (goal-controller, MutRoSe, rational agents, a host's own) reaches the agent
+  with its real kinds, link rules and properties, not iStar 2.0's as a silent fallback.
 - **playground:** the agent drawer streams DeepSeek's replies (#152, follow-up from #150):
   `useAgentSession` turns `createChatClient`'s `stream: true` on, so the drawer's log grows a
   reply's text as it arrives instead of waiting for the full response, and the budget/cost line

@@ -11,20 +11,22 @@ import {
   KAOS_PALETTE,
   KAOS_PROPERTY_SCHEMAS,
 } from '@istar-ts/dsm3-kaos/metamodel';
+import { contributionFor } from './contribution';
 import type { IstarGlspContribution } from './contribution';
 
 /** KAOS goal models. */
-export const KAOS_GLSP: IstarGlspContribution = {
+export const KAOS_GLSP: IstarGlspContribution = contributionFor(KAOS as unknown as AnyMetamodel, {
   diagramType: 'kaos',
-  metamodel: KAOS as unknown as AnyMetamodel,
   palette: KAOS_PALETTE as unknown as AnyPaletteDescription,
   schemas: KAOS_PROPERTY_SCHEMAS,
-};
+});
 
 /** KAOS with obstacle analysis (obstacles, obstructions and resolutions). */
-export const KAOS_OBSTACLES_GLSP: IstarGlspContribution = {
-  diagramType: 'kaos-obstacles',
-  metamodel: KAOS_OBSTACLES as unknown as AnyMetamodel,
-  palette: KAOS_OBSTACLES_PALETTE as unknown as AnyPaletteDescription,
-  schemas: [...KAOS_PROPERTY_SCHEMAS, ...KAOS_OBSTACLE_PROPERTY_SCHEMAS],
-};
+export const KAOS_OBSTACLES_GLSP: IstarGlspContribution = contributionFor(
+  KAOS_OBSTACLES as unknown as AnyMetamodel,
+  {
+    diagramType: 'kaos-obstacles',
+    palette: KAOS_OBSTACLES_PALETTE as unknown as AnyPaletteDescription,
+    schemas: [...KAOS_PROPERTY_SCHEMAS, ...KAOS_OBSTACLE_PROPERTY_SCHEMAS],
+  },
+);
