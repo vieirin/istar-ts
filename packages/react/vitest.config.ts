@@ -12,6 +12,6 @@ export default defineConfig({
   test: {
     name: 'react',
     environment: 'jsdom',
-    setupFiles: ['./test/setup.ts'],
+    setupFiles: ['../../test-support/freeze-date.ts', './test/setup.ts'],
   },
 });

@@ -33,6 +33,7 @@ export default defineConfig({
   test: {
     name: 'playground',
     environment: 'node',
+    setupFiles: ['../../test-support/freeze-date.ts'],
     // The Playwright suite lives under e2e/ with its own runner (`pnpm --filter playground e2e`).
     exclude: [...configDefaults.exclude, 'e2e/**'],
   },

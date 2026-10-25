@@ -5,7 +5,7 @@ import type * as XyflowReact from '@xyflow/react';
 import { act, render, screen } from '@testing-library/react';
 import { toPistar } from '@istar-ts/core';
 import { useLayoutEffect } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import type { IstarEditor } from '../src';
 import { IstarCanvas, IstarProvider, useIstarEditor } from '../src';
 
@@ -87,16 +87,6 @@ function setup(dispatcherWrap: (d: ActionDispatcher) => ActionDispatcher) {
 }
 
 describe('node resize', () => {
-  // toPistar stamps saveDate with the current second: pin the clock so a before/after pair of
-  // calls can't straddle a second boundary.
-  beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2024-01-01T00:00:00Z'));
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   test('dispatches one compound tagged "canvas", and undo restores the prior size and position', async () => {
     const kinds: string[] = [];
     const { store, goal } = setup((d) => recordingDispatcher(d, kinds));

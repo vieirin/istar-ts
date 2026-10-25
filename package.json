@@ -14,7 +14,7 @@
     "e2e": "pnpm --filter playground e2e",
     "e2e:headed": "pnpm --filter playground e2e:headed",
     "e2e:ui": "pnpm --filter playground e2e:ui",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p test-support/tsconfig.json",
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

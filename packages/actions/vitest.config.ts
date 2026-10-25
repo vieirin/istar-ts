@@ -10,5 +10,6 @@ export default defineConfig({
   test: {
     name: 'actions',
     environment: 'node',
+    setupFiles: ['../../test-support/freeze-date.ts'],
   },
 });

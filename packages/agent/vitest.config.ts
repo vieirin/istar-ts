@@ -15,5 +15,6 @@ export default defineConfig({
   test: {
     name: 'agent',
     environment: 'node',
+    setupFiles: ['../../test-support/freeze-date.ts'],
   },
 });

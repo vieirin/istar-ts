@@ -13,6 +13,6 @@ export default defineConfig({
   test: {
     name: 'dsm3-kaos',
     environment: 'jsdom',
-    setupFiles: ['../react/test/setup.ts'],
+    setupFiles: ['../../test-support/freeze-date.ts', '../react/test/setup.ts'],
   },
 });
