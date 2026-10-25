@@ -24,6 +24,12 @@ Versions are published from GitHub release tags; see the release notes for full 
   `@eclipse-glsp/*` dependency — `@istar-ts/glsp` now serves a wire-compatible stock GLSP
   client; `@istar-ts/actions`'s own transport is unaffected and still isn't GLSP's wire
   protocol (#44).
+- **glsp, playground:** `contributionFor`'s `sizes` (#154) lets a contribution carry per-kind
+  size overrides, used by `modelToGModel`'s node sizes and `@istar-ts/core`'s `actorBounds`
+  (its `defaultSizeOf`), so an `/both.html` host whose `@istar-ts/react` registry overrides a
+  kind's size independently of the metamodel draws the same boxes in both the React canvas and
+  the stock GLSP client. `/both.html` now builds one registry and passes its sizes into the
+  GLSP contribution it serves.
 - **dsm3-kaos, dsm3-nfr:** `@istar-ts/react`, `react` and `react-dom` are now optional peer
   dependencies rather than hard dependencies (#92). Installing either package for its React-free
   `./metamodel` entry no longer pulls in `@istar-ts/react` or `@xyflow/react`; the package root

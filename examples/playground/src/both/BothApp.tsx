@@ -15,13 +15,21 @@ import type { StoreActionDispatcher } from '@istar-ts/actions';
 import { createActionDispatcher } from '@istar-ts/actions';
 import type { AnyIstarModel, AnyMetamodel } from '@istar-ts/core';
 import { createEmptyModel, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
-import { IstarCanvas, useIstarEditor, useIstarStore } from '@istar-ts/react';
-import { ISTAR_GLSP, gmodelTypes } from '@istar-ts/glsp';
+import type { AnyIstarRegistry } from '@istar-ts/react';
+import {
+  IstarCanvas,
+  defaultRegistry,
+  registryForMetamodel,
+  useIstarEditor,
+  useIstarStore,
+} from '@istar-ts/react';
+import type { GModelSizeOverrides } from '@istar-ts/glsp';
+import { ISTAR_GLSP, contributionFor, gmodelTypes } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { mountGlspClient } from 'glsp-client';
 import type { MountedGlspClient } from 'glsp-client';
 import type { ReactElement } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import welcomeText from '../../../../fixtures/pistar/welcome.txt?raw';
 import { AgentPanel } from '../agent/AgentPanel';
 import { ActionLog } from '../lab/ActionLog';
@@ -55,8 +63,26 @@ function LogPanel({
   );
 }
 
+/** Kind → size of a registry's elements, for a GLSP contribution's `sizes` (#154). */
+function sizesOf(registry: AnyIstarRegistry): GModelSizeOverrides {
+  return Object.fromEntries(
+    Object.entries(registry.elements).map(([kind, config]) => [kind, config.size]),
+  );
+}
+
 export function BothApp(): ReactElement {
   const { store, model } = useIstarStore(initialModel);
+  // Shared by the React canvas and the GLSP contribution, so both draw a kind at the same size
+  // even when a host overrides it independently of the metamodel (#154).
+  const registry = useMemo(
+    () =>
+      registryForMetamodel(ISTAR_GLSP.metamodel, defaultRegistry) as unknown as AnyIstarRegistry,
+    [],
+  );
+  const contribution = useMemo(
+    () => contributionFor(ISTAR_GLSP.metamodel, { ...ISTAR_GLSP, sizes: sizesOf(registry) }),
+    [registry],
+  );
   const [log] = useState(() => createLogStore());
   useEffect(() => log.attachStore(store), [log, store]);
 
@@ -97,13 +123,13 @@ export function BothApp(): ReactElement {
     const channel = new MessageChannel();
     const server = serveIstarGlsp(channel.port2 as never, {
       shared: { store, dispatcher: glspDispatcher },
-      contributions: [ISTAR_GLSP],
+      contributions: [contribution],
     });
     const client = mountGlspClient(element, {
-      diagramType: ISTAR_GLSP.diagramType,
+      diagramType: contribution.diagramType,
       sourceUri: SOURCE_URI,
-      types: gmodelTypes(ISTAR_GLSP.metamodel).all,
-      metamodel: ISTAR_GLSP.metamodel,
+      types: gmodelTypes(contribution.metamodel).all,
+      metamodel: contribution.metamodel,
       port: channel.port1,
       onMessage: (action) => setStatus({ message: action.message, severity: action.severity }),
     });
@@ -116,7 +142,8 @@ export function BothApp(): ReactElement {
       channel.port1.close();
       channel.port2.close();
     };
-    // Runs once: the shared store/dispatcher never change for the page's lifetime.
+    // Runs once: the shared store/dispatcher and the contribution (same registry for the page's
+    // lifetime) never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -171,6 +198,7 @@ export function BothApp(): ReactElement {
           <IstarCanvas
             store={store}
             dispatcher={reactDispatcher}
+            registry={registry}
             palette="left"
             aside={
               <>

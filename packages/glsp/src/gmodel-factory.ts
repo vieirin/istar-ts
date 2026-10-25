@@ -20,7 +20,10 @@ export class IstarGModelFactory implements GModelFactory {
   }
 
   createModel(): void {
-    const options = this.contribution.types ? { types: this.contribution.types } : {};
+    const options = {
+      ...(this.contribution.types ? { types: this.contribution.types } : {}),
+      ...(this.contribution.sizes ? { sizes: this.contribution.sizes } : {}),
+    };
     this.modelState.updateRoot(modelToGModel(this.modelState.model, options));
   }
 }
