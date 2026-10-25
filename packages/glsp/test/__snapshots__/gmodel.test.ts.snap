@@ -11,7 +11,9 @@ exports[`modelToGModel > a small iStar model 1`] = `
             "y": 0,
           },
           "children": [],
-          "cssClasses": [],
+          "cssClasses": [
+            "istar-glsp-actor-label",
+          ],
           "id": "ff60dd29-79bb-42d7-8e65-70d2e12f156b_label",
           "position": {
             "x": 20,

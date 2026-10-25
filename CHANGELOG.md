@@ -4,6 +4,13 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** an actor's name label centres on the symbol circle in the stock GLSP client (#120),
+  independent of the text's width: `modelToGModel` positions the label at the circle's centre
+  (`ACTOR_SYMBOL_OFFSET`, matching `@istar-ts/react`'s own constant) and tags it with the new
+  `ACTOR_LABEL_CSS_CLASS`; `examples/glsp-client/src/istar-glsp.css`'s `.istar-glsp-actor-label`
+  sets `dominant-baseline: middle` so the text centres on that point vertically too (horizontal
+  centring already came from the stock client's own `text-anchor: middle`), replacing the fixed
+  40×16px text-size guess of the earlier, reverted attempt (#177).
 - **actions, react:** render a model held elsewhere (#99). `createMirrorStore(remote)` is a
   read-only `ModelStore` that follows a remote `ActionDispatcher` (a worker, a GLSP server, a
   `createRemoteDispatcher` port): an initial `requestModel`, then one update per
