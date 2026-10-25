@@ -6,7 +6,12 @@
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { createActionDispatcher } from '@istar-ts/actions';
-import type { ActionGuard } from '@istar-ts/actions';
+import type {
+  ActionGuard,
+  ActionPostGuard,
+  HostContextProvider,
+  HostTool,
+} from '@istar-ts/actions';
 import { createModelStore, metamodelOf } from '@istar-ts/core';
 import type { AnyMetamodel } from '@istar-ts/core';
 import type { ModelStore } from '@istar-ts/core';
@@ -61,7 +66,14 @@ function lastResult(messages: readonly ChatMessage[]): { result: Record<string, 
   return JSON.parse(String(tool?.content)) as { result: Record<string, unknown> };
 }
 
-async function setup(guards: readonly ActionGuard<string, string>[] = []) {
+async function setup(
+  overrides: {
+    readonly guards?: readonly ActionGuard<string, string>[];
+    readonly postGuards?: readonly ActionPostGuard<string, string>[];
+    readonly hostTools?: readonly HostTool[];
+    readonly context?: readonly HostContextProvider[];
+  } = {},
+) {
   const store = createModelStore() as unknown as ModelStore<string, string>;
   const dispatcher = createActionDispatcher(store, { palette: paletteOf(ISTAR_GLSP) });
   const seeded = await dispatcher.dispatch({
@@ -86,7 +98,10 @@ async function setup(guards: readonly ActionGuard<string, string>[] = []) {
   const session = await openGlspMcpSession(() => ({
     store,
     dispatcher,
-    guards,
+    guards: overrides.guards ?? [],
+    postGuards: overrides.postGuards,
+    hostTools: overrides.hostTools,
+    context: overrides.context,
     metamodel: metamodelOf(store.getModel()) as AnyMetamodel,
   }));
   sessions.push(session);
@@ -332,7 +347,7 @@ describe('Propose mode over backend A', () => {
       operation.kind === 'createNode' && operation.elementTypeId === 'istar.Task'
         ? [{ elementId: '', severity: 'error', message: 'no new tasks today', code: 'demo' }]
         : undefined;
-    const { store, session } = await setup([refuseTasks]);
+    const { store, session } = await setup({ guards: [refuseTasks] });
     const client = scripted([
       () => [
         'create-nodes',
@@ -364,5 +379,144 @@ describe('Propose mode over backend A', () => {
     const applied = await session.changeSet.apply(run.changeSet);
     expect(applied).toMatchObject({ ok: true, content: { createdIds: [] } });
     expect(store.getModel()).toBe(before);
+  });
+
+  // #239: a postGuard, unlike a guard, sees the model after the operation too; the scratch
+  // dispatcher built in `openScratch` must get it, the same as a guard, so its refusal also
+  // surfaces at preview time.
+  test("a postGuard's refusal surfaces at preview time, on the scratch session (#239)", async () => {
+    const oneActor: ActionPostGuard<string, string> = (operation, modelAfter) =>
+      operation.kind === 'createNode' &&
+      operation.elementTypeId === 'istar.Actor' &&
+      [...modelAfter.elements.values()].filter((e) => e.kind === 'istar.Actor').length > 1
+        ? [{ elementId: '', severity: 'error', message: 'one actor only', code: 'demo' }]
+        : undefined;
+    const { store, session } = await setup({ postGuards: [oneActor] });
+    const client = scripted([
+      () => [
+        'create-nodes',
+        {
+          nodes: [
+            { elementTypeId: 'node:istar.Actor', position: { x: 200, y: 0 }, args: { name: 'B' } },
+          ],
+        },
+      ],
+    ]);
+
+    const before = store.getModel();
+    const run = await runAgent({ client, prompt: 'Add actor B.', changeSet: session.changeSet });
+    expect(run.changeSet).toHaveLength(1);
+    const [entry] = run.changeSet;
+    expect(entry!.result.ok).toBe(false);
+    expect(entry!.result.ok || entry!.result.diagnostics).toMatchObject([
+      { message: 'one actor only', code: 'demo' },
+    ]);
+    expect(session.changeSet.step(entry!)).toBeUndefined();
+    expect(store.getModel()).toBe(before);
+
+    const applied = await session.changeSet.apply(run.changeSet);
+    expect(applied).toMatchObject({ ok: true, content: { createdIds: [] } });
+    expect(store.getModel()).toBe(before);
+  });
+
+  describe('host tools and context (#175, #239)', () => {
+    const echoTool: HostTool = {
+      name: 'host-echo',
+      description: 'Echoes its argument back.',
+      inputSchema: { type: 'object', properties: { note: { type: 'string' } } },
+      readOnly: true,
+      handler: (args) => ({ ok: true, content: { echoed: args.note ?? null } }),
+    };
+
+    const addNoteTool: HostTool = {
+      name: 'host-add-note',
+      description: 'Adds a note task to the lab actor.',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async (_args, ctx) => {
+        const result = await ctx.dispatcher.dispatch({
+          kind: 'createNode',
+          elementTypeId: 'istar.Task',
+          containerId: 'lab',
+          location: { x: 80, y: 0 },
+          args: { id: 'host-note', name: 'Host note' },
+        });
+        return result.ok
+          ? { ok: true, content: { createdIds: result.createdIds } }
+          : { ok: false, diagnostics: result.diagnostics };
+      },
+    };
+
+    test('a read-only host tool is callable in Propose mode and is not a step', async () => {
+      const { session } = await setup({ hostTools: [echoTool] });
+      const client = scripted([() => ['host-echo', { note: 'hi' }]]);
+
+      const run = await runAgent({ client, prompt: 'Echo hi.', changeSet: session.changeSet });
+      // A read-only call is a "read" disposition, not a review step: it never joins `changeSet`.
+      expect(run.changeSet).toHaveLength(0);
+      const [call] = run.transcript.steps.flatMap((s) => s.toolCalls);
+      expect(call).toMatchObject({
+        name: 'host-echo',
+        disposition: 'read',
+        result: { ok: true, content: { echoed: 'hi' } },
+      });
+    });
+
+    test("a mutating host tool's effect is previewed and applied in the compound", async () => {
+      const { store, session } = await setup({ hostTools: [addNoteTool] });
+      const client = scripted([() => ['host-add-note', {}]]);
+
+      const before = store.getModel();
+      const run = await runAgent({ client, prompt: 'Add a note.', changeSet: session.changeSet });
+      expect(run.changeSet).toHaveLength(1);
+      const [entry] = run.changeSet;
+      expect(entry!.result.ok).toBe(true);
+      const step = session.changeSet.step(entry!);
+      expect(step).not.toBeUndefined();
+      expect(step!.createdIds).toEqual(['host-note']);
+      expect(store.getModel()).toBe(before);
+
+      const applied = await session.changeSet.apply(run.changeSet);
+      expect(applied).toMatchObject({ ok: true, content: { createdIds: ['host-note'] } });
+      expect(store.getModel().elements.get('host-note')).toMatchObject({ name: 'Host note' });
+    });
+
+    test('both the live and scratch servers list the host tools', async () => {
+      const { session } = await setup({ hostTools: [echoTool, addNoteTool] });
+      expect(session.liveRegistry.list().map((s) => s.name)).toContain('host-echo');
+      expect(session.liveRegistry.list().map((s) => s.name)).toContain('host-add-note');
+
+      const scratch = await session.changeSet.openScratch();
+      try {
+        expect(scratch.registry.list().map((s) => s.name)).toContain('host-echo');
+        expect(scratch.registry.list().map((s) => s.name)).toContain('host-add-note');
+      } finally {
+        scratch.close?.();
+      }
+    });
+
+    test("a context provider's text reaches the system prompt", async () => {
+      const provider: HostContextProvider = {
+        name: 'house-style',
+        title: 'House style',
+        text: 'Name every actor in Title Case.',
+      };
+      const { session } = await setup({ context: [provider] });
+      let systemPrompt = '';
+      const client = scripted([
+        (messages) => {
+          systemPrompt = String(messages[0]?.content);
+          return ['query-elements', {}];
+        },
+      ]);
+
+      await runAgent({
+        client,
+        prompt: 'Look around.',
+        changeSet: session.changeSet,
+        context: [provider],
+      });
+      expect(systemPrompt).toContain('House style');
+      expect(systemPrompt).toContain('Name every actor in Title Case.');
+    });
   });
 });
