@@ -28,16 +28,32 @@ export interface AgentSessionOptions<EK extends string = string, LK extends stri
   readonly open: boolean;
 }
 
-/** An entry of the running chat transcript, built from `onEvent` as a run goes (no streaming of
- * text deltas yet: `createChatClient`'s `stream` option stays off, see the file comment). */
+/** An entry of the running chat transcript, built from `onEvent` as a run goes. An `assistant`
+ * entry grows in place from `delta` events while `streaming` is true, then is finalized (or
+ * marked `stopped`, Stop mid-stream) once its step settles (#152). */
 export type ChatLogEntry =
-  | { readonly kind: 'assistant'; readonly content: string | null }
+  | {
+      readonly kind: 'assistant';
+      readonly content: string | null;
+      readonly streaming?: boolean;
+      readonly stopped?: boolean;
+    }
   | {
       readonly kind: 'tool';
       readonly name: string;
       readonly ok: boolean;
       readonly summary: string;
     };
+
+/** A live token/cost readout while a run is still streaming, ahead of any step's real `usage`.
+ * DeepSeek only sends `usage` in a step's last chunk (`docs/agent/verification.md` §2-3), so the
+ * in-flight step's share is a rough estimate (~4 chars/token) until that chunk lands; `estimated`
+ * tells the UI to flag it as such. */
+export interface LiveUsage {
+  readonly totalTokens: number;
+  readonly cost: number;
+  readonly estimated: boolean;
+}
 
 function summarize(entry: { readonly result: { readonly ok: boolean } }): string {
   const result = entry.result as {
@@ -58,6 +74,9 @@ export interface AgentSession {
   readonly model: string;
   setModel(model: string): void;
   readonly log: readonly ChatLogEntry[];
+  /** Set while `running`; cleared once the final transcript lands (its own `usage`/`cost` are
+   * exact by then, so the drawer reads those instead). */
+  readonly liveUsage: LiveUsage | undefined;
   readonly transcript: Transcript | undefined;
   readonly changeSet: readonly ChangeSetEntry[] | undefined;
   run(apiKey: string, prompt: string): void;
@@ -83,6 +102,14 @@ export function useAgentSession<EK extends string = string, LK extends string = 
   const [approval, setApproval] = useState<ApprovalMode>('propose');
   const [model, setModel] = useState<string>(DEEPSEEK.model);
   const [log, setLog] = useState<readonly ChatLogEntry[]>([]);
+  const [liveUsage, setLiveUsage] = useState<LiveUsage | undefined>(undefined);
+  // Index into `log` of the assistant entry currently growing from `delta` events, or null
+  // between steps. A ref: read/written only inside `onEvent`, never needs a render of its own.
+  const streamingIndexRef = useRef<number | null>(null);
+  // Characters streamed for the in-flight step, reset once that step's `usage` (real or none)
+  // settles; backs the live token estimate.
+  const streamCharsRef = useRef(0);
+  const liveUsageRef = useRef({ totalTokens: 0, cost: 0 });
   const [transcript, setTranscript] = useState<Transcript | undefined>(undefined);
   const [changeSet, setChangeSet] = useState<readonly ChangeSetEntry[] | undefined>(undefined);
   const [applyResult, setApplyResult] = useState<
@@ -125,8 +152,59 @@ export function useAgentSession<EK extends string = string, LK extends string = 
   );
 
   const onEvent = useCallback((event: AgentEvent) => {
-    if (event.type === 'step' && event.step.message.content !== null) {
-      setLog((prev) => [...prev, { kind: 'assistant', content: event.step.message.content }]);
+    if (event.type === 'delta') {
+      const content = event.delta.content;
+      if (!content) return;
+      setLog((prev) => {
+        const index = streamingIndexRef.current;
+        if (index !== null && prev[index]?.kind === 'assistant') {
+          const next = prev.slice();
+          const entry = next[index] as {
+            readonly kind: 'assistant';
+            readonly content: string | null;
+          };
+          next[index] = {
+            kind: 'assistant',
+            content: (entry.content ?? '') + content,
+            streaming: true,
+          };
+          return next;
+        }
+        streamingIndexRef.current = prev.length;
+        return [...prev, { kind: 'assistant', content, streaming: true }];
+      });
+      streamCharsRef.current += content.length;
+      const estimatedTokens =
+        liveUsageRef.current.totalTokens + Math.ceil(streamCharsRef.current / 4);
+      const estimatedCost =
+        liveUsageRef.current.cost +
+        COST({
+          prompt_tokens: 0,
+          completion_tokens: Math.ceil(streamCharsRef.current / 4),
+          total_tokens: Math.ceil(streamCharsRef.current / 4),
+        });
+      setLiveUsage({ totalTokens: estimatedTokens, cost: estimatedCost, estimated: true });
+    } else if (event.type === 'step') {
+      streamCharsRef.current = 0;
+      if (event.step.usage) {
+        liveUsageRef.current = {
+          totalTokens: liveUsageRef.current.totalTokens + (event.step.usage.total_tokens ?? 0),
+          cost: liveUsageRef.current.cost + COST(event.step.usage),
+        };
+      }
+      setLiveUsage({ ...liveUsageRef.current, estimated: false });
+      const index = streamingIndexRef.current;
+      const content = event.step.message.content;
+      if (index !== null) {
+        setLog((prev) => {
+          const next = prev.slice();
+          next[index] = { kind: 'assistant', content, streaming: false };
+          return next;
+        });
+        streamingIndexRef.current = null;
+      } else if (content !== null) {
+        setLog((prev) => [...prev, { kind: 'assistant', content, streaming: false }]);
+      }
     } else if (event.type === 'tool-call') {
       setLog((prev) => [
         ...prev,
@@ -148,10 +226,14 @@ export function useAgentSession<EK extends string = string, LK extends string = 
       setTranscript(undefined);
       setChangeSet(undefined);
       setApplyResult(undefined);
+      setLiveUsage(undefined);
+      streamingIndexRef.current = null;
+      streamCharsRef.current = 0;
+      liveUsageRef.current = { totalTokens: 0, cost: 0 };
       setLog((prev) => [...prev, { kind: 'assistant', content: `> ${prompt}` }]);
       const controller = new AbortController();
       abortRef.current = controller;
-      const client = createChatClient({ baseUrl: DEEPSEEK.baseUrl, model, apiKey });
+      const client = createChatClient({ baseUrl: DEEPSEEK.baseUrl, model, apiKey, stream: true });
       const common = {
         client,
         prompt,
@@ -167,10 +249,24 @@ export function useAgentSession<EK extends string = string, LK extends string = 
         .then((result) => {
           setTranscript(result.transcript);
           if (approval === 'propose' && result.changeSet.length > 0) setChangeSet(result.changeSet);
+          if (result.transcript.stop.reason === 'aborted') {
+            const index = streamingIndexRef.current;
+            if (index !== null) {
+              setLog((prev) => {
+                const next = prev.slice();
+                const entry = next[index];
+                if (entry?.kind === 'assistant')
+                  next[index] = { ...entry, streaming: false, stopped: true };
+                return next;
+              });
+              streamingIndexRef.current = null;
+            }
+          }
         })
         .finally(() => {
           abortRef.current = undefined;
           setRunning(false);
+          setLiveUsage(undefined);
         });
     },
     [approval, model, onEvent, running],
@@ -202,6 +298,7 @@ export function useAgentSession<EK extends string = string, LK extends string = 
     model,
     setModel,
     log,
+    liveUsage,
     transcript,
     changeSet,
     run,

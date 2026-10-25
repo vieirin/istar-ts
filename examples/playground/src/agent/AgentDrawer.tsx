@@ -25,6 +25,8 @@ function logLine(entry: ChatLogEntry, index: number): ReactElement {
     return (
       <p key={index} className="pg-agent-log-assistant">
         {entry.content}
+        {entry.streaming ? ' ▌' : ''}
+        {entry.stopped ? ' (stopped)' : ''}
       </p>
     );
   }
@@ -169,6 +171,13 @@ export default function AgentDrawer({
         </button>
       </div>
       {session.error !== undefined && <p className="pg-lab-reject">{session.error}</p>}
+      {session.liveUsage && (
+        <p className="pg-lab-hint">
+          Tokens: {session.liveUsage.totalTokens}
+          {`, cost ≈ $${session.liveUsage.cost.toFixed(4)}`}
+          {session.liveUsage.estimated ? ' (estimate)' : ''}
+        </p>
+      )}
       {session.transcript && (
         <p className="pg-lab-hint">
           Stopped: {session.transcript.stop.reason}

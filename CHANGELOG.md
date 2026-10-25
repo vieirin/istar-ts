@@ -4,6 +4,14 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **playground:** the agent drawer streams DeepSeek's replies (#152, follow-up from #150):
+  `useAgentSession` turns `createChatClient`'s `stream: true` on, so the drawer's log grows a
+  reply's text as it arrives instead of waiting for the full response, and the budget/cost line
+  updates live — a running estimate (DeepSeek only sends `usage` on a step's last chunk) until
+  that chunk lands, then the exact total. Stop aborts the in-flight stream: no further tool calls
+  run, and the partial text stays visible, marked "(stopped)". `e2e/mock-deepseek.ts` now answers
+  every mocked request as SSE, splitting each tool call's `arguments` across two chunks like
+  DeepSeek does, instead of one JSON body.
 - **core, react, glsp:** moved the actor-boundary geometry out of `@istar-ts/react` into core's
   `actorBounds(model, actorId, metamodel?)` (#95, epic #144 stage 2), so `@istar-ts/react`'s
   `modelToFlow` and `@istar-ts/glsp`'s `modelToGModel` share one implementation and can't draw
