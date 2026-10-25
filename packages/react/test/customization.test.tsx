@@ -128,6 +128,19 @@ describe('actors without a boundary', () => {
     });
   });
 
+  test('render at their own x/y, even when an inner element sits above and left of it (#194)', () => {
+    const { store, actor, g1 } = actorWithGoals();
+    store.moveElement(actor, 100, 100);
+    store.moveElement(g1, 50, 50);
+    const registry = createRegistry(frameless.elements ? { elements: frameless.elements } : {});
+    const { nodes } = modelToFlow(store.getModel(), registry);
+    expect(nodes.find((n) => n.id === actor)).toMatchObject({ position: { x: 100, y: 100 } });
+    expect(nodes.find((n) => n.id === g1)).toMatchObject({
+      parentId: actor,
+      position: { x: -50, y: -50 },
+    });
+  });
+
   test('draw no boundary, and select from anywhere on the node', () => {
     const { store, actor } = actorWithGoals();
     const { container, editor } = renderCanvas(store, { extensions: [frameless] });

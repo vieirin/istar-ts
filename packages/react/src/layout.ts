@@ -241,7 +241,13 @@ export function gmodelToFlow(
   /** Drawn element boxes, absolute, for placing anchors. */
   const anchorsOf = new Map<string, Anchor>();
 
-  const elementNode = (node: GNodeSchema, parent: { id: string; x: number; y: number } | null) => {
+  const elementNode = (
+    node: GNodeSchema,
+    parent: { id: string; x: number; y: number } | null,
+    // The actor's rendered React Flow position, when it differs from `parent` (a frameless
+    // actor renders at its own x/y, not the boundary box's corner `parent` is; #194).
+    renderAnchor?: Point,
+  ) => {
     const at = parent
       ? { x: parent.x + node.position.x, y: parent.y + node.position.y }
       : { x: node.position.x, y: node.position.y };
@@ -257,7 +263,9 @@ export function gmodelToFlow(
       id: node.id,
       type: 'istarElement',
       ...(parent ? { parentId: parent.id } : {}),
-      position: { x: node.position.x, y: node.position.y },
+      position: renderAnchor
+        ? { x: at.x - renderAnchor.x, y: at.y - renderAnchor.y }
+        : { x: node.position.x, y: node.position.y },
       width,
       height,
       data: { elementId: node.id, element: elementOf(node, at, parent?.id) },
@@ -283,7 +291,12 @@ export function gmodelToFlow(
     const frameless = elements[kind]?.boundary === false;
     // Like framed actors, frameless ones ignore any saved `display` size: the kind's size wins.
     const size = frameless ? elements[kind]!.size : node.size;
-    const at = { x: node.position.x, y: node.position.y };
+    // A frameless actor's own x/y (`args.position`), not the boundary box's corner, which can
+    // differ when an element sits above or left of it (#194).
+    const at =
+      frameless && node.args.position
+        ? { x: node.args.position.x, y: node.args.position.y }
+        : { x: node.position.x, y: node.position.y };
     origins.set(node.id, at);
     anchorsOf.set(
       node.id,
@@ -316,8 +329,14 @@ export function gmodelToFlow(
       selectable: false,
       dragHandle: `.${ACTOR_SYMBOL_CLASS}`,
     });
+    // Children's GModel positions are relative to the boundary box (`node.position`), which a
+    // frameless actor's own render position (`at`) can differ from (#194): pass both, so the
+    // child's absolute position still derives from the box while its React Flow position
+    // (relative to the rendered parent) is corrected for the difference.
+    const box = { x: node.position.x, y: node.position.y };
     for (const child of node.children) {
-      if (isGNodeSchema(child) && child.args) elementNode(child, { id: node.id, ...at });
+      if (isGNodeSchema(child) && child.args)
+        elementNode(child, { id: node.id, ...box }, frameless ? at : undefined);
     }
   }
 

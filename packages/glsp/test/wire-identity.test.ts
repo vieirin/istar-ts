@@ -5,8 +5,9 @@
  * refactor of the mapping must leave it unchanged.
  *
  * The one intended change since: nodes and edges carry `args` (`kind`, `customProperties`,
- * `display`, `extra`; #164's constraints). `withoutAddedArgs` takes exactly those off before
- * hashing, and `@istar-ts/gmodel`'s tests check them, so the hash still covers everything else.
+ * `display`, `extra`; #164's constraints) and actors carry `position` (#194). `withoutAddedArgs`
+ * takes exactly those off before hashing, and `@istar-ts/gmodel`'s tests check them, so the hash
+ * still covers everything else.
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
@@ -33,7 +34,7 @@ function canonical(value: unknown): unknown {
 }
 
 /** Keys the GModel gained in #164, which the pre-refactor snapshot can't hold. */
-const ADDED_ARGS = ['kind', 'customProperties', 'display', 'extra'];
+const ADDED_ARGS = ['kind', 'customProperties', 'display', 'extra', 'position'];
 
 function withoutAddedArgs(element: GModelElementSchema): GModelElementSchema {
   const { args, children, ...rest } = element as GModelElementSchema & {
