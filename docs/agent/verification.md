@@ -208,9 +208,24 @@ server in the page, no `McpWorkerBridge` either. Read from the same tarball:
 
 `@istar-ts/glsp/browser`'s `serveIstarGlsp(…, { mcp: true })` implements the direct path
 (`server.mcp.fetch`), and `test/browser-mcp.test.ts` runs an SDK client through it. A server
-in a **worker** (`startIstarGlspWorker`) would need the bridge, with the page-side `fetch`
-posting `McpRequestMessage`s over a `MessagePort` it hands over with `mcp-init-port`. That still
-needs no Service Worker, but has the buffering caveat above. It is not built yet.
+in a **worker** (`startIstarGlspWorker({ mcp: true })`, #134) uses the bridge instead: the
+worker binds `McpWorkerBridge.createServerModule`-equivalent wiring (the launcher activates it
+via `onMcpServerLauncherActivated`) on a `MessagePort` separate from `connectWorkerDispatcher`'s,
+and the page gets that port's other end with `connectWorkerMcp` (`@istar-ts/glsp/page`), posting
+`McpRequestMessage`s and turning the replies back into `Response`s.
+
+Built per the buffering caveat above, not around it: `connectWorkerMcp`'s `fetch` answers the
+SDK client's standalone GET SSE stream with `405` **directly, in the page**, without a round
+trip to the worker at all — the client treats `405` there as "no server push offered" and falls
+back to request/response calls only (`client/streamableHttp.js`'s own 405 handling, §5 above).
+This sidesteps the buffering caveat everywhere, not just on Firefox/Safari: no `canTransferReadableStream`
+probe is needed, since the one request that would ever hang the bridge's serial queue never
+reaches it. `test/worker-mcp.test.ts` runs an SDK client through a `MessageChannel`-shimmed
+worker (`tools/list`, `create-nodes`, a guard rejection as a typed tool error); an e2e on
+`/glsp.html?server=worker&mcp=1` runs the same through a real Web Worker in Chromium. Firefox and
+Safari CI are out of scope for #134; the request/response path (POST) is unaffected by the
+buffering caveat regardless of browser, since `McpWorkerBridge.dispatch` always awaits the full
+response before replying either way.
 
 ## 6. Whether every server-mcp tool goes only through GLSP operations
 

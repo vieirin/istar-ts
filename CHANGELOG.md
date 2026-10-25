@@ -4,6 +4,14 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
+  Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
+  `MessagePort`, alongside `connectWorkerDispatcher`'s existing one. `@istar-ts/glsp/page` gets
+  `connectWorkerMcp(worker)`, a `fetch` for the MCP SDK's `StreamableHTTPClientTransport` that
+  answers the client's standalone GET SSE stream with `405` directly (never round-tripping to
+  the worker): the stream never ends, and `McpWorkerBridge`'s serial dispatch queue would
+  otherwise block on it forever on Firefox/Safari, which buffer the bridge's response bodies
+  instead of transferring a `ReadableStream` (docs/agent/verification.md §5's D1 caveat).
 - **glsp:** an actor's name label centres on the symbol circle in the stock GLSP client (#120),
   independent of the text's width: `modelToGModel` positions the label at the circle's centre
   (`ACTOR_SYMBOL_OFFSET`, matching `@istar-ts/react`'s own constant) and tags it with the new
