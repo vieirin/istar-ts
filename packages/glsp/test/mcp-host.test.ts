@@ -279,3 +279,32 @@ describe('host tools and context providers over MCP', () => {
     ]);
   });
 });
+
+// #240: every MCP session carries the built-in metamodel context provider by default, before a
+// host's own, unless the host opts out.
+describe('the built-in metamodel context provider', () => {
+  test('is present by default, and a host provider comes after it', async () => {
+    const shared = sharedModel();
+    const server = serveIstarGlsp({ shared, mcp: HOST });
+    cleanup.push(() => server.close());
+    const client = await mcpClient(server.mcp.url, server.mcp.fetch);
+    const { tools } = await client.listTools();
+    const names = tools.map((t) => t.name);
+    expect(names).toContain('metamodel');
+    expect(names.indexOf('metamodel')).toBeLessThan(names.indexOf('sky-facts'));
+    const result = await client.callTool({
+      name: 'metamodel',
+      arguments: { sessionId: server.sessionId! },
+    });
+    expect(JSON.stringify(result.content)).toContain('istar.Goal');
+  });
+
+  test('is absent with metamodelContext: false', async () => {
+    const shared = sharedModel();
+    const server = serveIstarGlsp({ shared, mcp: { ...HOST, metamodelContext: false } });
+    cleanup.push(() => server.close());
+    const client = await mcpClient(server.mcp.url, server.mcp.fetch);
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).not.toContain('metamodel');
+  });
+});

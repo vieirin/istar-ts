@@ -9,9 +9,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createActionDispatcher } from '@istar-ts/actions';
+import { createActionDispatcher, metamodelContext, metamodelContextText } from '@istar-ts/actions';
 import type { ActionGuard, HostContextProvider, HostTool } from '@istar-ts/actions';
-import { createModelStore, parsePistar, toPistar } from '@istar-ts/core';
+import { createModelStore, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
+import type { AnyMetamodel } from '@istar-ts/core';
 import { ISTAR_GLSP, paletteOf } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import type { ChangeSetTarget, ToolRegistry } from '../src';
@@ -136,9 +137,13 @@ describe('context providers', () => {
     });
     const system = mock.requests[0]!.body.messages[0]!;
     expect(system.role).toBe('system');
+    const metamodelSection = metamodelContextText(
+      metamodelContext(metamodelOf(store.getModel()) as AnyMetamodel),
+    );
     expect(system.content).toBe(
       [
         DEFAULT_SYSTEM_PROMPT,
+        `## This model's language\n\n${metamodelSection}`,
         '## Sky facts\n\nThe sky is blue in this test domain.',
         `## model-size\n\nThe model has ${store.getModel().elements.size} elements.`,
       ].join('\n\n'),
@@ -148,6 +153,17 @@ describe('context providers', () => {
   test('a provider that reads the model needs getModel', async () => {
     await expect(systemPromptWith('base', [SIZE])).rejects.toThrow(/getModel/);
     await expect(systemPromptWith('base', [SKY])).resolves.toContain('The sky is blue');
+  });
+
+  test('is on by default, before the host’s own providers, opt-out: metamodelContext: false', async () => {
+    const { store } = live();
+    const withDefault = await systemPromptWith('base', [SKY], store.getModel);
+    expect(withDefault).toContain("## This model's language");
+    expect(withDefault.indexOf("## This model's language")).toBeLessThan(
+      withDefault.indexOf('## Sky facts'),
+    );
+    const optedOut = await systemPromptWith('base', [SKY], store.getModel, false);
+    expect(optedOut).not.toContain("This model's language");
   });
 });
 

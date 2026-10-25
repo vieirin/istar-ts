@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a synthetic extended metamodel > matches a snapshot 1`] = `
+"# istar-2.0 metamodel
+
+## Actor kinds
+- istar.Actor (Actor) — An intentional, autonomous entity that has strategic goals and exercises know-how to pursue them, alone or with other actors (iStar 2.0 Language Guide §2). Use plain Actor when neither Agent nor Role fits better.
+- istar.Agent (Agent) — An actor with a concrete, physical manifestation — a specific person, organisation or software system (iStar 2.0 Language Guide §2). Use it instead of Role for a named, identifiable participant rather than an abstract part anyone could play.
+- istar.Role (Role) — An abstract characterisation of an actor's behaviour within some context, independent of who plays it (iStar 2.0 Language Guide §2). Use it instead of Agent when several concrete actors could fill the same part.
+
+## Node kinds
+- istar.Goal (Goal) [inner] — A state of affairs an actor wants achieved, with a clear-cut criterion for whether it is met (iStar 2.0 Language Guide §4). Unlike a Quality, a Goal is either achieved or not; unlike a Task, it says what to achieve, not how.
+- istar.Quality (Quality) [inner] — An attribute an actor wants some degree of, with no binary success criterion — it is satisficed rather than achieved outright (iStar 2.0 Language Guide §4). Use it instead of Goal for non-functional concerns (e.g. performance, usability) that admit degrees.
+- istar.Resource (Resource) [inner] — A physical or informational entity an actor needs available to perform a Task (iStar 2.0 Language Guide §4). Its mere availability, not its satisfaction, is what matters — it has no intentional content of its own.
+- istar.Task (Task) [inner] — A course of action an actor wants carried out, usually to achieve a Goal, satisfice a Quality, or produce or consume a Resource (iStar 2.0 Language Guide §4). Unlike a Goal, it specifies how, not just what.
+- x.Milestone (Milestone) [inner]
+
+## Link kinds
+- istar.IsALink (Is-A): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role — Generalisation/specialisation between two actors of the same category — two Roles, or two general Actors (iStar 2.0 Language Guide §3): the specific actor inherits the general one's properties.
+- istar.ParticipatesInLink (Participates-In): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role — Any association between two actors other than generalisation/specialisation, e.g. an Agent playing a Role (iStar 2.0 Language Guide §3). Unlike Is-A, it places no restriction on the actors' categories.
+- istar.DependencyLink (Dependency): dependency link, istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone — A social relationship in which a depender actor relies on a dependee actor for a dependum (a Goal, Quality, Task or Resource) it cannot, or prefers not to, provide for itself (iStar 2.0 Language Guide §5).
+- istar.AndRefinementLink (And-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone — Decomposes an intentional element into sub-elements that must *all* be satisfied for the parent to be satisfied (iStar 2.0 Language Guide §6.1). Contrast with Or-Refinement, where any one alternative suffices.
+- istar.OrRefinementLink (Or-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone — Decomposes an intentional element into alternative sub-elements, any *one* of which satisfies the parent (iStar 2.0 Language Guide §6.1). Contrast with And-Refinement, which needs every child.
+- istar.NeededByLink (Needed-By): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone — Links a Task to the Resource it requires in order to be performed (iStar 2.0 Language Guide §6.2).
+- istar.QualificationLink (Qualification): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone — Links a Quality to the Goal, Task or Resource it qualifies, expressing a desired attribute of that element's achievement, execution or provision (iStar 2.0 Language Guide §6.4).
+- istar.ContributionLink (Contribution): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone; values: make, help, hurt, break — Expresses how satisfying one intentional element affects another, with a strength from 'make' (sufficient positive evidence) through 'help' (partial positive) and 'hurt' (partial negative) to 'break' (sufficient negative evidence) (iStar 2.0 Language Guide §6.3). Unlike a Refinement, it is a weaker, quantifiable influence rather than a decomposition.
+- x.Joint (Joint) [n-ary, via a hub]: node link, istar.Goal, x.Milestone → istar.Goal, x.Milestone"
+`;
+
+exports[`metamodelContextText > matches a snapshot for iStar 2.0 1`] = `
+"# istar-2.0 metamodel
+
+## Actor kinds
+- istar.Actor (Actor) — An intentional, autonomous entity that has strategic goals and exercises know-how to pursue them, alone or with other actors (iStar 2.0 Language Guide §2). Use plain Actor when neither Agent nor Role fits better.
+- istar.Agent (Agent) — An actor with a concrete, physical manifestation — a specific person, organisation or software system (iStar 2.0 Language Guide §2). Use it instead of Role for a named, identifiable participant rather than an abstract part anyone could play.
+- istar.Role (Role) — An abstract characterisation of an actor's behaviour within some context, independent of who plays it (iStar 2.0 Language Guide §2). Use it instead of Agent when several concrete actors could fill the same part.
+
+## Node kinds
+- istar.Goal (Goal) [inner] — A state of affairs an actor wants achieved, with a clear-cut criterion for whether it is met (iStar 2.0 Language Guide §4). Unlike a Quality, a Goal is either achieved or not; unlike a Task, it says what to achieve, not how.
+- istar.Quality (Quality) [inner] — An attribute an actor wants some degree of, with no binary success criterion — it is satisficed rather than achieved outright (iStar 2.0 Language Guide §4). Use it instead of Goal for non-functional concerns (e.g. performance, usability) that admit degrees.
+- istar.Resource (Resource) [inner] — A physical or informational entity an actor needs available to perform a Task (iStar 2.0 Language Guide §4). Its mere availability, not its satisfaction, is what matters — it has no intentional content of its own.
+- istar.Task (Task) [inner] — A course of action an actor wants carried out, usually to achieve a Goal, satisfice a Quality, or produce or consume a Resource (iStar 2.0 Language Guide §4). Unlike a Goal, it specifies how, not just what.
+
+## Link kinds
+- istar.IsALink (Is-A): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role — Generalisation/specialisation between two actors of the same category — two Roles, or two general Actors (iStar 2.0 Language Guide §3): the specific actor inherits the general one's properties.
+- istar.ParticipatesInLink (Participates-In): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role — Any association between two actors other than generalisation/specialisation, e.g. an Agent playing a Role (iStar 2.0 Language Guide §3). Unlike Is-A, it places no restriction on the actors' categories.
+- istar.DependencyLink (Dependency): dependency link, istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task — A social relationship in which a depender actor relies on a dependee actor for a dependum (a Goal, Quality, Task or Resource) it cannot, or prefers not to, provide for itself (iStar 2.0 Language Guide §5).
+- istar.AndRefinementLink (And-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task — Decomposes an intentional element into sub-elements that must *all* be satisfied for the parent to be satisfied (iStar 2.0 Language Guide §6.1). Contrast with Or-Refinement, where any one alternative suffices.
+- istar.OrRefinementLink (Or-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task — Decomposes an intentional element into alternative sub-elements, any *one* of which satisfies the parent (iStar 2.0 Language Guide §6.1). Contrast with And-Refinement, which needs every child.
+- istar.NeededByLink (Needed-By): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task — Links a Task to the Resource it requires in order to be performed (iStar 2.0 Language Guide §6.2).
+- istar.QualificationLink (Qualification): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task — Links a Quality to the Goal, Task or Resource it qualifies, expressing a desired attribute of that element's achievement, execution or provision (iStar 2.0 Language Guide §6.4).
+- istar.ContributionLink (Contribution): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task; values: make, help, hurt, break — Expresses how satisfying one intentional element affects another, with a strength from 'make' (sufficient positive evidence) through 'help' (partial positive) and 'hurt' (partial negative) to 'break' (sufficient negative evidence) (iStar 2.0 Language Guide §6.3). Unlike a Refinement, it is a weaker, quantifiable influence rather than a decomposition."
+`;

@@ -66,8 +66,14 @@ export interface GlspMcpBackendOptions {
   /** A host's own context providers, served as MCP resources (or read-only tools, per
    * server-mcp's `dataMode`) on both servers (#175), so a host can use `openGlspMcpSession` as
    * its only MCP server. `runAgent`'s own `context` option splices the same providers into the
-   * system prompt; the two are independent. */
+   * system prompt; the two are independent. The built-in metamodel context provider (#240) is
+   * prepended automatically, unless `metamodelContext` is false. */
   readonly context?: readonly HostContextProvider[];
+  /**
+   * Opts out of the built-in metamodel context provider every MCP session carries by default
+   * (#240, `@istar-ts/glsp`'s `contextWithMetamodel`). Default true.
+   */
+  readonly metamodelContext?: boolean;
 }
 
 interface McpConnection {
@@ -83,11 +89,16 @@ async function connectMcp(
   host: {
     readonly hostTools?: readonly HostTool[];
     readonly context?: readonly HostContextProvider[];
+    readonly metamodelContext?: boolean;
   } = {},
 ): Promise<McpConnection> {
   const server = serveIstarGlsp({
     shared: { store: store as never, dispatcher: dispatcher as never },
-    mcp: { hostTools: host.hostTools, context: host.context },
+    mcp: {
+      hostTools: host.hostTools,
+      context: host.context,
+      metamodelContext: host.metamodelContext,
+    },
     contributions: [contribution],
   });
   const client = new Client({ name: 'istar-ts-agent-glsp', version: '1.0.0' });
@@ -264,7 +275,11 @@ export function createGlspChangeSet(
         scratchStore,
         recordingDispatcher,
         contribution,
-        { hostTools: options.hostTools, context: options.context },
+        {
+          hostTools: options.hostTools,
+          context: options.context,
+          metamodelContext: options.metamodelContext,
+        },
       );
       const readOnlyNames = new Set(
         registry
@@ -352,6 +367,7 @@ export async function openGlspMcpSession(
   const live = await connectMcp(initial.store, initial.dispatcher, contribution, {
     hostTools: initial.hostTools,
     context: initial.context,
+    metamodelContext: initial.metamodelContext,
   });
   return {
     liveRegistry: live.registry,

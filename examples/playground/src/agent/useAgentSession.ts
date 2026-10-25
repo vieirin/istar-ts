@@ -22,7 +22,6 @@ import type {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GlspMcpSession, ProposedStep } from '@istar-ts/agent/glsp';
 import { openGlspMcpSession } from '@istar-ts/agent/glsp';
-import { KINDS_SUMMARY } from './hostContext';
 
 /** DeepSeek's current models that take tool calls (`docs/agent/verification.md` §1). */
 export const AGENT_MODELS: readonly string[] = [DEEPSEEK.model, 'deepseek-v4-pro'];
@@ -262,7 +261,7 @@ export function useAgentSession<EK extends string = string, LK extends string = 
         budget: { maxTokens: 200_000, cost: COST, maxCost: 1 },
         signal: controller.signal,
         onEvent,
-        context: [KINDS_SUMMARY],
+        // The built-in metamodel context provider (#240) covers this model's kinds by default.
         getModel: () => optionsRef.current.store.getModel() as unknown as AnyIstarModel,
       };
       const promise =

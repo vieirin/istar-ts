@@ -3,16 +3,10 @@
  * GLSP context actions. Both are derived from data (`Metamodel`, `PaletteDescription`), so they
  * work for any root or extension.
  */
-import {
-  LINK_SELECTOR,
-  effectiveLinkKind,
-  elementBehavesLike,
-  linkBehavesLike,
-} from '@istar-ts/core';
+import { effectiveLinkKind } from '@istar-ts/core';
 import type {
   AnyMetamodel,
   AnyPaletteDescription,
-  ElementKindDefinition,
   ElementToolEntryDescription,
   LinkToolEntryDescription,
   Metamodel,
@@ -25,43 +19,7 @@ import type {
   SetTypeHintsAction,
   ShapeTypeHint,
 } from './actions';
-
-function isHub(definition: ElementKindDefinition): boolean {
-  return definition.role === 'hub';
-}
-
-/** Element kinds a rule selector matches, as `canLink` matches elements against it. */
-function matching(metamodel: AnyMetamodel, selector: string): string[] {
-  const kinds: string[] = [];
-  for (const definition of metamodel.elements.values()) {
-    // A hub is only matched by its own kind's name: categories never include it.
-    const matches = isHub(definition)
-      ? definition.kind === selector
-      : selector === '*' ||
-        selector === definition.category ||
-        elementBehavesLike(metamodel, definition.kind, selector);
-    if (matches) kinds.push(definition.kind);
-  }
-  // Link targets: `link` matches every link kind, a link kind itself and the kinds behaving like it.
-  if (selector === LINK_SELECTOR) kinds.push(...metamodel.links.keys());
-  else if (metamodel.links.has(selector)) {
-    for (const kind of metamodel.links.keys()) {
-      if (linkBehavesLike(metamodel, kind, selector)) kinds.push(kind);
-    }
-  }
-  return kinds;
-}
-
-function union(metamodel: AnyMetamodel, selectors: readonly string[]): string[] {
-  return [...new Set(selectors.flatMap((selector) => matching(metamodel, selector)))];
-}
-
-/** Kinds of a category, without hubs. */
-function ofCategory(metamodel: AnyMetamodel, category?: 'actor' | 'node'): string[] {
-  return [...metamodel.elements.values()]
-    .filter((d) => !isHub(d) && (category === undefined || d.category === category))
-    .map((d) => d.kind);
-}
+import { isHub, ofCategory, union } from './kind-selectors';
 
 /**
  * GLSP type hints of a metamodel. Shapes: every element kind (hubs can't be resized or

@@ -33,7 +33,7 @@ import type { IstarModelState } from './model-state';
 import { modelIdOf } from './translate';
 import { rejectedToolResult } from './mcp';
 import type { IstarMcpHostBase, IstarMcpHostExtensions } from './mcp-host';
-import { hostContextHandlers, hostToolHandlers } from './mcp-host';
+import { contextWithMetamodel, hostContextHandlers, hostToolHandlers } from './mcp-host';
 
 /** `ModelState` is `IstarModelState` in every session the diagram module's classes run in. */
 function istarStateOf(state: ModelState): IstarModelState {
@@ -59,7 +59,8 @@ export interface IstarMcpToolsBase extends IstarMcpHostBase {
  * `istarMcpDiagramModule(mcp, z)`'s diagram module class, with `set-properties`, `set-link-value`,
  * `change-link-kind` and `check-edge` added to server-mcp's default tool set — the same `configureToolHandlers`
  * extension point `docs/glsp/framework-notes.md` §5 describes for every adopter tool. A host's
- * `hostTools` and `context` (#175) are added to the same tool and resource multi-bindings.
+ * `hostTools` and `context` (#175) are added to the same tool and resource multi-bindings, next
+ * to the built-in metamodel context provider (#240, `contextWithMetamodel`).
  */
 export function istarMcpDiagramModule(
   mcp: IstarMcpToolsBase,
@@ -67,7 +68,7 @@ export function istarMcpDiagramModule(
   host: IstarMcpHostExtensions = {},
 ): interfaces.Newable<AbstractMcpDiagramModule> {
   const hostTools = hostToolHandlers(mcp, z, host.hostTools ?? []);
-  const hostResources = hostContextHandlers(mcp, host.context ?? []);
+  const hostResources = hostContextHandlers(mcp, contextWithMetamodel(host));
   const SetPropertiesInputSchema = mcp.McpDiagramScopedInputSchema.extend({
     elementId: mcp.elementId.describe('Id of the element or link to set properties on.'),
     properties: z

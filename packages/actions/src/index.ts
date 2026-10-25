@@ -7,5 +7,6 @@ export * from './dispatcher';
 export * from './hints';
 export * from './host';
 export * from './markers';
+export * from './metamodel-context';
 export * from './mirror';
 export * from './transport';
