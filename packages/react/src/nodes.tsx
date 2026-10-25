@@ -4,7 +4,7 @@ import { Handle, NodeResizer, Position } from '@xyflow/react';
 import type { ComponentType, MouseEvent as ReactMouseEvent, ReactElement } from 'react';
 import { memo, useCallback, useRef } from 'react';
 import { useIstarEditor } from './context';
-import type { ActorFlowNode, ElementFlowNode, LinkAnchorFlowNode } from './layout';
+import type { ActorFlowNode, ElementFlowNode, ElementNodeData, LinkAnchorFlowNode } from './layout';
 import { ACTOR_SYMBOL_CLASS, ACTOR_SYMBOL_OFFSET } from './layout';
 import { elementSize } from './registry';
 import { ACTOR_RADIUS } from './shapes';
@@ -33,10 +33,14 @@ function ConnectionHandles({ connectable }: { connectable: boolean }): ReactElem
   );
 }
 
-function useElementNode(elementId: string) {
+/**
+ * What an element node draws: the element as the GModel carries it (`ElementNodeData.element`,
+ * see `layout.ts`), not the model's; edits (resize, rename) go through the editor by id.
+ */
+function useElementNode(data: ElementNodeData) {
   const editor = useIstarEditor();
   const { setEditingId } = editor;
-  const element = editor.model.elements.get(elementId);
+  const { element, elementId } = data;
   const editing = editor.editingId === elementId;
   const setEditing = useCallback(
     (value: boolean) => setEditingId(value ? elementId : null),
@@ -51,9 +55,8 @@ export const ElementNode: ComponentType<NodeProps<ElementFlowNode>> = memo(funct
   width,
   height,
 }: NodeProps<ElementFlowNode>): ReactElement | null {
-  const { editor, element, editing, setEditing } = useElementNode(data.elementId);
+  const { editor, element, editing, setEditing } = useElementNode(data);
   const start = useRef<ResizeParams | null>(null);
-  if (!element) return null;
   const config = editor.registry.elements[element.kind];
   const Component = config.component;
   // While resizing, React Flow updates the node's size before the model; render that.
@@ -145,8 +148,7 @@ export const ActorNode: ComponentType<NodeProps<ActorFlowNode>> = memo(function 
   width,
   height,
 }: NodeProps<ActorFlowNode>): ReactElement | null {
-  const { editor, element, editing, setEditing } = useElementNode(data.elementId);
-  if (!element) return null;
+  const { editor, element, editing, setEditing } = useElementNode(data);
   const Component = editor.registry.elements[element.kind].component;
   const linking = editor.tool !== null && editor.tool.type !== 'element';
   const symbolSize = ACTOR_RADIUS * 2;

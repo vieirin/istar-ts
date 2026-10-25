@@ -44,11 +44,16 @@ describe('link anchor ids', () => {
 });
 
 describe('modelToFlow with links that target links', () => {
-  test('places one anchor on the middle of the contribution the argument points at', () => {
+  test('places an anchor on the middle of every link an argument may target', () => {
     const { model, graph } = nfrGraph();
     const anchors = graph.nodes.filter((n) => n.type === 'istarLinkAnchor');
-    expect(anchors.map((n) => n.id)).toEqual([linkAnchorId(CONTRIBUTION)]);
-    const anchor = anchors[0]!;
+    // As the GModel has them (#165): on every link of a kind some link kind may target (NFR's
+    // argument may target any link), so an argument can be drawn to any of them, not only to
+    // one that already has an argument.
+    expect(anchors.map((n) => n.id).toSorted()).toEqual(
+      [...model.links.keys()].map((id) => linkAnchorId(id)).toSorted(),
+    );
+    const anchor = anchors.find((n) => n.id === linkAnchorId(CONTRIBUTION))!;
     expect(anchor).toMatchObject({
       width: LINK_ANCHOR_SIZE,
       height: LINK_ANCHOR_SIZE,

@@ -1,8 +1,24 @@
-import { createModelStore, parsePistar } from '@istar-ts/core';
+import {
+  ISTAR_2_0,
+  createEmptyModel,
+  createModelStore,
+  extendMetamodel,
+  parsePistar,
+} from '@istar-ts/core';
+import { modelToGModelSchema } from '@istar-ts/gmodel';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { actorBoundary, createRegistry, defaultRegistry, modelToFlow } from '../src';
+import type { AnyIstarRegistry, ElementNodeData } from '../src';
+import {
+  actorBoundary,
+  createRegistry,
+  defaultRegistry,
+  gmodelToFlow,
+  modelToFlow,
+  registryForMetamodel,
+  registrySizes,
+} from '../src';
 import { adoptFlowNode } from '../src/layout';
 
 const fixture = readFileSync(
@@ -49,7 +65,8 @@ describe('modelToFlow', () => {
     store.setCollapsed(a.id, true);
 
     const { nodes, edges } = modelToFlow(store.getModel(), defaultRegistry);
-    expect(nodes.find((n) => n.id === g1.id)?.hidden).toBe(true);
+    // The GModel leaves a collapsed actor's elements out (#165), where modelToFlow hid them.
+    expect(nodes.find((n) => n.id === g1.id)).toBeUndefined();
     expect(edges.map((e) => [e.source, e.target])).toEqual([
       [a.id, dep.dependum.id],
       [dep.dependum.id, b.id],
@@ -143,7 +160,11 @@ describe('adoptFlowNode', () => {
       position: { x: 0, y: 0 },
       width: 200,
       height: 120,
-      data: { elementId: 'a', collapsed: false },
+      data: {
+        elementId: 'a',
+        element: { id: 'a', kind: 'istar.Actor' as const, name: 'a', x: 0, y: 0 },
+        collapsed: false,
+      },
     };
     const prev = {
       ...next,
@@ -156,5 +177,71 @@ describe('adoptFlowNode', () => {
     expect(adopted.selected).toBe(true);
     expect(adopted.measured).toEqual({ width: 200, height: 120 });
     expect([adopted.width, adopted.height]).toEqual([200, 120]);
+  });
+});
+
+describe('gmodelToFlow', () => {
+  // A synthetic dialect: an actor kind and a node kind of its own, on iStar 2.0.
+  const metamodel = extendMetamodel(ISTAR_2_0, {
+    name: 'synthetic',
+    elements: [
+      { kind: 'syn.Team', label: 'Team', category: 'actor', size: { width: 160, height: 90 } },
+      { kind: 'syn.Note', label: 'Note', category: 'node', size: { width: 70, height: 30 } },
+    ],
+  });
+  function synthetic() {
+    const store = createModelStore(createEmptyModel(undefined, { metamodel }));
+    const team = store.addElement({ kind: 'syn.Team', x: 100, y: 100 });
+    const note = store.addElement({
+      kind: 'syn.Note',
+      x: 140,
+      y: 150,
+      parent: team.id,
+      customProperties: { owner: 'ops', weight: '0.5' },
+      display: { backgroundColor: '#fafafa' },
+    });
+    return { model: store.getModel(), team, note };
+  }
+
+  test('reads kinds from args.kind, so a GModel type override changes nothing', () => {
+    const { model, team, note } = synthetic();
+    const registry = registryForMetamodel(metamodel) as unknown as AnyIstarRegistry;
+    const sizes = registrySizes(registry);
+    const plain = gmodelToFlow(modelToGModelSchema(model, { sizes }), metamodel, registry);
+    const overridden = gmodelToFlow(
+      modelToGModelSchema(model, {
+        sizes,
+        types: { 'syn.Team': 'node:team-shape', 'syn.Note': 'node:sticky' },
+      }),
+      metamodel,
+      registry,
+    );
+    expect(overridden).toEqual(plain);
+    const teamNode = plain.nodes.find((n) => n.id === team.id)!;
+    const noteNode = plain.nodes.find((n) => n.id === note.id)!;
+    expect(teamNode.type).toBe('istarActor');
+    expect(noteNode).toMatchObject({ type: 'istarElement', parentId: team.id, width: 70 });
+    expect((noteNode.data as ElementNodeData).element).toMatchObject({
+      kind: 'syn.Note',
+      x: 140,
+      y: 150,
+      parent: team.id,
+      customProperties: { owner: 'ops', weight: '0.5' },
+      display: { backgroundColor: '#fafafa' },
+    });
+  });
+
+  test('draws what the GModel carries, not what the model holds', () => {
+    const { model, note } = synthetic();
+    const schema = modelToGModelSchema(model);
+    const gnode = schema.children
+      .flatMap((c) => ('children' in c ? [c, ...c.children] : [c]))
+      .find((c) => c.id === note.id) as { args: { customProperties: Record<string, string> } };
+    gnode.args.customProperties = { owner: 'from-the-gmodel' };
+    const flow = gmodelToFlow(schema, metamodel);
+    const node = flow.nodes.find((n) => n.id === note.id)!;
+    expect((node.data as ElementNodeData).element.customProperties).toEqual({
+      owner: 'from-the-gmodel',
+    });
   });
 });

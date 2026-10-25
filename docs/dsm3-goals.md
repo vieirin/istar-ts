@@ -302,6 +302,11 @@ Dated entries, appended as the work goes. Each says what was decided and why.
      `isValidConnection`, the connection hint and `onConnectEnd`. `onConnect` maps it too.
   6. The drag gesture itself has no jsdom test; it needs real pointer events. The store side is
      tested in core and the anchor mapping through `checkConnection`.
+- **2026-10-25** (#165, react renders from the GModel): items 3 and 4 above now apply to
+  `gmodelToFlow`. Which links have an anchor comes from the GModel: every link of a kind some
+  link kind may target, not only the links already targeted, so an argument can be drawn to any
+  contribution. React still places the anchor on the drawn link's middle, and the snapshot still
+  pins iStar 2.0's layout.
 - **2026-10-16** (PR4, packages and playground):
   - KAOS's kind types include the generated `kaos.RefinementLinkHub`, `…Start` and `…End`
     (`KaosElementKind`, `KaosLinkKind`). The declaration is typed with the declared kinds only.

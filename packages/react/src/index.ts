@@ -118,10 +118,20 @@ export {
   LINK_ANCHOR_SIZE,
   actorBoundary,
   linkAnchorId,
+  gmodelToFlow,
   linkIdOfAnchor,
   modelToFlow,
+  registrySizes,
 } from './layout';
-export type { Box, FlowGraph, IstarEdgeData, LinkAnchorNodeData } from './layout';
+export type {
+  ActorNodeData,
+  Box,
+  ElementNodeData,
+  FlowGraph,
+  IstarEdgeData,
+  LinkAnchorNodeData,
+  TargetLinkEnds,
+} from './layout';
 export {
   CommitText,
   CustomPropertiesEditor,

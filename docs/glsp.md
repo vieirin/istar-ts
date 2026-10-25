@@ -58,6 +58,40 @@ as GLSP markers and messages, since GLSP itself has no failure response to an op
   and for showing both clients on one model (`/both.html`, below) — not a replacement for
   `<IstarCanvas>`.
 
+### One graph for both clients
+
+Both clients draw the same GModel ([#143](https://github.com/vieirin/istar-ts/issues/143)):
+`modelToGModelSchema` (`@istar-ts/gmodel`, GLSP-free) builds it; the GLSP server sends it on the
+wire, and `<IstarCanvas>` derives its React Flow nodes and edges from it with `gmodelToFlow`
+(`@istar-ts/react`, [#165](https://github.com/vieirin/istar-ts/issues/165)) instead of walking
+the model itself. So the two clients can't disagree on structure or geometry: which elements
+are drawn, nesting, collapsed actors, links on links, and every element's box. React passes its
+registry's sizes (`registrySizes(registry)`) as the GModel's `sizes`, as a GLSP contribution
+for the same host does, so a kind the registry resizes is the same size in both (#154). The
+playground's `test/gmodel-flow.test.ts` checks this for every fixture against the server's own
+`setModel`, and `e2e/cross-client.spec.ts` compares the drawn boxes on `/both.html`.
+
+`@istar-ts/react` depends on `@istar-ts/gmodel`, never on `@istar-ts/glsp` or Inversify. The
+canvas reads each element's and link's kind from `args.kind`, never from the GModel type, and
+the node and edge components draw what the GModel carries:
+
+| What the canvas draws                                                           | From                                                 |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Which nodes and edges exist, nesting (`parentId`), positions, sizes, origins    | GModel nodes, edges and their `position`/`size`      |
+| Collapsed actors, dependums                                                     | `cssClasses` (`collapsed`, `dependum`)               |
+| Names, a link's value and name                                                  | `label` children (`<id>_label`, `<id>_value`)        |
+| Kind, `customProperties`, `display`, `extra` (the components' `element`/`link`) | `args`                                               |
+| A link's vertices                                                               | `routingPoints`                                      |
+| Which links have an anchor that links may target                                | `node:link-anchor` nodes                             |
+| Components, icons, titles, line styles, frameless actors (`boundary: false`)    | the registry (presentation)                          |
+| Where an anchor sits on its link                                                | the registry's drawing: the middle of the drawn link |
+| What the inspector edits, and the canvas's own edits (drag, resize, connect)    | the model, by id                                     |
+
+An anchor's position is React's own because React draws links border to border, round an
+actor's symbol and smoothly through vertices (piStar's look), while Sprotty draws polylines:
+the GModel's anchor sits on the polyline, React's on the line React draws, so a link targeting
+it ends on the drawn line in each client.
+
 ## Running it
 
 ### The worker and Node servers

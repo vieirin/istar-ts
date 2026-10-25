@@ -588,7 +588,14 @@ the nearest such actor.
 
 Reusable pieces: `DefaultElementComponent`, `DefaultActorComponent`, `EditableLabel`, and shape
 primitives (`GoalShape`, `ResourceShape`, `TaskShape`, `QualityShape`, `ActorSymbol`). Export helpers:
-`defaultRegistry`, `elementSize`, `modelToFlow`, `actorBoundary`.
+`defaultRegistry`, `elementSize`, `gmodelToFlow`, `registrySizes`, `actorBoundary`, and
+`modelToFlow` (deprecated, removed in the next release).
+
+The canvas renders from the GModel (`@istar-ts/gmodel`'s `modelToGModelSchema`), the graph a
+GLSP server sends for the same model: `gmodelToFlow(schema, metamodel, registry)` turns it into
+React Flow nodes and edges. Components get the `element`/`link` the GModel carries (kind from
+`args.kind`; `customProperties`, `display` and `extra` from `args`; names from labels); the
+inspector reads the model by id. See [docs/glsp.md](../../docs/glsp.md#one-graph-for-both-clients).
 
 Default inspectors (`DefaultElementInspector`, `DefaultLinkInspector`) use `PropertyField` and
 `CustomPropertiesEditor` when you omit a custom `inspector`.

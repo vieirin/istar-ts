@@ -15,7 +15,7 @@ no `@eclipse-glsp/*` dependency, no Sprotty client.
 | Diagram configuration (types, type hints, edge checks) | `Metamodel` (`rules`, `canLink`, `KindShape`/`KindLine`), `registryForMetamodel`      |
 | Tool palette / context actions                         | `PaletteDescription` (`@istar-ts/core`), the react registry's entries derived from it |
 | Markers                                                | `GoalDiagnostic`, `DiagnosticsStore`                                                  |
-| GModel                                                 | the React Flow nodes/edges `modelToFlow` derives (never sent over the wire)           |
+| GModel                                                 | `@istar-ts/gmodel`'s schema; the React Flow canvas renders from it (`gmodelToFlow`)   |
 | Client                                                 | the React Flow canvas; a Sprotty client is not planned                                |
 
 ## Vocabulary
@@ -170,6 +170,11 @@ undo would need its own `ModelStore` per session; the dispatcher does not offer 
   real GModel, type hints, the GLSP lifecycle and operation handlers. This package
   (`@istar-ts/actions`) and `@istar-ts/core`/`@istar-ts/react` still take no GLSP or Inversify
   dependency — the adapter is a separate package that wraps this dispatcher.
+- The React Flow canvas renders from the shared GModel: `@istar-ts/gmodel` builds the schema
+  the GLSP server sends, and `<IstarCanvas>` derives its nodes and edges from that same schema
+  (`gmodelToFlow`, [#165](https://github.com/vieirin/istar-ts/issues/165)), so both clients draw
+  one graph. This dispatcher still carries piStar JSON, not GModel: in process, the canvas
+  builds the GModel from the store's model itself.
 - The transport below (`connectDispatcher`/`createRemoteDispatcher`) is still not GLSP's own
   wire protocol (see **Transport** above); [#44](https://github.com/vieirin/istar-ts/issues/44)
   tracks adopting that five-method envelope for this package's transport specifically. A stock

@@ -21,10 +21,10 @@ import {
   IstarCanvas,
   defaultRegistry,
   registryForMetamodel,
+  registrySizes,
   useIstarEditor,
   useIstarStore,
 } from '@istar-ts/react';
-import type { GModelSizeOverrides } from '@istar-ts/glsp';
 import { ISTAR_GLSP, contributionFor, gmodelTypes } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { mountGlspClient } from 'glsp-client';
@@ -64,13 +64,6 @@ function LogPanel({
   );
 }
 
-/** Kind → size of a registry's elements, for a GLSP contribution's `sizes` (#154). */
-function sizesOf(registry: AnyIstarRegistry): GModelSizeOverrides {
-  return Object.fromEntries(
-    Object.entries(registry.elements).map(([kind, config]) => [kind, config.size]),
-  );
-}
-
 export function BothApp(): ReactElement {
   const { store, model } = useIstarStore(initialModel);
   // Shared by the React canvas and the GLSP contribution, so both draw a kind at the same size
@@ -81,7 +74,7 @@ export function BothApp(): ReactElement {
     [],
   );
   const contribution = useMemo(
-    () => contributionFor(ISTAR_GLSP.metamodel, { ...ISTAR_GLSP, sizes: sizesOf(registry) }),
+    () => contributionFor(ISTAR_GLSP.metamodel, { ...ISTAR_GLSP, sizes: registrySizes(registry) }),
     [registry],
   );
   const [log] = useState(() => createLogStore());

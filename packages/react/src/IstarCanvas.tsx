@@ -1,5 +1,6 @@
 import type { ActionDispatcher, IstarAction } from '@istar-ts/actions';
 import { defaultIdGenerator, targetsLinks } from '@istar-ts/core';
+import { modelToGModelSchema } from '@istar-ts/gmodel';
 import type {
   AnyMetamodel,
   DiagnosticsStore,
@@ -60,7 +61,13 @@ import type { IstarSurface, Selection, Tool } from './context';
 import { IstarProvider, useHasIstarProvider, useIstarEditor } from './context';
 import { edgeTypes } from './edges';
 import type { IstarFlowEdge, IstarFlowNode } from './layout';
-import { ACTOR_SYMBOL_CLASS, adoptFlowNode, linkIdOfAnchor, modelToFlow } from './layout';
+import {
+  ACTOR_SYMBOL_CLASS,
+  adoptFlowNode,
+  gmodelToFlow,
+  linkIdOfAnchor,
+  registrySizes,
+} from './layout';
 import { nodeTypes } from './nodes';
 import { IstarPalette, paletteEntryFor } from './Palette';
 import type { AnyIstarRegistry, IstarExtension, IstarRegistry } from './registry';
@@ -392,7 +399,15 @@ function Diagram({
     [isNodeKind, metamodel],
   );
   const flow = useReactFlow();
-  const graph = useMemo(() => modelToFlow(model, registry), [model, registry]);
+  // The canvas draws the GModel (`@istar-ts/gmodel`), the graph a GLSP server sends for the
+  // same model, laid out at the registry's sizes. Recomputed only when the model changes: a
+  // mirror store (#99) keeps the model object while nothing changed.
+  const sizes = useMemo(() => registrySizes(registry), [registry]);
+  const schema = useMemo(() => modelToGModelSchema(model, { sizes }), [model, sizes]);
+  const graph = useMemo(
+    () => gmodelToFlow(schema, metamodel, registry),
+    [schema, metamodel, registry],
+  );
   useInitialFit(fitView);
 
   // React Flow owns transient state (drag positions, measurements, selection); the model is
@@ -600,7 +615,7 @@ function Diagram({
     (event: ReactMouseEvent, node: IstarFlowNode) => {
       const clicked = store.getModel().elements.get(node.id);
       if (!clicked) return;
-      // Actors aren't selectable in React Flow (see modelToFlow): only their symbol selects
+      // Actors aren't selectable in React Flow (see gmodelToFlow): only their symbol selects
       // them, and clicks elsewhere on the boundary leave the selection alone.
       if (isActorKind(clicked.kind) && !tool) {
         if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
@@ -923,7 +938,7 @@ function Diagram({
   }, [flow]);
 
   // With nothing selected, an actor also drags by its body, not just by its symbol (still never
-  // selected by a body click: actors aren't selectable, see modelToFlow).
+  // selected by a body click: actors aren't selectable, see gmodelToFlow).
   const nothingSelected = editor.selection === null;
   const flowNodes = useMemo(
     () =>
