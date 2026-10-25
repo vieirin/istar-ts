@@ -43,6 +43,17 @@ async function centreOf(locator: Locator): Promise<{ x: number; y: number }> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+/** A point inside `locator`'s box, at the given fraction of its width/height. */
+async function pointIn(
+  locator: Locator,
+  fractionX: number,
+  fractionY: number,
+): Promise<{ x: number; y: number }> {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('element has no layout box');
+  return { x: box.x + box.width * fractionX, y: box.y + box.height * fractionY };
+}
+
 /** A click with no hover before it: the pointer jumps to the centre and clicks at once. */
 async function clickCentre(page: Page, locator: Locator): Promise<void> {
   const { x, y } = await centreOf(locator);
@@ -199,8 +210,19 @@ test.describe('GLSP client: edges', () => {
     const refinements = edges(page, 'istar.OrRefinementLink');
     const before = await refinements.count();
     await pickTool(page, 'Or');
-    await clickCentre(page, node(page, ID.modelsCreated));
-    await clickCentre(page, node(page, ID.modelsCreated));
+    const target = node(page, ID.modelsCreated);
+    // Both clicks land on the same node (that's the point), but not on the same pixel: the
+    // client's edge-creation tool draws a dangling feedback edge that tracks the pointer once a
+    // source is picked (`EdgeCreationToolMouseListener`, `@eclipse-glsp/client`), and under load
+    // that feedback edge can still be sitting exactly where the pointer is when the second click's
+    // own `mousemove` fires, intercepting the hit test and leaving `currentTarget` unset — so the
+    // second click is silently dropped and no `createEdge` ever reaches the server (#124: not a
+    // status-line race, the operation itself never got sent). Two distinct points inside the same
+    // node's box avoid the overlap.
+    const first = await pointIn(target, 0.3, 0.3);
+    await page.mouse.click(first.x, first.y);
+    const second = await pointIn(target, 0.7, 0.7);
+    await page.mouse.click(second.x, second.y);
 
     const status = page.locator('#pg-glsp-status');
     await expect(status).toContainText('onto itself');

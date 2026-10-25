@@ -4,6 +4,12 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **playground:** fix the `glsp-edges.spec.ts` self-refinement e2e test flaking under load
+  (#124): its two clicks landed on the exact same pixel of the same node, and under load the
+  stock client's dangling feedback edge (`EdgeCreationToolMouseListener`,
+  `@eclipse-glsp/client`) could still be tracking the pointer right there when the second
+  click's `mousemove` fired, intercepting the hit test so no `createEdge` ever reached the
+  server. The two clicks now land on distinct points inside the same node.
 - **actions, core:** `createEdge` for an n-ary kind whose target already is a hub takes
   `args.id` or `args.legId` for the new leg's id, like the new-hub path already did (#138);
   `createdIds` lists it, so a dry run on a scratch copy and a live apply give the same ids.
