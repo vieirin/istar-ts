@@ -21,6 +21,7 @@ import {
   ApplyLabelEditOperation,
   ChangeBoundsOperation,
   ChangeContainerOperation,
+  ChangeRoutingPointsOperation,
   CompoundOperation,
   CreateEdgeOperation,
   CreateNodeOperation,
@@ -285,6 +286,11 @@ export class IstarReconnectEdgeOperationHandler extends IstarOperationHandler {
 }
 
 @injectable()
+export class IstarChangeRoutingPointsOperationHandler extends IstarOperationHandler {
+  readonly operationType: string = ChangeRoutingPointsOperation.KIND;
+}
+
+@injectable()
 export class IstarApplyLabelEditOperationHandler extends IstarOperationHandler {
   readonly operationType: string = ApplyLabelEditOperation.KIND;
 }
@@ -307,6 +313,7 @@ export const ISTAR_OPERATION_HANDLERS: readonly (new () => IstarOperationHandler
   IstarChangeBoundsOperationHandler,
   IstarChangeContainerOperationHandler,
   IstarReconnectEdgeOperationHandler,
+  IstarChangeRoutingPointsOperationHandler,
   IstarApplyLabelEditOperationHandler,
   IstarCompoundOperationHandler,
 ];

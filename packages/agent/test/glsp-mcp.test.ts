@@ -71,16 +71,22 @@ describe('backend A over serveIstarGlsp({ mcp: true })', () => {
       expect.arrayContaining(['element-types', 'create-nodes', 'query-elements']),
     );
     expect(names).not.toContain('save-model');
+    // Listed by server-mcp, but not servable for istar and no use to a text-only model (#157).
+    expect(names).not.toContain('diagram-png');
+    expect(names).not.toContain('diagram-svg');
     expect(
       specs
         .filter((s) => s.readOnly)
         .map((s) => s.name)
         .toSorted(),
     ).toEqual([
+      'check-edge',
       'count-elements',
       'diagram-model',
       'element-types',
+      'get-selection',
       'query-elements',
+      'session-info',
       'validate-diagram',
     ]);
     for (const spec of specs) {

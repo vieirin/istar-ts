@@ -48,6 +48,30 @@ const TOOLS = [
     description: 'Refuses with diagnostics in a JSON text block.',
     inputSchema: { type: 'object', properties: {} },
   },
+  // Annotated as server-mcp 2.8.0 annotates its tool handlers: the hint wins over the name.
+  {
+    name: 'check-edge',
+    description: 'Whether an edge may be created.',
+    inputSchema: { type: 'object', properties: {} },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: 'query-and-touch',
+    description: 'A query-named tool the server says writes.',
+    inputSchema: { type: 'object', properties: {} },
+    annotations: { readOnlyHint: false },
+  },
+  // server-mcp's diagram resources, listed as tools (no annotations) when not served as resources.
+  {
+    name: 'diagram-png',
+    description: 'Render the diagram as a PNG.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'diagram-svg',
+    description: 'Render the diagram as SVG.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 let closers: (() => Promise<void>)[] = [];
@@ -56,8 +80,9 @@ afterEach(async () => {
   closers = [];
 });
 
-async function fakeMcp(): Promise<{ client: Client; created: string[] }> {
+async function fakeMcp(): Promise<{ client: Client; created: string[]; called: string[] }> {
   const created: string[] = [];
+  const called: string[] = [];
   const server = new Server(
     { name: 'fake-glsp-mcp', version: '0.0.0' },
     { capabilities: { tools: {} } },
@@ -65,6 +90,7 @@ async function fakeMcp(): Promise<{ client: Client; created: string[] }> {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args = {} } = request.params;
+    called.push(name);
     if (name === 'element-types') {
       return { content: [{ type: 'text', text: JSON.stringify({ nodes: ['node:istar.Actor'] }) }] };
     }
@@ -121,7 +147,7 @@ async function fakeMcp(): Promise<{ client: Client; created: string[] }> {
     await client.close();
     await server.close();
   });
-  return { client, created };
+  return { client, created, called };
 }
 
 describe('createMcpToolRegistry', () => {
@@ -140,8 +166,23 @@ describe('createMcpToolRegistry', () => {
       ['element-types', true],
       ['create-nodes', false],
       ['istar_set-properties', false],
+      ['check-edge', true],
+      ['query-and-touch', false],
     ]);
     expect(registry.list()[1]!.parameters).toEqual(TOOLS[1]!.inputSchema);
+  });
+
+  test("never offers server-mcp's diagram resources, and refuses a call to one (#157)", async () => {
+    const { client, called } = await fakeMcp();
+    const registry = await createMcpToolRegistry(client);
+    const names = registry.list().map((s) => s.name);
+    expect(names).not.toContain('diagram-png');
+    expect(names).not.toContain('diagram-svg');
+    expect(await registry.call('diagram-png', {})).toMatchObject({
+      ok: false,
+      diagnostics: [{ code: 'unknown-tool' }],
+    });
+    expect(called).toEqual([]);
   });
 
   test('calls: JSON text is parsed, errors become refusals, typed diagnostics are kept', async () => {

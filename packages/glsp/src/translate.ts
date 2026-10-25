@@ -23,6 +23,7 @@ import {
   ApplyLabelEditOperation,
   ChangeBoundsOperation,
   ChangeContainerOperation,
+  ChangeRoutingPointsOperation,
   CompoundOperation,
   CreateEdgeOperation,
   CreateNodeOperation,
@@ -179,6 +180,7 @@ class Translator {
     if (ChangeContainerOperation.is(operation)) return this.changeContainer(operation);
     if (ReconnectEdgeOperation.is(operation)) return this.reconnect(operation);
     if (ApplyLabelEditOperation.is(operation)) return this.labelEdit(operation);
+    if (ChangeRoutingPointsOperation.is(operation)) return this.changeRoutingPoints(operation);
     if (CompoundOperation.is(operation)) {
       const operationList = operation.operationList
         .map((child) => this.translate(child))
@@ -186,8 +188,8 @@ class Translator {
       if (operationList.length === 0) return undefined;
       return { kind: 'compound', operationList };
     }
-    // Operations with no istar-ts counterpart (`changeRoutingPoints`, a client's `layout`) are
-    // skipped, as GLSP's own compound handler skips operations no handler takes.
+    // Operations with no istar-ts counterpart (a client's `layout`) are skipped, as GLSP's own
+    // compound handler skips operations no handler takes.
     return undefined;
   }
 
@@ -352,6 +354,28 @@ class Translator {
       }
     }
     return newBounds.length > 0 ? { kind: 'changeBounds', newBounds } : undefined;
+  }
+
+  /** A GEdge's id is its link's id directly (`modelToGModel`), so no anchor resolution needed. */
+  private changeRoutingPoints(
+    operation: ChangeRoutingPointsOperation,
+  ): IstarOperation<string, string> | undefined {
+    const operationList: IstarOperation<string, string>[] = [];
+    for (const { elementId, newRoutingPoints } of operation.newRoutingPoints) {
+      if (!this.model.links.has(elementId)) fail(`"${elementId}" is not a link`, elementId);
+      operationList.push({
+        kind: 'istar.updateLinkDisplay',
+        linkId: elementId,
+        patch: {
+          vertices:
+            newRoutingPoints && newRoutingPoints.length > 0
+              ? newRoutingPoints.map(({ x, y }) => ({ x: round(x), y: round(y) }))
+              : undefined,
+        },
+      });
+    }
+    if (operationList.length === 0) return undefined;
+    return operationList.length === 1 ? operationList[0] : { kind: 'compound', operationList };
   }
 
   private changeContainer(operation: ChangeContainerOperation): IstarOperation<string, string> {

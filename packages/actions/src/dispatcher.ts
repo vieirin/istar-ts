@@ -433,6 +433,12 @@ export function createActionDispatcher<
         requireElement(operation.elementId);
         s.updateElement(operation.elementId, { display: operation.patch });
         return;
+      case 'istar.updateLinkDisplay':
+        if (!model.links.has(operation.linkId)) {
+          reject(`unknown link "${operation.linkId}"`, operation.linkId, 'unknown-element');
+        }
+        s.updateLink(operation.linkId, { display: operation.patch });
+        return;
       case 'istar.setLinkValue': {
         const { linkId, value } = operation;
         const link =

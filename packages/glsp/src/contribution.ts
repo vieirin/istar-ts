@@ -27,7 +27,7 @@ import type {
 import { DEFAULT_PALETTE, ISTAR_2_0 } from '@istar-ts/core';
 import { GLSPModule } from '@eclipse-glsp/server';
 import type { interfaces } from 'inversify';
-import type { GModelTypeOverrides } from './types';
+import type { GModelSizeOverrides, GModelTypeOverrides } from './types';
 
 /** What a dialect contributes to the diagram tier. Plain data: no classes, no container. */
 export interface IstarGlspContribution {
@@ -39,6 +39,13 @@ export interface IstarGlspContribution {
   readonly palette?: AnyPaletteDescription;
   /** Kind → GModel type, for kinds whose type differs from `node:<kind>`/`edge:<kind>`. */
   readonly types?: GModelTypeOverrides;
+  /**
+   * Kind → size, for kinds whose GModel size differs from the metamodel's own default — a host
+   * whose `@istar-ts/react` registry overrides a kind's size (`contributionFor`'s `sizes`) must
+   * pass the same sizes here, or `modelToGModel`'s nodes and actor boundaries (`actorBounds`)
+   * stop matching what that registry draws (#154).
+   */
+  readonly sizes?: GModelSizeOverrides;
   /** Property schemas an operation must not break (the dispatcher's `schemas`). */
   readonly schemas?: readonly PropertySchema<PropertyShape, string>[];
   /**
@@ -58,6 +65,7 @@ export interface ContributionOptions {
   /** Default: a palette derived from the metamodel's kinds (`paletteFromMetamodel`). */
   readonly palette?: AnyPaletteDescription;
   readonly types?: GModelTypeOverrides;
+  readonly sizes?: GModelSizeOverrides;
   readonly schemas?: readonly PropertySchema<PropertyShape, string>[];
   readonly fileMetamodel?: boolean;
 }
@@ -77,6 +85,7 @@ export function contributionFor(
     metamodel,
     palette: options.palette ?? paletteFromMetamodel(metamodel),
     ...(options.types ? { types: options.types } : {}),
+    ...(options.sizes ? { sizes: options.sizes } : {}),
     ...(options.schemas ? { schemas: options.schemas } : {}),
     ...(options.fileMetamodel !== undefined ? { fileMetamodel: options.fileMetamodel } : {}),
   };

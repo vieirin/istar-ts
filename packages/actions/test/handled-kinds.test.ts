@@ -94,6 +94,11 @@ describe('HANDLED_ACTION_KINDS', () => {
         patch: { backgroundColor: '#ffffff' },
       },
       'istar.setLinkValue': { kind: 'istar.setLinkValue', linkId: 'contrib', value: 'make' },
+      'istar.updateLinkDisplay': {
+        kind: 'istar.updateLinkDisplay',
+        linkId: 'contrib',
+        patch: { vertices: [{ x: 1, y: 2 }] },
+      },
       requestModel: { kind: 'requestModel', requestId: 'r1' },
       requestTypeHints: { kind: 'requestTypeHints', requestId: 'r2' },
       requestCheckEdge: {

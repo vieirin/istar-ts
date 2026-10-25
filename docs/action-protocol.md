@@ -33,7 +33,9 @@ a list; if one child is rejected, none is applied).
 **Operations** (`istar.*`): `istar.addLeg`, `istar.removeLeg`, `istar.setCollapsed`,
 `istar.updateDiagram`, `istar.updateProperties`, `istar.updateDisplay` (an element's `display`
 patch — colour, the auto-grown height — merged like `ElementPatch.display`), `istar.setLinkValue`
-(an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it).
+(an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it),
+`istar.updateLinkDisplay` (a link's `display` patch — its bend points, `vertices` — merged like
+`LinkPatch.display`; GLSP's counterpart is `changeRoutingPoints`).
 
 **Requests/responses** (GLSP): `requestModel`/`setModel` (the model as piStar JSON, via
 `toPistar`), `requestTypeHints`/`setTypeHints` (shape and edge hints derived from the
@@ -163,11 +165,15 @@ undo would need its own `ModelStore` per session; the dispatcher does not offer 
 
 ## Limitations, by design
 
-- No Sprotty client, no GLSP server runtime, no `@eclipse-glsp/*` dependency: compatible by
-  protocol shape, not wire-compatible with a stock GLSP client (`GModel`, layout and the
-  Inversify DI are out).
-- The shipped transport is not GLSP's wire protocol (see **Transport** above); [#44](https://github.com/vieirin/istar-ts/issues/44)
-  tracks closing that gap.
+- `@istar-ts/glsp` ([packages/glsp](../packages/glsp), [docs/glsp.md](glsp.md)) now serves a
+  stock GLSP client, wire-compatible on `@eclipse-glsp/server`/`@eclipse-glsp/client` 2.8.x: a
+  real GModel, type hints, the GLSP lifecycle and operation handlers. This package
+  (`@istar-ts/actions`) and `@istar-ts/core`/`@istar-ts/react` still take no GLSP or Inversify
+  dependency — the adapter is a separate package that wraps this dispatcher.
+- The transport below (`connectDispatcher`/`createRemoteDispatcher`) is still not GLSP's own
+  wire protocol (see **Transport** above); [#44](https://github.com/vieirin/istar-ts/issues/44)
+  tracks adopting that five-method envelope for this package's transport specifically. A stock
+  GLSP client talks to `@istar-ts/glsp` instead, not to this transport.
 - No modeller-specific actions or guards in istar-ts; those are an `IstarExtension` and guard
   code in the host.
 - One undo stack, not one per client (see **Undo** above).

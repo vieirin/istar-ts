@@ -26,7 +26,9 @@ Part of issue [#7](https://github.com/vieirin/istar-ts/issues/7); design notes i
   palette entries, one per label for Contribution and Correlation.
 - **`@istar-ts/dsm3-nfr/metamodel`**: `NFR`, its declaration, kinds and labels without
   `@istar-ts/react`, built for `import` and `require` alike (as `@istar-ts/core` is), for Node
-  scripts and CommonJS test runners. The package root is ESM-only.
+  scripts and CommonJS test runners. The package root is ESM-only. `@istar-ts/react`, `react`
+  and `react-dom` are optional peer dependencies, needed only for `nfrExtension`; a consumer of
+  `./metamodel` alone needs only `@istar-ts/core`.
 
 ```tsx
 import {

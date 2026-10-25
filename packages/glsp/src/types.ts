@@ -10,10 +10,13 @@
  * link). This follows GLSP's own `node:<shape>` convention (`DefaultTypes`, framework-notes §2).
  * Kinds are namespaced (`istar.Goal`), so `link-anchor` can't collide with one.
  */
-import type { AnyMetamodel } from '@istar-ts/core';
+import type { AnyMetamodel, Size } from '@istar-ts/core';
 
 /** Kind → GModel type, replacing the rule's `node:<kind>`/`edge:<kind>` for that kind. */
 export type GModelTypeOverrides = Readonly<Record<string, string>>;
+
+/** Kind → size, replacing the metamodel's own default for that kind (#154). */
+export type GModelSizeOverrides = Readonly<Record<string, Size>>;
 
 export const GRAPH_TYPE = 'graph';
 export const LABEL_TYPE = 'label';

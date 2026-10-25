@@ -305,6 +305,45 @@ describe('operations', () => {
     });
   });
 
+  test("istar.updateLinkDisplay merges into a link's display, like istar.updateDisplay for an element", async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Quality',
+      containerId: 'a',
+      args: { id: 'q' },
+    });
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.ContributionLink',
+      sourceElementId: 't',
+      targetElementId: 'q',
+      args: { id: 'c', value: 'help' },
+    });
+    const before = env.store.getModel();
+    const file = toPistar(before);
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.updateLinkDisplay',
+      linkId: 'c',
+      patch: { vertices: [{ x: 1, y: 2 }] },
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().links.get('c')?.display).toEqual({
+      vertices: [{ x: 1, y: 2 }],
+    });
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).toBe(file);
+
+    await expectRejected(env, {
+      kind: 'istar.updateLinkDisplay',
+      linkId: 'missing',
+      patch: { vertices: [] },
+    });
+  });
+
   test("istar.setLinkValue sets a contribution link's value, checked against its kind", async () => {
     const env = setup();
     await env.dispatcher.dispatch({

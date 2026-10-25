@@ -11,9 +11,15 @@ import type {
   PropertySchema,
 } from '@istar-ts/core';
 import { DEEPSEEK, costPerMillionTokens, createChatClient, runAgent } from '@istar-ts/agent';
-import type { AgentEvent, ApprovalMode, ChangeSetEntry, Transcript } from '@istar-ts/agent';
+import type {
+  AgentEvent,
+  ApprovalMode,
+  ChangeSetEntry,
+  ToolResult,
+  Transcript,
+} from '@istar-ts/agent';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GlspMcpSession } from './glspMcpBackend';
+import type { GlspMcpSession, ProposedStep } from './glspMcpBackend';
 import { openGlspMcpSession } from './glspMcpBackend';
 
 /** DeepSeek's current models that take tool calls (`docs/agent/verification.md` §1). */
@@ -87,6 +93,11 @@ export interface AgentSession {
   readonly liveUsage: LiveUsage | undefined;
   readonly transcript: Transcript | undefined;
   readonly changeSet: readonly ChangeSetEntry[] | undefined;
+  /** `entry`'s step of the change set, or `undefined` for a call that isn't one (#156). */
+  proposedStep(entry: ChangeSetEntry): ProposedStep | undefined;
+  /** For a successful `undo`/`redo` call's result, what it undid/redid, in plain words;
+   * `undefined` for every other call (#163). */
+  describeUndo(result: ToolResult): string | undefined;
   run(apiKey: string, prompt: string): void;
   stop(): void;
   applyChangeSet(kept: readonly ChangeSetEntry[]): Promise<void>;
@@ -297,6 +308,14 @@ export function useAgentSession<EK extends string = string, LK extends string = 
   }, []);
 
   const discardChangeSet = useCallback(() => setChangeSet(undefined), []);
+  const proposedStep = useCallback(
+    (entry: ChangeSetEntry) => sessionRef.current?.changeSet.step(entry),
+    [],
+  );
+  const describeUndo = useCallback(
+    (result: ToolResult) => sessionRef.current?.changeSet.describeUndo(result),
+    [],
+  );
 
   return {
     ready,
@@ -310,6 +329,8 @@ export function useAgentSession<EK extends string = string, LK extends string = 
     liveUsage,
     transcript,
     changeSet,
+    proposedStep,
+    describeUndo,
     run,
     stop,
     applyChangeSet,
