@@ -18,6 +18,7 @@ import type { PistarFiles } from './files';
 import type { IstarGlspHostOptions, IstarMcpBaseOptions } from './host';
 import { createIstarServerModules } from './host';
 import { istarMcpDispatcher, withMcpServer } from './mcp';
+import { istarMcpDiagramModule } from './mcp-tools';
 
 /** The MCP server's options. It binds to `127.0.0.1` only and has no authentication. */
 export interface IstarMcpOptions extends IstarMcpBaseOptions {
@@ -100,6 +101,7 @@ async function mcpModules(
   options: IstarMcpOptions,
 ): Promise<{ server: ContainerModule; diagram: ContainerModule }> {
   const mcp = await import('@eclipse-glsp/server-mcp/node.js');
+  const z = await import('zod/v4');
   const config = {
     port: options.port ?? 0,
     route: options.route ?? '/mcp',
@@ -124,7 +126,7 @@ async function mcpModules(
       return dispatcher;
     }
   }
-  return { server: new IstarMcpServerModule(), diagram: new mcp.DefaultMcpDiagramModule() };
+  return { server: new IstarMcpServerModule(), diagram: new (istarMcpDiagramModule(mcp, z))() };
 }
 
 /**

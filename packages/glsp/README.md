@@ -255,9 +255,17 @@ await client.callTool({ name: 'create-nodes', arguments: { sessionId: server.ses
   GLSP client's `initialize` (`server.mcp.ready`), and its tools act on that client's sessions.
 - Tools dispatch GLSP operations through the session's operation handlers, so the host's
   dispatcher, guards included, decides. **A rejected operation answers its tool call with an
-  error** (`isError: true`, the diagnostics' messages, `structuredContent: { code: 'rejected',
-diagnostics }`), on both launchers. server-mcp alone would answer success, since GLSP has no
-  failure answer to an operation.
+  error** (`isError: true`, the diagnostics' messages, and `{ code: 'rejected', diagnostics }`
+  as a JSON text content block — not `structuredContent`, since an MCP SDK client validates
+  `structuredContent` against a tool's declared output schema even on an error result, once
+  `tools/list` has cached it, #136), on both launchers. server-mcp alone would answer success,
+  since GLSP has no failure answer to an operation.
+- Three istar-specific tools fill the gap server-mcp has no equivalent for (#126 §4, #129):
+  `set-properties` (an element's or link's custom properties), `set-link-value` (a link's
+  declared value, e.g. a Contribution link's make/help/hurt/break) and `check-edge` (would a
+  candidate edge be accepted, without creating anything). All three go through the same
+  dispatcher, guards and undo stack as every other tool; a rejection from `set-properties` or
+  `set-link-value` answers the same way as a rejected operation above.
 - A headless session has no viewer: `get-selection` answers a tool error, and `set-selection`
   and `set-view` succeed with nothing to show. (server-mcp's PNG/SVG export is not offered for
   istar diagrams on either launcher.)

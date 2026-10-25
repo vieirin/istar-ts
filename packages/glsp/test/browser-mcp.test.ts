@@ -114,6 +114,10 @@ describe('serveIstarGlsp with mcp, headless', () => {
     });
     const { server } = headless({ store, dispatcher });
     const mcp = await mcpClient(server.mcp);
+    // #136: the SDK client caches `create-nodes`' output schema on `listTools()` and validates
+    // a rejection's `structuredContent` against it even when `isError` is true — list first, as
+    // any agent harness does, so this covers that path.
+    await mcp.listTools();
     const before = store.getModel();
     const result = await mcp.callTool({
       name: 'create-nodes',
@@ -121,7 +125,17 @@ describe('serveIstarGlsp with mcp, headless', () => {
     });
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result.content)).toContain('no new nodes today');
-    expect(result.structuredContent).toMatchObject({
+    expect(result.structuredContent).toBeUndefined();
+    const diagnosticsBlock = (result.content as Array<{ text?: string }>)
+      .map((block) => {
+        try {
+          return block.text ? JSON.parse(block.text) : undefined;
+        } catch {
+          return undefined;
+        }
+      })
+      .find((value) => Array.isArray((value as { diagnostics?: unknown })?.diagnostics));
+    expect(diagnosticsBlock).toMatchObject({
       code: 'rejected',
       diagnostics: [{ code: 'demo', elementId: AGENT }],
     });
