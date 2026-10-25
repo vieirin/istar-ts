@@ -21,7 +21,14 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createActionDispatcher, injectCreatedIds, isOperation } from '@istar-ts/actions';
-import type { ActionDispatcher, ActionGuard, IstarOperation } from '@istar-ts/actions';
+import type {
+  ActionDispatcher,
+  ActionGuard,
+  ActionPostGuard,
+  HostContextProvider,
+  HostTool,
+  IstarOperation,
+} from '@istar-ts/actions';
 import { createModelStore, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
 import type {
   AnyIstarModel,
@@ -44,12 +51,23 @@ export interface GlspMcpBackendOptions {
   /** The dispatcher every applied edit goes through. */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards?: readonly ActionGuard<string, string>[];
+  /** Run after each operation on the scratch dispatcher, inside its transaction (#203): a
+   * refusal surfaces at preview time, on the scratch session, rather than only at `apply`. */
+  readonly postGuards?: readonly ActionPostGuard<string, string>[];
   readonly schemas?: readonly PropertySchema[];
   /** The active model's own metamodel, whatever its dialect. */
   readonly metamodel: AnyMetamodel;
   /** The active extension's own palette, if it has one; default: a palette derived from
    * `metamodel`'s kinds (`contributionFor`'s own fallback). */
   readonly palette?: AnyPaletteDescription;
+  /** A host's own tools, served next to the istar tools on both the scratch and live MCP
+   * servers (#175). Read-only ones (`readOnlyHint`) are not review steps in Propose mode (#156). */
+  readonly hostTools?: readonly HostTool[];
+  /** A host's own context providers, served as MCP resources (or read-only tools, per
+   * server-mcp's `dataMode`) on both servers (#175), so a host can use `openGlspMcpSession` as
+   * its only MCP server. `runAgent`'s own `context` option splices the same providers into the
+   * system prompt; the two are independent. */
+  readonly context?: readonly HostContextProvider[];
 }
 
 interface McpConnection {
@@ -62,10 +80,14 @@ async function connectMcp(
   store: ModelStore<string, string>,
   dispatcher: ActionDispatcher<string, string>,
   contribution: IstarGlspContribution,
+  host: {
+    readonly hostTools?: readonly HostTool[];
+    readonly context?: readonly HostContextProvider[];
+  } = {},
 ): Promise<McpConnection> {
   const server = serveIstarGlsp({
     shared: { store: store as never, dispatcher: dispatcher as never },
-    mcp: true,
+    mcp: { hostTools: host.hostTools, context: host.context },
     contributions: [contribution],
   });
   const client = new Client({ name: 'istar-ts-agent-glsp', version: '1.0.0' });
@@ -196,6 +218,7 @@ export function createGlspChangeSet(
       let undoNotes: string[] | null = null;
       const baseDispatcher = createActionDispatcher(scratchStore, {
         ...(options.guards ? { guards: options.guards } : {}),
+        ...(options.postGuards ? { postGuards: options.postGuards } : {}),
         ...(options.schemas ? { schemas: options.schemas } : {}),
         palette: paletteOf(contribution),
       });
@@ -241,6 +264,7 @@ export function createGlspChangeSet(
         scratchStore,
         recordingDispatcher,
         contribution,
+        { hostTools: options.hostTools, context: options.context },
       );
       const readOnlyNames = new Set(
         registry
@@ -316,15 +340,19 @@ export interface GlspMcpSession {
 /**
  * Opens backend A's session: the live MCP server (Auto mode) and the Propose-mode change set,
  * both over the live store/dispatcher. Call once per host session; `getOptions` is re-read on
- * every Propose-mode run, so guards/schemas toggled later still apply (the live session's
- * store/dispatcher/metamodel are read once, at open time, and never change).
+ * every Propose-mode run, so guards/postGuards/schemas toggled later still apply (the live
+ * session's store/dispatcher/metamodel/hostTools/context are read once, at open time, and never
+ * change).
  */
 export async function openGlspMcpSession(
   getOptions: () => GlspMcpBackendOptions,
 ): Promise<GlspMcpSession> {
   const initial = getOptions();
   const contribution = contributionFor(initial.metamodel, { palette: initial.palette });
-  const live = await connectMcp(initial.store, initial.dispatcher, contribution);
+  const live = await connectMcp(initial.store, initial.dispatcher, contribution, {
+    hostTools: initial.hostTools,
+    context: initial.context,
+  });
   return {
     liveRegistry: live.registry,
     changeSet: createGlspChangeSet(getOptions, contribution),
