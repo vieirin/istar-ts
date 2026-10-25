@@ -180,6 +180,10 @@ Versions are published from GitHub release tags; see the release notes for full 
   its hub too (#108), the same gaps #107 worked around only inside `@istar-ts/glsp`'s
   `gmodelTypeHints`. A client of the istar-ts action protocol that reads these hints the GLSP way
   now gets reconnect handles and can draw a leg onto an n-ary link's hub.
+- **glsp:** `gmodelTypeHints` drops its own `repositionable` and hub-targeting logic, now that
+  `typeHintsFor` (#108) sets both itself (#112). It only maps `typeHintsFor`'s hints to GModel
+  types and overrides `dynamic: false` (#105); the two can't drift again. Hints are unchanged for
+  every contribution.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.

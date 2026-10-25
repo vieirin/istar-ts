@@ -1,12 +1,55 @@
 import { describe, expect, test } from 'vitest';
 import type { AnyMetamodel } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
-import { IstarDiagramConfiguration, ISTAR_GLSP, LINK_ANCHOR_TYPE, gmodelTypes } from '../src';
-import type { IstarGlspContribution } from '../src';
+import { typeHintsFor } from '@istar-ts/actions';
+import type { EdgeTypeHint, ShapeTypeHint } from '@eclipse-glsp/server';
+import {
+  IstarDiagramConfiguration,
+  ISTAR_GLSP,
+  LINK_ANCHOR_TYPE,
+  gmodelTypeHints,
+  gmodelTypes,
+} from '../src';
+import type { GModelTypes, IstarGlspContribution } from '../src';
 import { loadFixtures, parseFixture } from './fixtures';
 import { KAOS_GLSP, KAOS_OBSTACLES_GLSP } from '../src/kaos';
 import { NFR_GLSP } from '../src/nfr';
 import { GEdge, GNode, ServerLayoutKind } from '@eclipse-glsp/server';
+
+// The pre-#112 `gmodelTypeHints`, with the hub-targeting and `repositionable` overrides that
+// duplicated fixes `typeHintsFor` (#110) now makes itself. Kept here only to prove the
+// refactored function in `../src` still returns the same hints for every contribution.
+function gmodelTypeHintsBefore112(
+  metamodel: AnyMetamodel,
+  types: GModelTypes,
+): { shapeTypeHints: ShapeTypeHint[]; edgeTypeHints: EdgeTypeHint[] } {
+  const typeOf = (kind: string): string => types.of(kind) ?? kind;
+  const targetsOf = (kinds: readonly string[]): string[] => [
+    ...new Set(kinds.map((kind) => (metamodel.links.has(kind) ? LINK_ANCHOR_TYPE : typeOf(kind)))),
+  ];
+  const hints = typeHintsFor(metamodel as never);
+  return {
+    shapeTypeHints: hints.shapeHints.map(({ containableElementTypeIds, ...hint }) => ({
+      ...hint,
+      elementTypeId: typeOf(hint.elementTypeId),
+      ...(containableElementTypeIds
+        ? { containableElementTypeIds: containableElementTypeIds.map(typeOf) }
+        : {}),
+    })),
+    edgeTypeHints: hints.edgeHints.map((hint) => {
+      const hub = metamodel.links.get(hint.elementTypeId)?.parts?.hub;
+      const targets = [...(hint.targetElementTypeIds ?? []), ...(hub === undefined ? [] : [hub])];
+      return {
+        ...hint,
+        elementTypeId: typeOf(hint.elementTypeId),
+        sourceElementTypeIds: (hint.sourceElementTypeIds ?? []).map(typeOf),
+        targetElementTypeIds: targetsOf(targets),
+        repositionable: true,
+        dynamic: false,
+      };
+    }),
+  };
+}
 
 const contributions: Array<[string, IstarGlspContribution]> = [
   ['istar', ISTAR_GLSP],
@@ -64,6 +107,13 @@ describe.each(contributions)('%s', (_, contribution) => {
       expect(hint.dynamic).toBe(false);
       expect(hint.repositionable).toBe(true);
     }
+  });
+
+  // #112: deriving hints from `typeHintsFor` must not change them for any contribution.
+  test('matches the pre-#112 hints', () => {
+    expect(gmodelTypeHints(contribution.metamodel, types)).toEqual(
+      gmodelTypeHintsBefore112(contribution.metamodel, types),
+    );
   });
 });
 
