@@ -197,6 +197,21 @@ Versions are published from GitHub release tags; see the release notes for full 
   100ms debounced live validation (`ModelSubmissionHandler`); under a loaded machine either could
   land after the window closed. They now wait for the actual `updateModel`, and for each session's
   initial live-validation cycle to clear, before asserting exact message counts.
+- **examples:** the start page's third card, `/both.html`, shows the React Flow canvas and the
+  stock GLSP client side by side over one model (#74 S4, #85): `serveIstarGlsp` runs in the page,
+  on the canvas's own `ModelStore` and dispatcher, connected to the GLSP client over an in-page
+  `MessageChannel` — the route `@istar-ts/glsp`'s README recommends for exactly this page, since
+  the worker route would leave the canvas with no local store. One dispatcher, tagged "React" and
+  "GLSP" for the protocol lab's action log (always visible on this page, no tabs); a shared
+  Undo/Redo pair dispatches directly on it, so undo is one stack regardless of which client made
+  the last edit, documented on the page itself. A cross-client Playwright suite
+  (`examples/playground/e2e/cross-client.spec.ts`) drives the GLSP side with
+  `@eclipse-glsp/playwright`'s page objects (`GLSPApp`/`GLSPGraph.waitForCreation`, pinned to the
+  `2.9.0-next.20` prerelease — the released line is 2.8, and the package has no `@eclipse-glsp/*`
+  peer dependency of its own) and the React side with the existing `helpers.ts`: create in either
+  client and see it in the other and in the action log under the right tag, undo across clients,
+  move/rename/delete spanning both, and a mixed session's `toPistar` is byte-identical once fully
+  undone.
 - **glsp:** a disposed session no longer logs an unhandled `ActionQueue is stopped` rejection
   (#116). `ModelSubmissionHandler` debounces live validation by 100ms after every model
   submission with no public way to cancel it; a session disposed inside that window (test

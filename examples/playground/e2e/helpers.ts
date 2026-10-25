@@ -1,5 +1,18 @@
-import type { Locator, Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import type { Download, Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+
+/** Reads a `page.waitForEvent('download')`'s saved file as text. */
+export async function readDownload(download: Download): Promise<string> {
+  const path = await download.path();
+  if (!path) throw new Error('download produced no path');
+  return readFile(path, 'utf8');
+}
+
+/** `saveDate` is a fresh timestamp on every save, not part of a byte-identical comparison. */
+export function stripSaveDate(text: string): string {
+  return text.replace(/"saveDate":\s*"[^"]*",?\n?/, '');
+}
 
 export type LabTab =
   | 'Action log'

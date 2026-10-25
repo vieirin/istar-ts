@@ -13,6 +13,7 @@ export default defineConfig({
         main: path.resolve(rootDir, 'index.html'),
         react: path.resolve(rootDir, 'react.html'),
         glsp: path.resolve(rootDir, 'glsp.html'),
+        both: path.resolve(rootDir, 'both.html'),
       },
     },
   },
