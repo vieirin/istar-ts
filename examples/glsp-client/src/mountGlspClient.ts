@@ -23,6 +23,7 @@ import {
   MessageAction as MessageActionNS,
   STANDALONE_MODULE_CONFIG,
   TYPES,
+  ToolPalette,
   createDiagramOptionsModule,
   initializeDiagramContainer,
   onAction,
@@ -32,6 +33,7 @@ import type { AnyMetamodel } from '@istar-ts/core';
 import type { GlspPortLike } from './connection';
 import { portConnectionProvider, websocketConnectionProvider } from './connection';
 import { configureIstarModelElements } from './elementTypes';
+import { IstarToolPalette } from './IstarToolPalette';
 
 export interface MountGlspClientOptions {
   /** The GLSP diagram type (`IstarGlspContribution.diagramType`). Default `'istar'`. */
@@ -97,6 +99,13 @@ function messageModule(onMessage: MountGlspClientOptions['onMessage']): FeatureM
   });
 }
 
+/** A module rebinding ToolPalette to our IstarToolPalette, which forces palette refresh on model updates. */
+function toolPaletteModule(): FeatureModule {
+  return new FeatureModule((bind, unbind, isBound, rebind) => {
+    rebind(ToolPalette).to(IstarToolPalette).inSingletonScope();
+  });
+}
+
 /** Wraps `client`'s send and receive with a console log of each action (`logActions`). */
 function logActionMessages(client: GLSPClient): void {
   const send = client.sendActionMessage.bind(client);
@@ -158,6 +167,7 @@ export function mountGlspClient(
           { featureId: Symbol('istarModelElements') },
         ),
         messageModule(options.onMessage),
+        toolPaletteModule(),
       ],
     },
     STANDALONE_MODULE_CONFIG,

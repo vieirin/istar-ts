@@ -8,8 +8,8 @@
  * from `main.tsx`/`App.tsx`.
  */
 import type { AnyMetamodel } from '@istar-ts/core';
-import { metamodelOf } from '@istar-ts/core';
-import type { IstarGlspContribution } from '@istar-ts/glsp';
+import { metamodelOf, parsePistar } from '@istar-ts/core';
+import type { IstarGlspContribution, IstarSharedModel } from '@istar-ts/glsp';
 import { ISTAR_GLSP, createIstarSharedModel, gmodelTypes } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { KAOS_GLSP } from '@istar-ts/glsp/kaos';
@@ -96,6 +96,8 @@ interface MountedFixture {
 
 let current: MountedFixture | undefined;
 let currentClient: MountedGlspClient | undefined;
+let currentShared: IstarSharedModel | undefined;
+let currentFixture: FixtureEntry | undefined;
 
 undoButton.addEventListener('click', () => void currentClient?.dispatch(undoAction()));
 redoButton.addEventListener('click', () => void currentClient?.dispatch(redoAction()));
@@ -105,6 +107,32 @@ redoButton.addEventListener('click', () => void currentClient?.dispatch(redoActi
 // already gets a fresh fit from `mountGlspClient`'s own `ready` (every `mountFixture` call
 // mounts a new client), so only resize needs handling here.
 window.addEventListener('resize', () => void currentClient?.fit());
+
+/**
+ * e2e hook (#187): load a fixture into the running store without remounting the client.
+ * Used to test palette refresh after a metamodel-changing load.
+ */
+async function loadFixtureNoRemount(fixtureIndex: number): Promise<void> {
+  if (!currentShared || !currentFixture) {
+    throw new Error('No fixture currently loaded');
+  }
+  const fixture = FIXTURES[fixtureIndex];
+  if (!fixture) {
+    throw new Error(`Fixture index ${fixtureIndex} out of range`);
+  }
+
+  // Parse the fixture using the current fixture's contribution
+  // (both fixtures use istar contributions in our test case)
+  const parsed = parsePistar(fixture.text, {
+    metamodel: currentFixture.contribution.metamodel,
+    fileMetamodel: currentFixture.contribution.fileMetamodel ?? true,
+  });
+  if (!parsed) throw new Error('Failed to parse fixture');
+
+  // Load the parsed model into the current store without remounting
+  currentShared.store.load(parsed);
+  showMessage(`Loaded "${fixture.label}" into running store.`, 'INFO');
+}
 
 /**
  * Each fixture is a different contribution (metamodel, diagram type), so switching fixtures
@@ -142,6 +170,8 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
     logActions,
   });
   currentClient = client;
+  currentShared = shared;
+  currentFixture = fixture;
   current = {
     close: () => {
       client.dispose();
@@ -162,6 +192,8 @@ declare global {
   interface Window {
     /** `?server=worker&mcp=1`'s MCP SDK client, for the e2e suite to drive (#134). */
     glspWorkerMcp?: Client;
+    /** e2e hook (#187): load a fixture without remounting the client, to test palette refresh. */
+    glspLoadFixture?: (fixtureIndex: number) => Promise<void>;
   }
 }
 
@@ -233,4 +265,9 @@ if (server === 'worker') {
     if (fixture) void mountFixture(fixture);
   });
   void mountFixture(FIXTURES[0]!);
+}
+
+// e2e hook (#187): expose glspLoadFixture for palette refresh testing
+if (params.get('e2e') === '1') {
+  window.glspLoadFixture = loadFixtureNoRemount;
 }

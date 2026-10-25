@@ -121,4 +121,33 @@ test.describe('GLSP client', () => {
     });
     await expect(plans).toHaveCount(before + 1);
   });
+
+  // #187: the palette must refresh after a model load that changes the metamodel, without
+  // remounting the client (the stock palette only reloads for dynamic=true items, but our
+  // IstarToolPalette forces refresh on every model update).
+  test('the palette refreshes after a metamodel-changing load without remounting', async ({
+    page,
+  }) => {
+    // Start with iStar 2.0 — welcome (no ra4.Plan), then load fileMetamodel without remounting.
+    await page.goto('/glsp.html?e2e=1');
+    const diagram = page.locator('.pg-glsp-diagram svg');
+    await expect(diagram).toBeVisible();
+
+    // The welcome fixture has no ra4.Plan elements or palette entry.
+    await expect(
+      page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:ra4.Plan"]'),
+    ).toHaveCount(0);
+    const planPaletteItem = page.getByText('Plan', { exact: true });
+    await expect(planPaletteItem).toHaveCount(0);
+
+    // Load fileMetamodel into the running store without remounting the client.
+    // Fixture index 3 is "iStar 2.0 — file metamodel".
+    await page.evaluate(() => window.glspLoadFixture?.(3));
+
+    // The palette should now include Plan, and the model should have two ra4.Plan elements.
+    const plans = page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:ra4.Plan"]');
+    await expect(plans).toHaveCount(2);
+    const planItems = page.getByText('Plan', { exact: true });
+    await expect(planItems).toHaveCount(1);
+  });
 });
