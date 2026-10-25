@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.7
+## 0.15.0-beta.8
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -551,6 +551,7 @@ Added e2e test: palette refresh without remounting the client.
   before `requestModel` loads one, a diagram tool call now answers a typed error
   (`{ code: 'no-model' }`) instead. Previously `create-nodes` (and every other tool) reported
   success while creating nothing, on both kinds of session.
+- **glsp:** `@istar-ts/glsp/browser`, and so `@istar-ts/agent/glsp`, imports under plain Node ESM (#236): its deep import of `vscode-jsonrpc/browser` now carries the `.js` extension that a package without an exports map needs. CI imports every built entry point under plain Node (`pnpm check:dist`).
 - **gmodel/react:** a frameless actor (registry `boundary: false`) now renders at its own x/y
   instead of its GModel boundary box's corner, when an inner element sits above or left of it
   (#194).
