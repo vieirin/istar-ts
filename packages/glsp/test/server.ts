@@ -19,6 +19,7 @@ import {
   ModelState,
   RequestModelAction,
   ServerModule,
+  StatusAction,
 } from '@eclipse-glsp/server';
 import { createAppModule } from '@eclipse-glsp/server/node';
 import type { IstarGlspContribution, IstarModelState } from '../src';
@@ -87,6 +88,24 @@ export async function startServer(
   return { server, sent };
 }
 
+/**
+ * The first message sent at or after index `from` matching `matches`, polling instead of a
+ * fixed wait so the caller gets the real event whenever it actually arrives, even under load.
+ */
+export async function nextMatching(
+  sent: ActionMessage[],
+  matches: (message: ActionMessage) => boolean,
+  from = 0,
+  attempts = 100,
+): Promise<ActionMessage> {
+  for (let i = 0; i < attempts; i++) {
+    const found = sent.slice(from).find(matches);
+    if (found) return found;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`no match; got ${sent.map((m) => m.action.kind).join(', ')}`);
+}
+
 /** The first `kind` message sent at or after index `from` (to `clientId`, if given). */
 export async function next(
   sent: ActionMessage[],
@@ -94,14 +113,30 @@ export async function next(
   from = 0,
   clientId?: string,
 ): Promise<ActionMessage> {
-  for (let i = 0; i < 100; i++) {
-    const found = sent
-      .slice(from)
-      .find((m) => m.action.kind === kind && (clientId === undefined || m.clientId === clientId));
-    if (found) return found;
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(`no ${kind}; got ${sent.map((m) => m.action.kind).join(', ')}`);
+  return nextMatching(
+    sent,
+    (m) => m.action.kind === kind && (clientId === undefined || m.clientId === clientId),
+    from,
+  );
+}
+
+/**
+ * Waits for `clientId`'s live-validation cycle to finish: GLSP's `ModelSubmissionHandler` debounces
+ * validation by `liveValidationDelay` (100ms) after every model submission, so a session that just
+ * opened (or just took an edit) still has one in flight. A test that asserts "no further messages"
+ * right after must wait this out first, or it races the debounce under load (#111).
+ */
+export async function validationSettled(
+  sent: ActionMessage[],
+  clientId: string,
+  from = 0,
+): Promise<void> {
+  await nextMatching(
+    sent,
+    (m) => m.clientId === clientId && StatusAction.is(m.action) && m.action.severity === 'NONE',
+    from,
+    400, // up to 2s: the 100ms debounce plus slack for a loaded machine.
+  );
 }
 
 export interface Session {

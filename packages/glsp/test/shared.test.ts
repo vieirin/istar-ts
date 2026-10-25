@@ -10,13 +10,18 @@ import { CreateNodeOperation, ModelState, UndoAction } from '@eclipse-glsp/serve
 import type { IstarModelState } from '../src';
 import { ISTAR_GLSP, createIstarServerModules, createIstarSharedModel } from '../src';
 import { fixture } from './fixtures';
-import { files, next, openOn, startServer } from './server';
+import { files, next, openOn, startServer, validationSettled } from './server';
 
 const AGENT = 'fcf67803-5e5a-4bae-8690-1f12af4446d6';
 
-/** Lets every queued action of every session run. */
-async function settle(): Promise<void> {
-  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 5));
+/**
+ * A short, bounded wait for a negative assertion ("nothing more arrives"): there is no event to
+ * wait for when proving absence. By the time this runs, the one known asynchronous source (GLSP's
+ * live-validation debounce, see `validationSettled`) has already been waited out, so this is just
+ * a safety margin against a duplicate send, not a race against that debounce (#111).
+ */
+async function quiet(): Promise<void> {
+  for (let i = 0; i < 3; i++) await new Promise((resolve) => setTimeout(resolve, 10));
 }
 
 function count(sent: ActionMessage[], from: number, clientId: string, kind: string): number {
@@ -28,6 +33,10 @@ async function twoSessions() {
   const { server, sent } = await startServer(files, createIstarServerModules({ shared }));
   const a = await openOn(server, sent, ISTAR_GLSP, undefined, { clientId: 'a' });
   const b = await openOn(server, sent, ISTAR_GLSP, 'ignored.txt', { clientId: 'b' });
+  // Each session's initial `setModel` schedules GLSP's live-validation debounce (100ms); wait it
+  // out here so later assertions about exact message counts don't race it (#111).
+  await validationSettled(sent, 'a');
+  await validationSettled(sent, 'b');
   return { shared, server, sent, a, b };
 }
 
@@ -51,10 +60,12 @@ describe('a shared store', () => {
 
   test('an edit in A pushes exactly one updateModel to A and one to B', async () => {
     const { sent, a, b } = await twoSessions();
-    await settle();
     const from = sent.length;
     await a.send(goal());
-    await settle();
+    // A's own `updateModel` is sent inline by its operation handler, before `a.send` resolves;
+    // B's is pushed asynchronously by its own listener and dispatcher, so wait for it directly.
+    await next(sent, 'updateModel', from, 'b');
+    await quiet();
     expect(count(sent, from, 'a', 'updateModel')).toBe(1);
     expect(count(sent, from, 'b', 'updateModel')).toBe(1);
     const created = [...a.state.model.elements.values()].find(
@@ -66,7 +77,8 @@ describe('a shared store', () => {
     // B's undo is the same undo stack: A and B each get one update again.
     const undoFrom = sent.length;
     await b.send(UndoAction.create());
-    await settle();
+    await next(sent, 'updateModel', undoFrom, 'a');
+    await quiet();
     expect(a.state.model.elements.has(created.id)).toBe(false);
     expect(count(sent, undoFrom, 'a', 'updateModel')).toBe(1);
     expect(count(sent, undoFrom, 'b', 'updateModel')).toBe(1);
@@ -74,7 +86,6 @@ describe('a shared store', () => {
 
   test('an edit by the host’s own client reaches both sessions once', async () => {
     const { shared, sent } = await twoSessions();
-    await settle();
     const from = sent.length;
     const result = await shared.dispatcher.dispatch({
       kind: 'createNode',
@@ -83,7 +94,10 @@ describe('a shared store', () => {
       location: { x: 700, y: 200 },
     });
     expect(result.ok).toBe(true);
-    await settle();
+    // Neither session made this change, so both hear it as another client's, asynchronously.
+    await next(sent, 'updateModel', from, 'a');
+    await next(sent, 'updateModel', from, 'b');
+    await quiet();
     expect(count(sent, from, 'a', 'updateModel')).toBe(1);
     expect(count(sent, from, 'b', 'updateModel')).toBe(1);
   });
@@ -91,32 +105,34 @@ describe('a shared store', () => {
   test('a disposed session stops listening; the shared dispatcher keeps working', async () => {
     const { shared, server, sent, a } = await twoSessions();
     await server.disposeClientSession({ clientSessionId: 'b' });
-    await settle();
     const from = sent.length;
     await a.send(goal());
-    await settle();
+    await quiet();
     expect(count(sent, from, 'a', 'updateModel')).toBe(1);
     expect(sent.slice(from).filter((m) => m.clientId === 'b')).toEqual([]);
     // Still the host's: a direct edit is still heard by A.
     const direct = sent.length;
     await shared.dispatcher.dispatch({ kind: 'glspUndo' });
-    await settle();
+    await next(sent, 'updateModel', direct, 'a');
+    await quiet();
     expect(count(sent, direct, 'a', 'updateModel')).toBe(1);
   });
 
   test('a session’s own store and dispatcher stop with the session', async () => {
     const { server, sent } = await startServer();
     const s = await openOn(server, sent, ISTAR_GLSP, 'welcome.txt', { clientId: 'own' });
+    // The session's initial `setModel` schedules GLSP's live-validation debounce; wait it out so
+    // it can't land after `from` below and look like a leak from the disposed session (#111).
+    await validationSettled(sent, 'own');
     const state = s.session.container.get<IstarModelState>(ModelState);
     expect(state.isShared).toBe(false);
     const heard: string[] = [];
     state.dispatcher.subscribe((action) => heard.push(action.kind));
     await server.disposeClientSession({ clientSessionId: 'own' });
-    await settle();
     // The disposed dispatcher no longer hears the store, so a direct store edit sends nothing.
     const from = sent.length;
     state.store.moveElement(AGENT, 10, 10);
-    await settle();
+    await quiet();
     expect(heard).toEqual([]);
     expect(sent.slice(from)).toEqual([]);
   });

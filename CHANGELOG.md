@@ -184,6 +184,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   `typeHintsFor` (#108) sets both itself (#112). It only maps `typeHintsFor`'s hints to GModel
   types and overrides `dynamic: false` (#105); the two can't drift again. Hints are unchanged for
   every contribution.
+- **glsp (tests):** `shared.test.ts`'s two-session tests no longer flake under load (#111). They
+  waited on a fixed-timer `settle()` for both the cross-session `updateModel` push and GLSP's own
+  100ms debounced live validation (`ModelSubmissionHandler`); under a loaded machine either could
+  land after the window closed. They now wait for the actual `updateModel`, and for each session's
+  initial live-validation cycle to clear, before asserting exact message counts.
 
 For goal-controller#185 and istar-ts#25 (A1, A2, B, C, D), istar-ts#26, istar-ts#28, istar-ts#29,
 istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
