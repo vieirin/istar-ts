@@ -6,7 +6,7 @@ import { ISTAR_2_0, parsePistar, toPistar } from '@istar-ts/core';
 import type { AnyIstarModel, AnyMetamodel } from '@istar-ts/core';
 import { runAgent } from '../src';
 import type { ChatClient, Usage } from '../src';
-import { CONDITIONS, pendingReason, setupCondition } from './eval-conditions';
+import { CONDITIONS, setupCondition } from './eval-conditions';
 import type { Backend, ConditionId } from './eval-conditions';
 import type { ComboResult, EvalReport } from './eval-report';
 import { aggregateMetrics, computeRunMetrics } from './eval-metrics';
@@ -96,7 +96,6 @@ async function runCombo(
   options: Required<Pick<EvaluateOptions, 'backend' | 'runs' | 'metamodel'>> &
     Pick<EvaluateOptions, 'maxSteps' | 'cost' | 'onRun'>,
 ): Promise<ComboResult> {
-  const pending = pendingReason(condition, options.backend);
   const base = {
     taskId: task.id,
     family: task.family,
@@ -104,7 +103,6 @@ async function runCombo(
     condition,
     backend: options.backend,
   };
-  if (pending) return { ...base, pending };
 
   const runs: RunMetrics[] = [];
   for (let run = 1; run <= options.runs; run++) {

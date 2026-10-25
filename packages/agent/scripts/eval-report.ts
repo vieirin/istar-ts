@@ -13,9 +13,7 @@ export interface ComboResult {
   readonly fixture: string;
   readonly condition: ConditionId;
   readonly backend: Backend;
-  /** Set instead of `aggregate` when this combination was skipped (#136 on backend A's shield). */
-  readonly pending?: string;
-  readonly aggregate?: AggregatedMetrics;
+  readonly aggregate: AggregatedMetrics;
 }
 
 export interface EvalReport {
@@ -26,8 +24,7 @@ export interface EvalReport {
 }
 
 function row(c: ComboResult): string {
-  if (c.pending) return `| ${c.taskId} | ${c.condition} | ${c.backend} | pending | ${c.pending} |`;
-  const a = c.aggregate!;
+  const a = c.aggregate;
   const cost = a.cost === undefined ? '' : `, $${a.cost.mean.toFixed(4)}`;
   const result =
     `precision ${a.precision.mean.toFixed(2)}, recall ${a.recall.mean.toFixed(2)}, ` +
@@ -35,7 +32,7 @@ function row(c: ComboResult): string {
     `rejections ${a.rejectionsCaught.mean.toFixed(2)}, destroyed ${a.modelDestroyedCount}/${a.runs}, ` +
     `tokens ${a.totalTokens.mean.toFixed(0)} (±${(a.totalTokens.max - a.totalTokens.min).toFixed(0)}), ` +
     `${a.wallClockMs.mean.toFixed(0)}ms${cost}`;
-  return `| ${c.taskId} | ${c.condition} | ${c.backend} | ${result} | |`;
+  return `| ${c.taskId} | ${c.condition} | ${c.backend} | ${result} |`;
 }
 
 export function toMarkdown(report: EvalReport): string {
@@ -44,8 +41,8 @@ export function toMarkdown(report: EvalReport): string {
     '',
     `Generated ${report.generatedAt}, ${report.runsPerCombo} runs per combination.`,
     '',
-    '| Task | Condition | Backend | Result (mean across runs) | Pending |',
-    '| --- | --- | --- | --- | --- |',
+    '| Task | Condition | Backend | Result (mean across runs) |',
+    '| --- | --- | --- | --- |',
     ...report.combos.map(row),
   ].join('\n');
 }

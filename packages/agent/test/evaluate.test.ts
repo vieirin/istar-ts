@@ -4,14 +4,17 @@
  * behaves as documented. No live model, no key: this is what CI runs for #132 (the real
  * evaluations are a manual, keyed invocation of `scripts/evaluate.ts`).
  */
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { ISTAR_2_0, parsePistar, toPistar } from '@istar-ts/core';
 import type { AnyMetamodel } from '@istar-ts/core';
+import { createChatClient, runAgent } from '../src';
 import type { AgentRun } from '../src';
-import { CONDITIONS, pendingReason, setupCondition } from '../scripts/eval-conditions';
+import { CONDITIONS, setupCondition } from '../scripts/eval-conditions';
 import { aggregateMetrics, computeRunMetrics } from '../scripts/eval-metrics';
 import type { RunMetrics } from '../scripts/eval-metrics';
-import { loadFixture, TASKS, tasksByFamily } from '../scripts/eval-tasks';
+import { loadFixture, TASKS, tasksByFamily, WELCOME_ACTOR } from '../scripts/eval-tasks';
+import { answer, startMockModel, toolCalls } from './mock-model';
+import type { MockModel } from './mock-model';
 
 const METAMODEL = ISTAR_2_0 as unknown as AnyMetamodel;
 
@@ -48,15 +51,7 @@ describe('task definitions', () => {
   });
 });
 
-describe('pendingReason', () => {
-  test('only the shield condition on backend A is pending (#136)', () => {
-    expect(pendingReason('actions-shield', 'A')).toMatch(/#136/);
-    expect(pendingReason('actions-shield', 'B')).toBeUndefined();
-    expect(pendingReason('actions-no-guard', 'A')).toBeUndefined();
-    expect(pendingReason('actions-no-guard', 'B')).toBeUndefined();
-    expect(pendingReason('text', 'A')).toBeUndefined();
-  });
-
+describe('CONDITIONS', () => {
   test('every documented condition is covered', () => {
     expect(CONDITIONS.map((c) => c.id).toSorted()).toEqual(
       ['actions-no-guard', 'actions-shield', 'text'].toSorted(),
@@ -91,7 +86,55 @@ describe('the Text condition', () => {
   });
 });
 
-function fakeRun(toolCalls: AgentRun['transcript']['steps'][number]['toolCalls']): AgentRun {
+describe('the shield condition on backend A', () => {
+  let mock: MockModel | undefined;
+  afterEach(async () => {
+    await mock?.close();
+    mock = undefined;
+  });
+
+  test('a guard rejection over MCP is counted as a rejection caught, with its own diagnostics (#136)', async () => {
+    const model = parsePistar(loadFixture('welcome.txt'), { metamodel: METAMODEL });
+    const setup = await setupCondition('actions-shield', 'A', model, METAMODEL);
+    try {
+      mock = await startMockModel((_, i) =>
+        i === 0
+          ? toolCalls([
+              'create-nodes',
+              {
+                nodes: [
+                  {
+                    elementTypeId: 'node:istar.Task',
+                    position: { x: 0, y: 0 },
+                    containerId: WELCOME_ACTOR,
+                    args: { name: 'Illegal task' },
+                  },
+                ],
+              },
+            ])
+          : answer('ok'),
+      );
+      const client = createChatClient({
+        baseUrl: mock.baseUrl,
+        model: 'deepseek-flash',
+        apiKey: 'test',
+      });
+      const run = await runAgent({ client, prompt: 'try', approval: 'auto', tools: setup.tools });
+      const conflict = TASKS.find((t) => t.family === 'conflict')!;
+      const metrics = computeRunMetrics(conflict, run, setup.getModel(), false);
+      expect(metrics.rejectionsCaught).toBe(1);
+      expect(metrics.syntacticErrors).toBe(0);
+      expect(run.transcript.steps[0]!.toolCalls[0]!.result).toMatchObject({
+        ok: false,
+        diagnostics: [{ code: 'demo' }],
+      });
+    } finally {
+      await setup.close?.();
+    }
+  });
+});
+
+function fakeRun(calls: AgentRun['transcript']['steps'][number]['toolCalls']): AgentRun {
   return {
     transcript: {
       model: 'fake',
@@ -103,7 +146,7 @@ function fakeRun(toolCalls: AgentRun['transcript']['steps'][number]['toolCalls']
           message: { role: 'assistant', content: null },
           finishReason: null,
           latencyMs: 1,
-          toolCalls,
+          toolCalls: calls,
         },
       ],
       usage: {

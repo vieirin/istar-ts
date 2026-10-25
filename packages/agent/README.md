@@ -55,9 +55,9 @@ refusal. Two backends:
   });
   ```
 
-  Until #136 is fixed, a guard's rejection through `@istar-ts/glsp` arrives as a `tool-error`
-  carrying the SDK's output-schema message, not the guard's own diagnostics. Propose mode over
-  MCP needs a `ChangeSetTarget` with a scratch GLSP session; this package does not ship one yet.
+  A guard's rejection through `@istar-ts/glsp` arrives with its own diagnostics (#136). Propose
+  mode over MCP needs a `ChangeSetTarget` with a scratch GLSP session; this package does not
+  ship one yet.
 
 - **B, actions** — `createActionToolRegistry(dispatcher, { metamodel })`: one tool per
   `HANDLED_ACTION_KINDS` operation and request, plus `glspUndo`/`glspRedo`, named after the kind
@@ -121,9 +121,8 @@ DEEPSEEK_API_KEY=sk-... pnpm --filter @istar-ts/agent evaluate -- --out report.j
 
 `--base-url`, `--model`, `--api-key-env`, `--backend` (`A` or `B`, default `B`) and `--runs`
 (default 5) are configurable (#126 §6's note about re-running a baseline against a different
-model). Backend A's shield condition is reported `pending` rather than run, until #136 (#129, D2)
-lands: a guard's rejection over MCP still throws client-side before the model reads its typed
-diagnostics. `evaluate.ts`'s modules (`eval-tasks.ts`, `eval-conditions.ts`, `eval-metrics.ts`,
-`eval-runner.ts`, `eval-report.ts`) have a vitest suite (`test/evaluate.test.ts`) covering the
-harness plumbing — task definitions, metric aggregation, the Text condition's parse check — with
-a mock chat server, no key.
+model). Both backends run every condition, including the shield, now that #136 (#129, D2) lands
+a guard's typed diagnostics over MCP too. `evaluate.ts`'s modules (`eval-tasks.ts`,
+`eval-conditions.ts`, `eval-metrics.ts`, `eval-runner.ts`, `eval-report.ts`) have a vitest suite
+(`test/evaluate.test.ts`) covering the harness plumbing — task definitions, metric aggregation,
+the Text condition's parse check — with a mock chat server, no key.

@@ -40,20 +40,6 @@ export const CONFLICT_GUARD: ActionGuard<string, string> = (operation) =>
     ? [{ elementId: '', severity: 'error', message: 'no tasks here', code: 'demo' }]
     : undefined;
 
-/**
- * Why `condition` over `backend` is skipped, or undefined when it should run. Backend A's
- * guard rejections currently throw client-side before the model ever reads their diagnostics
- * (#136): the MCP SDK client validates `create-nodes`' rejection against its output schema and
- * throws, so Propose/Auto both lose the guard's code and message. D2 (#129) fixes this; until
- * then the shield condition only runs meaningfully on backend B.
- */
-export function pendingReason(condition: ConditionId, backend: Backend): string | undefined {
-  return condition === 'actions-shield' && backend === 'A'
-    ? '#136: a guard rejection over MCP throws client-side before its typed diagnostics reach ' +
-        'the model; fixed by D2 (#129). Run this combination on backend B until then.'
-    : undefined;
-}
-
 export interface ConditionSetup {
   readonly tools: ToolRegistry;
   /** The model as the run has left it so far. */
