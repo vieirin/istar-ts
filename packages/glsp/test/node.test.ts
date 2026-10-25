@@ -118,4 +118,49 @@ describe('MCP', () => {
     expect(content.nodeTypes.map((t) => t.id)).toContain('node:istar.Goal');
     expect(content.edgeTypes.map((t) => t.id)).toContain('edge:istar.DependencyLink');
   });
+
+  // #223: one tool call, one undo step — over the Node launcher as in-page and in the worker.
+  test('create-nodes with text is one undo step', async () => {
+    const shared = createIstarSharedModel(ISTAR_GLSP, { model: welcome });
+    const server = await start({ shared, mcp: true });
+    const { client: glsp, received } = await client(server.url);
+    const result = (await glsp.initializeServer({
+      applicationId: 'test',
+      protocolVersion: '1.0.0',
+    })) as { mcpServer?: { url: string } };
+    await glsp.initializeClientSession({
+      clientSessionId: 's1',
+      diagramType: 'istar',
+      clientActionKinds: ['setModel', 'updateModel'],
+    });
+    glsp.sendActionMessage({ clientId: 's1', action: RequestModelAction.create() });
+    await next(received, 'setModel');
+    const mcp = new Client({ name: 'istar-glsp-test', version: '0.0.0' });
+    await mcp.connect(new StreamableHTTPClientTransport(new URL(result.mcpServer!.url)));
+    running.push(mcp);
+
+    const before = shared.store.getModel();
+    const created = await mcp.callTool({
+      name: 'create-nodes',
+      arguments: {
+        sessionId: 's1',
+        nodes: [
+          {
+            elementTypeId: 'node:istar.Goal',
+            position: { x: 300, y: 300 },
+            containerId: 'fcf67803-5e5a-4bae-8690-1f12af4446d6',
+            text: 'G1',
+          },
+        ],
+      },
+    });
+    expect(created.isError).toBeFalsy();
+    const names = [...shared.store.getModel().elements.values()]
+      .filter((e) => !before.elements.has(e.id))
+      .map((e) => e.name);
+    expect(names).toEqual(['G1']);
+    const undo = await mcp.callTool({ name: 'undo', arguments: { sessionId: 's1' } });
+    expect(undo.isError).toBeFalsy();
+    expect(shared.store.getModel()).toBe(before);
+  });
 });

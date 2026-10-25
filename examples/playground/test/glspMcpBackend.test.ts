@@ -277,4 +277,47 @@ describe('Propose mode over backend A', () => {
     const live = store.getModel();
     expect([...live.elements.values()].map((e) => e.name)).toContain('A');
   });
+
+  // #223: a tool call that dispatches several operations (`create-nodes` with `text`: a node,
+  // then its label) is one undo step on the scratch session, so one review step, popped whole
+  // by one `undo`.
+  test('a multi-operation call is one step, and one undo drops all of it (#223)', async () => {
+    const { store, session } = await setup();
+    const task = (x: number, text: string) => ({
+      elementTypeId: 'node:istar.Task',
+      position: { x, y: 0 },
+      containerId: 'lab',
+      text,
+    });
+    const client = scripted([
+      () => ['create-nodes', { nodes: [task(0, 'A')] }],
+      () => ['create-nodes', { nodes: [task(60, 'B'), task(120, 'C')] }],
+      () => ['undo', {}],
+    ]);
+
+    const run = await runAgent({ client, prompt: 'Add A, B and C.', changeSet: session.changeSet });
+    expect(run.changeSet.map((e) => e.name)).toEqual(['create-nodes', 'create-nodes', 'undo']);
+    const steps = run.changeSet.map((entry) => session.changeSet.step(entry));
+    expect(steps[0]?.operations).toHaveLength(1);
+    expect(steps[0]?.operations[0]?.kind).toBe('compound');
+    expect(steps[0]?.createdIds).toHaveLength(1);
+    expect(steps[0]?.description).toEqual([
+      "create Task 'Task' in Actor 'Lab'",
+      "rename Task 'Task' to 'A'",
+    ]);
+    expect(steps[1]).toBeUndefined();
+    expect(session.changeSet.describeUndo(run.changeSet[2]!.result)).toBe(
+      "agent undid: create Task 'Task' in Actor 'Lab'; rename Task 'Task' to 'B'; " +
+        "create Task 'Task' in Actor 'Lab'; rename Task 'Task' to 'C'",
+    );
+
+    const kept = run.changeSet.filter((entry) => session.changeSet.step(entry) !== undefined);
+    const applied = await session.changeSet.apply(kept);
+    expect(applied).toMatchObject({ ok: true });
+    const names = [...store.getModel().elements.values()].map((e) => e.name);
+    expect(names).toContain('A');
+    expect(names).not.toContain('B');
+    expect(names).not.toContain('C');
+    expect(names).not.toContain('Task');
+  });
 });

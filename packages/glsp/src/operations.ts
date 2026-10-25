@@ -16,6 +16,7 @@
  */
 import type { AnyMetamodel, GoalDiagnostic } from '@istar-ts/core';
 import { metamodelOf } from '@istar-ts/core';
+import type { IstarOperation } from '@istar-ts/actions';
 import { diagnosticToMarker } from '@istar-ts/actions';
 import {
   ActionDispatcher,
@@ -52,6 +53,7 @@ import type { IstarGlspContribution } from './contribution';
 import type { IstarModelState } from './model-state';
 import { translateOperation } from './translate';
 import { gmodelTypes } from './types';
+import { IstarStoreListener } from './updates';
 
 /** `SetMarkersAction.reason` of the markers a rejected operation leaves on its elements. */
 export const ISTAR_REJECTION_REASON = 'istar.rejection';
@@ -129,14 +131,22 @@ export class IstarOperationRunner {
   protected readonly actions: ActionDispatcher;
   /** Whether the client shows markers of a rejection, to clear on the next accepted edit. */
   private rejectionMarkers = false;
+  /** The tail of `group`'s calls, which run one at a time. */
+  private queue: Promise<unknown> = Promise.resolve();
   private readonly rejectionListeners = new Set<(diagnostics: readonly GoalDiagnostic[]) => void>();
+
+  /** Pushes the store's model to the client after a dropped draft. Optional for tests that
+   * build a runner by hand; every session binds it. */
+  protected readonly listener: IstarStoreListener | undefined;
 
   constructor(
     @inject(ModelState) state: IstarModelState,
     @inject(ActionDispatcher) actions: ActionDispatcher,
+    @inject(IstarStoreListener) @optional() listener?: IstarStoreListener,
   ) {
     this.state = state;
     this.actions = actions;
+    this.listener = listener;
   }
 
   get contribution(): IstarGlspContribution {
@@ -164,7 +174,7 @@ export class IstarOperationRunner {
     if (!translation.operation) return undefined;
     const before = state.model;
     const istarOperation = translation.operation;
-    const result = await state.ownChange(() => state.dispatcher.dispatch(istarOperation));
+    const result = await state.ownChange(() => state.edit(istarOperation));
     if (!result.ok) return this.rejected(result.diagnostics);
     if (this.rejectionMarkers) {
       this.rejectionMarkers = false;
@@ -176,6 +186,55 @@ export class IstarOperationRunner {
       this.actions.dispatchAfterNextUpdate(message(result.diagnostics, 'WARNING'));
     }
     return state.model === before ? undefined : new AppliedCommand();
+  }
+
+  /**
+   * Runs `call` (an MCP tool call, `istarMcpDispatcher`) as one edit: one undo step, all or
+   * nothing (#223). Every operation the call makes, through GLSP's operation handlers or
+   * `IstarModelState.edit`, is applied to a draft of the model, so a tool that reads the model
+   * back between its operations (server-mcp's `create-nodes` finds the node it created, to edit
+   * its label) sees them; then, if `keep` accepts the call's answer and no operation was
+   * rejected, they are dispatched to the session's dispatcher as one `compound` (a lone
+   * operation as itself), with its guards, postGuards and schemas run on the whole. Otherwise
+   * the draft is dropped, and the model is as it was. Calls on one session run one at a time,
+   * so each sees the others' changes and none sees another's draft.
+   *
+   * The draft is the session's: a GLSP client's operation on the same session during the call
+   * joins it. The dispatcher, and every other client of a shared store, hears one change.
+   */
+  group<T>(call: () => Promise<T>, keep: (value: T) => boolean): Promise<T> {
+    const run = this.queue.then(() => this.runGroup(call, keep));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async runGroup<T>(call: () => Promise<T>, keep: (value: T) => boolean): Promise<T> {
+    const { state } = this;
+    let rejected = false;
+    const stop = this.onRejected(() => (rejected = true));
+    state.beginDraft();
+    let value: T;
+    try {
+      value = await call();
+    } catch (error) {
+      if (state.endDraft().drafted) this.listener?.refresh();
+      throw error;
+    } finally {
+      stop();
+    }
+    const draft = state.endDraft();
+    const { operations } = draft;
+    if (!rejected && keep(value) && operations.length > 0) {
+      const operation: IstarOperation<string, string> =
+        operations.length === 1 ? operations[0]! : { kind: 'compound', operationList: operations };
+      // Not `ownChange`: the session's GModel shows the draft, and is built again from the
+      // store's model by `IstarStoreListener` as for another client's change.
+      const result = await state.dispatcher.dispatch(operation);
+      if (result.ok) return value;
+      this.rejected(result.diagnostics);
+    }
+    if (draft.drafted) this.listener?.refresh();
+    return value;
   }
 
   protected rejected(diagnostics: readonly GoalDiagnostic[]): Command {

@@ -19,10 +19,11 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createActionDispatcher, isOperation } from '@istar-ts/actions';
+import { createActionDispatcher, injectCreatedIds, isOperation } from '@istar-ts/actions';
 import type { ActionDispatcher, ActionGuard, IstarOperation } from '@istar-ts/actions';
 import { createModelStore, metamodelOf, parsePistar, toPistar } from '@istar-ts/core';
 import type {
+  AnyIstarModel,
   AnyMetamodel,
   AnyPaletteDescription,
   ModelStore,
@@ -33,7 +34,6 @@ import { contributionFor, paletteOf } from '@istar-ts/glsp';
 import type { IstarGlspMcpServer } from '@istar-ts/glsp/browser';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
 import { createMcpToolRegistry } from '@istar-ts/agent';
-import { injectCreatedIds } from '../lab/createdIds';
 import { describeOperation } from './describeOperation';
 import type {
   ChangeSetEntry,
@@ -105,11 +105,36 @@ export interface ProposedStep {
 }
 
 /** One operation the scratch session actually dispatched, the unit `glspUndo`/`glspRedo` act on
- * (#163): a tool call's step can bundle several of these (e.g. `create-nodes`' node + label). */
+ * (#163). Since #223 a mutating tool call dispatches exactly one: its operations (e.g.
+ * `create-nodes`' node + label) as one `compound`. */
 interface OpRecord {
   readonly operation: IstarOperation<string, string>;
   readonly description: readonly string[];
   readonly createdIds: readonly string[];
+}
+
+/**
+ * `operation` in plain words. A compound's children are described one at a time, each against
+ * the model just before and after it (replayed on a copy of `before`; their created ids are
+ * pinned), so a node a call created and then labelled reads "create Task 'Task'", "rename Task
+ * 'Task' to 'A'", as when they were separate steps.
+ */
+async function describeRecorded(
+  operation: IstarOperation<string, string>,
+  before: AnyIstarModel,
+  after: AnyIstarModel,
+): Promise<readonly string[]> {
+  if (operation.kind !== 'compound') return describeOperation(operation, [before, after]);
+  const replay = createModelStore(before as never) as unknown as ModelStore<string, string>;
+  const dispatcher = createActionDispatcher(replay);
+  const lines: string[] = [];
+  for (const child of operation.operationList) {
+    const previous = replay.getModel();
+    await dispatcher.dispatch(child);
+    lines.push(...describeOperation(child, [previous, replay.getModel(), after]));
+  }
+  dispatcher.dispose();
+  return lines;
 }
 
 function stepFromRecords(records: readonly OpRecord[]): ProposedStep {
@@ -152,9 +177,9 @@ function createGlspChangeSet(
   // `undo` (anywhere in the same run) pops it off `doneStack` below (#163).
   const recordsByResult = new WeakMap<ToolResult, readonly OpRecord[]>();
   const undoDescriptions = new WeakMap<ToolResult, string>();
-  // The scratch session's own undo/redo stacks, mirrored record-for-record (one per dispatched
-  // operation, not one per tool call: a call like `create-nodes` can dispatch several, and
-  // `undo` pops the scratch session's command stack one at a time, #163's handler docstring).
+  // The scratch session's own undo/redo stacks, mirrored record-for-record: one per dispatched
+  // operation, which is one per mutating tool call (#223 groups a call's operations into one
+  // dispatch and one undo step on the scratch session's store).
   let doneStack: OpRecord[] = [];
   let redoStack: OpRecord[] = [];
 
@@ -201,7 +226,7 @@ function createGlspChangeSet(
             const pinned = injectCreatedIds(action, result.createdIds, before);
             const record: OpRecord = {
               operation: pinned,
-              description: describeOperation(pinned, [before, scratchStore.getModel()]),
+              description: await describeRecorded(pinned, before, scratchStore.getModel()),
               createdIds: result.createdIds,
             };
             // A new step, as a store's `dispatch` does: nothing left to redo (#163).

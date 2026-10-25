@@ -7,13 +7,28 @@
  * which maps GLSP's undo and redo onto the dispatcher's `glspUndo`/`glspRedo`, framework-notes §7
  * "The undo conflict") keeps working across loads. When the host binds an `IstarSharedModel`, the
  * session uses that store and dispatcher instead, shared with every other session and with the
- * host's own clients (a React Flow canvas). The GModel is derived from `store.getModel()` by the
- * GModel factory and is never edited directly.
+ * host's own clients (a React Flow canvas). The GModel is derived from `model` by the GModel
+ * factory and is never edited directly.
+ *
+ * While a draft is open (`beginDraft`, around an MCP tool call, #223), `model` is the draft's and
+ * `edit` applies operations to it instead of the store; `endDraft` hands back what was applied,
+ * for the caller to dispatch to the store as one operation.
  */
 import type { AnyIstarModel, ModelStore, PistarFile } from '@istar-ts/core';
 import { createModelStore } from '@istar-ts/core';
-import type { SaveModelAction, StoreActionDispatcher } from '@istar-ts/actions';
-import { createActionDispatcher } from '@istar-ts/actions';
+import type {
+  ActionDispatcher,
+  ActionResult,
+  IstarOperation,
+  SaveModelAction,
+  StoreActionDispatcher,
+} from '@istar-ts/actions';
+import {
+  createActionDispatcher,
+  injectCreatedIds,
+  isOperation,
+  isRequestAction,
+} from '@istar-ts/actions';
 import { DefaultModelState, GLSPServerError } from '@eclipse-glsp/server';
 import { inject, injectable, optional } from 'inversify';
 import { IstarGlspContribution, paletteOf } from './contribution';
@@ -37,10 +52,21 @@ export interface IstarSharedModel {
  */
 export const IstarSharedModel: unique symbol = Symbol('IstarSharedModel');
 
+/** A copy of the store's model that a grouped edit applies its operations to first (#223). */
+interface Draft {
+  readonly store: ModelStore<string, string>;
+  readonly dispatcher: StoreActionDispatcher<string, string>;
+  /** The accepted operations, with the ids they created pinned (`injectCreatedIds`). */
+  readonly operations: IstarOperation<string, string>[];
+}
+
 @injectable()
 export class IstarModelState extends DefaultModelState {
   readonly contribution: IstarGlspContribution;
-  /** The session's model. Every edit goes through it, as one undo step per operation. */
+  /**
+   * The session's model. Every edit goes through it, as one undo step per operation, or per MCP
+   * tool call (`beginDraft`).
+   */
   readonly store: ModelStore<string, string>;
   /**
    * The istar-ts dispatcher over `store`: operations, requests, undo, redo and saving. Its
@@ -52,6 +78,9 @@ export class IstarModelState extends DefaultModelState {
   protected readonly files: PistarFiles | undefined;
   private own = 0;
   private saves = 0;
+  /** Whether edits go to a draft (`beginDraft`); the draft itself is made on the first edit. */
+  private drafting = false;
+  private draft: Draft | undefined;
 
   constructor(
     @inject(IstarGlspContribution) contribution: IstarGlspContribution,
@@ -80,9 +109,73 @@ export class IstarModelState extends DefaultModelState {
     if (!this.isShared) this.dispatcher.dispose();
   }
 
-  /** The current model. */
+  /** The current model: the open draft's, if any, else the store's. */
   get model(): AnyIstarModel {
-    return this.store.getModel();
+    return (this.draft?.store ?? this.store).getModel();
+  }
+
+  /**
+   * Applies `operation`: to the open draft, or else through the session's dispatcher. Every
+   * edit this session makes goes through here, so a grouped MCP tool call (`beginDraft`)
+   * collects all of them, whichever tool handler or GLSP operation handler made it.
+   */
+  async edit(operation: IstarOperation<string, string>): Promise<ActionResult> {
+    if (!this.drafting) return this.dispatcher.dispatch(operation);
+    this.draft ??= this.openDraft();
+    const { store, dispatcher, operations } = this.draft;
+    const before = store.getModel();
+    const result = await dispatcher.dispatch(operation);
+    if (result.ok) operations.push(injectCreatedIds(operation, result.createdIds, before));
+    return result;
+  }
+
+  /**
+   * The dispatcher a host tool (#175) is handed: operations through `edit`, requests answered
+   * on `model` (the draft's while one is open), anything else (undo, redo, save) by the
+   * session's dispatcher.
+   */
+  readonly editor: ActionDispatcher<string, string> = {
+    dispatch: ((action, options) => {
+      if (isOperation(action)) return this.edit(action);
+      if (isRequestAction(action) && this.draft) return this.draft.dispatcher.dispatch(action);
+      return this.dispatcher.dispatch(action, options);
+    }) as ActionDispatcher<string, string>['dispatch'],
+    subscribe: (listener) => this.dispatcher.subscribe(listener),
+  };
+
+  /**
+   * Starts collecting this session's edits (`edit`) in a draft, a copy of the store's model
+   * made on the first edit, instead of applying them to the store: `endDraft` returns them.
+   * The draft's dispatcher has the contribution's property schemas but none of a shared
+   * dispatcher's guards: those run when the caller dispatches the collected operations.
+   */
+  beginDraft(): void {
+    this.drafting = true;
+  }
+
+  /**
+   * Stops drafting and drops the draft. Returns the operations it accepted (none when no edit
+   * was made), in order, with the ids they created pinned, and whether the draft was made at
+   * all (the GModel may then show it, and needs building again from the store's model).
+   */
+  endDraft(): {
+    readonly operations: readonly IstarOperation<string, string>[];
+    readonly drafted: boolean;
+  } {
+    const draft = this.draft;
+    this.drafting = false;
+    this.draft = undefined;
+    draft?.dispatcher.dispose();
+    return { operations: draft?.operations ?? [], drafted: draft !== undefined };
+  }
+
+  protected openDraft(): Draft {
+    const store = createModelStore(this.store.getModel());
+    const dispatcher = createActionDispatcher(store, {
+      palette: paletteOf(this.contribution),
+      ...(this.contribution.schemas ? { schemas: this.contribution.schemas } : {}),
+    });
+    return { store, dispatcher, operations: [] };
   }
 
   /**
