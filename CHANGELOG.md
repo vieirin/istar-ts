@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.4
+## 0.15.0-beta.5
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -529,6 +529,15 @@ Added e2e test: palette refresh without remounting the client.
   model's metamodel; a shared store's load that extends the metamodel mid-session re-sends
   `setTypeHints` to every connected client. `/glsp.html`'s fixture picker gained an "iStar 2.0 —
   file metamodel" entry.
+- **glsp:** one MCP tool call is one undo step, all or nothing (#223), for every mutating tool
+  (server-mcp's and istar's, host tools too) on the in-page, worker and Node launchers. A call's
+  operations (`create-nodes` with `text`: the node, then its label) are applied to a draft of the
+  model while the tool runs, then dispatched to the session's dispatcher as one `compound`: one
+  undo step, one `sourceModelChanged`, guards and postGuards on the whole call. A rejected
+  operation, or a tool error, applies nothing; the tool error no longer carries the tool's own
+  answer, which described changes that were dropped. Calls on one session run one at a time.
+- **actions:** `injectCreatedIds(operation, createdIds, model)`, moved from the playground: an
+  accepted operation with the ids it created pinned as explicit ids.
 - **gmodel/react:** a frameless actor (registry `boundary: false`) now renders at its own x/y
   instead of its GModel boundary box's corner, when an inner element sits above or left of it
   (#194).
