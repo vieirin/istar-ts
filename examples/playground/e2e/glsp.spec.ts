@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -5,10 +6,11 @@ import { expect, test } from '@playwright/test';
  * through the SVG `data-svg-metadata-*` attributes the client itself writes
  * (framework-notes §6), as `@eclipse-glsp/playwright` would for a cross-client suite (#74 S4).
  *
- * Undo goes through the page's own toolbar button, not the stock client's `Ctrl`/`Cmd+Z`
- * shortcut: the default modules bind no undo/redo *button*, and the keyboard shortcut
- * (`GLSPUndoRedoKeyListener`) needs a focus/platform-modifier combination Playwright's
- * synthetic keyboard events don't reproduce reliably headless.
+ * The main smoke test below undoes through the page's own toolbar button, not the stock
+ * client's `Ctrl`/`Cmd+Z` shortcut, to keep that test about node creation rather than focus.
+ * `Ctrl`/`Cmd+Z` itself (`GLSPUndoRedoKeyListener`, reached only while the diagram's own SVG has
+ * focus) and `mountGlspClient`'s document-level fallback for when it doesn't (#102) each get
+ * their own test below.
  */
 /** Parses a CSS `rgb(r, g, b)`/`rgba(r, g, b, a)` computed-style string into channel values. */
 function rgbChannels(colour: string): readonly [number, number, number] {
@@ -22,6 +24,29 @@ function luminance([r, g, b]: readonly [number, number, number]): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/**
+ * Picks the "Goal" palette tool and creates one inside the "piStar tool" actor, as the first
+ * smoke test above does. The click must land on `diagram` itself (clicking a nested element
+ * times out: the SVG root "intercepts pointer events" in Playwright's actionability check), at
+ * the actor's own centre rather than a fixed canvas pixel (fit-to-screen's zoom varies the
+ * layout; a fixed pixel can miss every actor and get "a Goal must be created inside an actor").
+ */
+async function createGoalInActor(page: Page): Promise<void> {
+  const diagram = page.locator('.pg-glsp-diagram svg');
+  await page.getByText('Goal', { exact: true }).first().click();
+  const actorBox = await page
+    .locator('.pg-glsp-diagram [data-svg-metadata-type="node:istar.Agent"]')
+    .boundingBox();
+  const diagramBox = await diagram.boundingBox();
+  if (!actorBox || !diagramBox) throw new Error('actor or diagram has no layout box');
+  await diagram.click({
+    position: {
+      x: actorBox.x - diagramBox.x + actorBox.width / 2,
+      y: actorBox.y - diagramBox.y + actorBox.height / 2,
+    },
+  });
+}
+
 test.describe('GLSP client', () => {
   test('opens a fixture, creates a node from the palette and undoes it', async ({ page }) => {
     await page.goto('/glsp.html');
@@ -31,27 +56,47 @@ test.describe('GLSP client', () => {
     const goals = page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:istar.Goal"]');
     const before = await goals.count();
 
-    await page.getByText('Goal', { exact: true }).first().click();
-    // The node-creation tool listens on the diagram root, not the element under the pointer, so
-    // the click must land on `diagram` itself (clicking a nested element times out: the SVG root
-    // "intercepts pointer events" in Playwright's actionability check). The target pixel is the
-    // "piStar tool" actor's own centre, not a fixed canvas pixel: once the diagram actually fills
-    // the canvas (#103), fit-to-screen's zoom changes, and a fixed pixel no longer lands inside
-    // any actor ("a Goal must be created inside an actor").
-    const actorBox = await page
-      .locator('.pg-glsp-diagram [data-svg-metadata-type="node:istar.Agent"]')
-      .boundingBox();
-    const diagramBox = await diagram.boundingBox();
-    if (!actorBox || !diagramBox) throw new Error('actor or diagram has no layout box');
-    await diagram.click({
-      position: {
-        x: actorBox.x - diagramBox.x + actorBox.width / 2,
-        y: actorBox.y - diagramBox.y + actorBox.height / 2,
-      },
-    });
+    await createGoalInActor(page);
     await expect(goals).toHaveCount(before + 1);
 
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(goals).toHaveCount(before);
+  });
+
+  // #102: right after a palette create, focus already sits on the diagram's own SVG (sprotty
+  // put it there to create the node), so `GLSPUndoRedoKeyListener` itself handles this one —
+  // this test guards that the new document-level fallback (below) doesn't double-undo it.
+  test('Ctrl/Cmd+Z undoes a palette create while the diagram has focus', async ({ page }) => {
+    await page.goto('/glsp.html');
+    await expect(page.locator('.pg-glsp-diagram svg')).toBeVisible();
+    const goals = page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:istar.Goal"]');
+    const before = await goals.count();
+
+    await createGoalInActor(page);
+    await expect(goals).toHaveCount(before + 1);
+
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(goals).toHaveCount(before);
+  });
+
+  // #102: a click on the toolbar's own Undo/Redo buttons (or the fixture picker) moves focus off
+  // the diagram's SVG, so sprotty's `KeyTool` never sees the keystroke; `mountGlspClient`'s
+  // document-level fallback must forward it instead.
+  test('Ctrl/Cmd+Z undoes a palette create after a toolbar button took focus', async ({ page }) => {
+    await page.goto('/glsp.html');
+    await expect(page.locator('.pg-glsp-diagram svg')).toBeVisible();
+    const goals = page.locator('.pg-glsp-diagram [data-svg-metadata-type="node:istar.Goal"]');
+    const before = await goals.count();
+
+    await createGoalInActor(page);
+    await expect(goals).toHaveCount(before + 1);
+
+    // Nothing to redo yet, so this is a harmless no-op that only moves focus off the diagram.
+    const redoButton = page.getByRole('button', { name: 'Redo', exact: true });
+    await redoButton.click();
+    await expect(redoButton).toBeFocused();
+
+    await page.keyboard.press('ControlOrMeta+z');
     await expect(goals).toHaveCount(before);
   });
 
