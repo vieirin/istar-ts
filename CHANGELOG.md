@@ -4,6 +4,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **glsp:** every agent-facing MCP coordinate is now absolute model coordinates, not GModel-relative
+  (#158). `create-nodes`' `position` already landed exactly where given — a regression test now
+  locks that in, with and without a `containerId` — but the default `MarkdownMcpModelSerializer`
+  read a `GNode`'s `position` straight from the GModel tree, which is relative to an actor's
+  boundary for its children; `query-elements`/`diagram-model` now report an element's actual
+  (always absolute) model `x`/`y` instead (`IstarMcpModelSerializer`). `modify-nodes` documents
+  `position` as parent-relative to match that old convention; `IstarModifyNodesMcpToolHandler`
+  now converts the absolute position it's given to parent-relative before building the
+  `ChangeBoundsOperation`, so an agent reading a position back from a query and creating or
+  moving a node there lands exactly where it read.
 - **docs:** `docs/glsp.md` (#86, epic #74 docs stage): the GLSP server and client architecture
   in the reference paper's terms (feature tiers, manifests and contributions, citing
   `docs/papers/metin-bork-2025.md`), how to run the worker and Node hosts and the example
@@ -20,6 +30,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   kind's size independently of the metamodel draws the same boxes in both the React canvas and
   the stock GLSP client. `/both.html` now builds one registry and passes its sizes into the
   GLSP contribution it serves.
+- **dsm3-kaos, dsm3-nfr:** `@istar-ts/react`, `react` and `react-dom` are now optional peer
+  dependencies rather than hard dependencies (#92). Installing either package for its React-free
+  `./metamodel` entry no longer pulls in `@istar-ts/react` or `@xyflow/react`; the package root
+  (`kaosExtension`/`nfrExtension`) still needs them. Added a `test/package.test.ts` to each,
+  asserting the `peerDependenciesMeta` and that `./metamodel`'s import graph never reaches React.
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a
