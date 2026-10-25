@@ -1,6 +1,17 @@
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+// One port per checkout: several git worktrees running `pnpm e2e` at once must not reuse each
+// other's dev server (they may hold different code). `E2E_PORT` overrides it.
+const checkoutPort =
+  4200 +
+  (createHash('sha1')
+    .update(fileURLToPath(import.meta.url))
+    .digest()
+    .readUInt16BE(0) %
+    700);
+const PORT = Number(process.env.E2E_PORT) || checkoutPort;
 
 /**
  * The protocol lab e2e suite (#48): drives the playground's palette/canvas, the action log and
@@ -22,7 +33,9 @@ export default defineConfig({
   webServer: {
     command: `pnpm vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // Reusing a running server is opt-in (E2E_REUSE=1): with a per-checkout port it is this
+    // checkout's own `pnpm dev`, never another worktree's.
+    reuseExistingServer: !process.env.CI && process.env.E2E_REUSE === '1',
     timeout: 60_000,
   },
   projects: [
