@@ -76,4 +76,5 @@ export const nfrExtension: IstarExtension<NfrElementKind, NfrLinkKind> = {
       ),
     },
   },
+  palette: NFR_PALETTE as unknown as IstarExtension<NfrElementKind, NfrLinkKind>['palette'],
 };

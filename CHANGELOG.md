@@ -4,6 +4,20 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **react:** the canvas asks the dispatcher the questions a GLSP client asks its server
+  (#142, stage 3 of #144), instead of answering them locally: `requestCheckEdge` for connection
+  checks (`checkConnection`, cached per kind/source/target, invalidated on model change — an
+  uncached pair reads as valid at once, never blocking or dropping a click while the dispatcher
+  answers, see #105); `requestTypeHints`/`requestContextActions` for type hints and the tool
+  palette, fetched once per dispatcher/metamodel pair and exposed as `IstarEditor.typeHints`/
+  `contextActions`. `<IstarPalette>` renders from the `setContextActions` reply once it lands
+  (icons and titles still come from the registry, by kind); before the first reply, and for any
+  kind the reply doesn't cover, it falls back to the registry directly, so the palette is never
+  empty. No `canLink` import remains in `packages/react/src`. New: `IstarExtension.palette`, so
+  an extension (dsm3-kaos's `kaosExtension`, dsm3-nfr's `nfrExtension`) can give the provider's
+  own dispatcher its real `PaletteDescription` (`KAOS_OBSTACLES_PALETTE`, `NFR_PALETTE`) instead
+  of one reconstructed from the registry; `paletteDescriptionFromRegistry` is still the fallback
+  for an extension (or a bare registry) without one.
 - **playground:** fix `/both.html`'s React canvas pane occasionally rendering at width 0 (#173).
   `BothApp`'s aside (action log + agent panel) was two unbounded flex items sibling to
   `.istar-canvas-flow`; once the log's nowrap+ellipsis row (`ActionLog.tsx`) logged a long

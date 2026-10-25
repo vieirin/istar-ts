@@ -1,4 +1,5 @@
-import type { AnyMetamodel, LinkKind, NodeKind } from '@istar-ts/core';
+import type { LabeledAction } from '@istar-ts/actions';
+import type { AnyMetamodel, ElementKind, LinkKind, NodeKind } from '@istar-ts/core';
 import { ISTAR_2_0 } from '@istar-ts/core';
 import { resolveLinkStyle } from './edges';
 import { dependencyIcon, elementIcon, linkIcon } from './palette-icons';
@@ -149,7 +150,11 @@ export function paletteSections(registry: IstarRegistry, given?: AnyMetamodel): 
     }
   }
   items.sort((a, b) => (a.entry.order ?? 0) - (b.entry.order ?? 0));
+  return sectionsFromItems(items);
+}
 
+/** Splits sorted items into sections, collapsing same-`group` ones into one slot. */
+function sectionsFromItems(items: readonly Item[]): Slot[][] {
   const sections = new Map<string, Slot[]>();
   const groups = new Map<string, Item[]>();
   for (const item of items) {
@@ -168,6 +173,94 @@ export function paletteSections(registry: IstarRegistry, given?: AnyMetamodel): 
     }
   }
   return [...sections.values()];
+}
+
+/** The index of an array palette entry's `LabeledAction.id` (`${kind}#${i}`, see
+ * `elementEntries`/`linkEntries` in `@istar-ts/actions`' `hints.ts`); 0 for a single entry. */
+function actionIndex(id: string | undefined, kind: string): number {
+  if (id === undefined || !id.startsWith(`${kind}#`)) return 0;
+  const i = Number(id.slice(kind.length + 1));
+  return Number.isNaN(i) ? 0 : i;
+}
+
+/**
+ * One `LabeledAction` (`requestContextActions`' reply) as a palette `Item`: the tool it arms
+ * comes from the action, the icon and title from the registry entry at the same kind and index
+ * (presentation stays local, never over the protocol — see `paletteDescriptionFromRegistry`).
+ * `undefined` for a kind the registry doesn't know (e.g. a reply from a dispatcher fronting a
+ * different registry than this one) or an action kind the palette doesn't render.
+ */
+function itemFromAction(
+  action: LabeledAction,
+  registry: AnyIstarRegistry,
+  metamodel: AnyMetamodel,
+): Item | undefined {
+  const trigger = action.actions[0];
+  const key = action.id ?? action.label;
+  const entryBase = {
+    label: action.label,
+    ...(action.order !== undefined && { order: action.order }),
+    ...(action.group !== undefined && { group: action.group }),
+    ...(action.section !== undefined && { section: action.section }),
+  };
+  if (trigger?.kind === 'triggerNodeCreation') {
+    const kind = trigger.elementTypeId;
+    const config = registry.elements[kind];
+    if (!config) return undefined;
+    const presentation = Array.isArray(config.palette)
+      ? config.palette[actionIndex(action.id, kind)]
+      : (config.palette as PaletteEntry | false);
+    if (!presentation) return undefined;
+    const properties = trigger.args?.customProperties;
+    return {
+      key,
+      entry: { ...entryBase, icon: presentation.icon, title: presentation.title },
+      tool: { type: 'element', kind: kind as ElementKind, ...(properties && { properties }) },
+    };
+  }
+  if (trigger?.kind === 'triggerEdgeCreation') {
+    const kind = trigger.elementTypeId;
+    const config = registry.links[kind];
+    if (!config || config.palette === false) return undefined;
+    const presentation = config.palette[actionIndex(action.id, kind)];
+    if (!presentation) return undefined;
+    const dependency = metamodel.links.get(kind)?.category === 'dependency';
+    const tool: Tool = dependency
+      ? {
+          type: 'dependency',
+          dependum: (trigger.args?.dependum?.kind ?? 'istar.Goal') as NodeKind,
+          ...(kind !== 'istar.DependencyLink' && { linkKind: kind as LinkKind }),
+        }
+      : {
+          type: 'link',
+          kind: kind as Exclude<LinkKind, 'istar.DependencyLink'>,
+          ...(trigger.args?.value ? { value: trigger.args.value } : {}),
+        };
+    return {
+      key,
+      entry: { ...entryBase, icon: presentation.icon, title: presentation.title },
+      tool,
+    };
+  }
+  return undefined;
+}
+
+/**
+ * `paletteSections`, but from a `requestContextActions` reply (`editor.contextActions`) rather
+ * than the registry directly: used once the dispatcher has answered (see `IstarProvider`).
+ */
+function paletteSectionsFromActions(
+  actions: readonly LabeledAction[],
+  registry: IstarRegistry,
+  metamodel: AnyMetamodel,
+): Slot[][] {
+  const any = registry as unknown as AnyIstarRegistry;
+  const items: Item[] = [];
+  for (const action of actions) {
+    const item = itemFromAction(action, any, metamodel);
+    if (item) items.push(item);
+  }
+  return sectionsFromItems(items);
 }
 
 /** One toolbar control, as data, for rendering a custom palette (see `usePaletteControls`). */
@@ -208,11 +301,14 @@ export interface PaletteControls {
  * call `useIstarEditor().setTool(...)` yourself, e.g. an element tool with preset `properties`.
  */
 export function usePaletteControls(): PaletteControls {
-  const { registry, metamodel, tool, setTool, store, readOnly } = useIstarEditor();
+  const { registry, metamodel, tool, setTool, store, readOnly, contextActions } = useIstarEditor();
   // Re-render when history changes so undo/redo enablement is current.
   useSyncExternalStore(store.subscribe, store.getModel, store.getModel);
   const controls: PaletteControl[] = [];
-  for (const slots of paletteSections(registry, metamodel)) {
+  const sections = contextActions
+    ? paletteSectionsFromActions(contextActions, registry, metamodel)
+    : paletteSections(registry, metamodel);
+  for (const slots of sections) {
     for (const slot of slots) {
       for (const item of slot.type === 'item' ? [slot.item] : slot.items) {
         const active = sameTool(tool, item.tool);
@@ -390,7 +486,9 @@ export function IstarPalette({
     );
   };
 
-  const sections = paletteSections(registry, editor.metamodel);
+  const sections = editor.contextActions
+    ? paletteSectionsFromActions(editor.contextActions, registry, editor.metamodel)
+    : paletteSections(registry, editor.metamodel);
   return (
     <div
       ref={rootRef}

@@ -17,6 +17,13 @@ const fixture = readFileSync(
   'utf8',
 );
 
+// `checkConnection` asks the dispatcher (`requestCheckEdge`, #142); a first call only primes
+// its cache (returning the optimistic neutral answer) and fires the request, which settles on
+// this macrotask flush — after it, a second call reads the cached, real answer.
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function Grab({ onEditor }: { onEditor: (editor: IstarEditor) => void }): null {
   const editor = useIstarEditor();
   useEffect(() => {
@@ -84,7 +91,7 @@ describe('IstarCanvas', () => {
     expect(onChange.mock.calls[0]![0].elements.get(goal.id)?.name).toBe('Renamed');
   });
 
-  test('connection checks explain rejected links for the active tool', () => {
+  test('connection checks explain rejected links for the active tool', async () => {
     const store = createModelStore();
     const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
     const goal = store.addElement({ kind: 'istar.Goal', x: 10, y: 10, parent: actor.id });
@@ -99,6 +106,8 @@ describe('IstarCanvas', () => {
     }
     render(<Harness />);
     act(() => editor.current!.setTool({ type: 'link', kind: 'istar.AndRefinementLink' }));
+    editor.current!.checkConnection(quality.id, goal.id);
+    await flush();
     expect(editor.current!.checkConnection(quality.id, goal.id)).toMatchObject({
       ok: false,
       reason: expect.stringContaining('must be a Goal or a Task'),
@@ -106,8 +115,12 @@ describe('IstarCanvas', () => {
     act(() =>
       editor.current!.setTool({ type: 'link', kind: 'istar.ContributionLink', value: 'help' }),
     );
+    editor.current!.checkConnection(goal.id, quality.id);
+    await flush();
     expect(editor.current!.checkConnection(goal.id, quality.id)).toEqual({ ok: true });
     act(() => editor.current!.setTool({ type: 'dependency', dependum: 'istar.Goal' }));
+    editor.current!.checkConnection(goal.id, quality.id);
+    await flush();
     expect(editor.current!.checkConnection(goal.id, quality.id)).toMatchObject({
       code: 'same-actor',
     });

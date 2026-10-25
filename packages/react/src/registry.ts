@@ -10,6 +10,7 @@
 import type {
   ActorKind,
   AnyMetamodel,
+  AnyPaletteDescription,
   CustomProperties,
   ElementKind,
   IstarElement,
@@ -514,6 +515,14 @@ export interface IstarExtension<
   readonly name: string;
   /** New element and link kinds this extension adds to the metamodel. */
   readonly metamodel?: MetamodelExtension<string, string>;
+  /**
+   * This extension's dialect as a core `PaletteDescription` (e.g. dsm3-kaos's
+   * `KAOS_OBSTACLES_PALETTE`, dsm3-nfr's `NFR_PALETTE`), React-free, for a headless host and
+   * for the provider's own dispatcher to answer `requestContextActions` from (see
+   * `paletteDescriptionFor`). A kind this palette doesn't carry — or the extension doesn't
+   * give one at all — falls back to a description derived from the registry.
+   */
+  readonly palette?: AnyPaletteDescription;
 }
 
 /**
@@ -748,4 +757,70 @@ export function elementSize<EK extends string = ElementKind, LK extends string =
     width: typeof element.display?.width === 'number' ? element.display.width : base.width,
     height: typeof element.display?.height === 'number' ? element.display.height : base.height,
   };
+}
+
+/** Strips a `PaletteEntry`'s presentation fields (`icon`, `title`), keeping its data. */
+function stripPresentation<E extends { icon?: unknown; title?: unknown }>(
+  entry: E,
+): Omit<E, 'icon' | 'title'> {
+  const { icon: _icon, title: _title, ...data } = entry;
+  return data;
+}
+
+/**
+ * The registry's palette data as a core `PaletteDescription` (`@istar-ts/actions`'
+ * `contextActionsFor` takes one), so a dispatcher created over this registry's model answers
+ * `requestContextActions` with the same entries the registry would otherwise render locally.
+ * Icons and titles stay out: they travel back from the registry by kind when the reply is
+ * rendered (see `Palette.tsx`), never over the protocol. `paletteDescriptionFor` is the
+ * fallback-aware version an `IstarProvider` actually uses: an extension with its own
+ * `palette` (dsm3-kaos, dsm3-nfr) is a more faithful source than reconstructing one from the
+ * registry entries it derived.
+ */
+export function paletteDescriptionFromRegistry(registry: AnyIstarRegistry): AnyPaletteDescription {
+  const elements: Record<string, unknown> = {};
+  for (const [kind, config] of Object.entries(registry.elements)) {
+    const palette = config.palette;
+    if (palette === false) {
+      elements[kind] = false;
+    } else if (Array.isArray(palette)) {
+      elements[kind] = palette.map(stripPresentation);
+    } else {
+      elements[kind] = stripPresentation(palette as PaletteEntry);
+    }
+  }
+  const links: Record<string, unknown> = {};
+  for (const [kind, config] of Object.entries(registry.links)) {
+    const palette = config.palette;
+    links[kind] = palette === false ? false : palette.map(stripPresentation);
+  }
+  const groups: Record<string, { label: string }> = {};
+  for (const [id, group] of Object.entries(registry.paletteGroups))
+    groups[id] = { label: group.label };
+  return { elements, links, groups } as AnyPaletteDescription;
+}
+
+/**
+ * What the provider's own dispatcher answers `requestContextActions` with: `registry` derived
+ * (`paletteDescriptionFromRegistry`), overlaid with each extension's own `palette` (in order),
+ * for the kinds it carries. An extension's `palette` is usually dialect-wide (e.g.
+ * `KAOS_OBSTACLES_PALETTE` covers plain KAOS too — `contextActionsFor` only visits kinds the
+ * active metamodel actually has), so this still answers correctly when the metamodel doesn't
+ * have every kind the extension's palette describes.
+ */
+export function paletteDescriptionFor(
+  registry: AnyIstarRegistry,
+  extensions: readonly { readonly palette?: AnyPaletteDescription }[] = [],
+): AnyPaletteDescription {
+  const base = paletteDescriptionFromRegistry(registry);
+  const elements = { ...base.elements };
+  const links = { ...base.links };
+  const groups = { ...base.groups };
+  for (const extension of extensions) {
+    if (!extension.palette) continue;
+    Object.assign(elements, extension.palette.elements);
+    Object.assign(links, extension.palette.links);
+    Object.assign(groups, extension.palette.groups);
+  }
+  return { elements, links, groups };
 }

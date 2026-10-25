@@ -158,4 +158,10 @@ export const kaosExtension: IstarExtension<
       ),
     },
   },
+  // Covers plain KAOS too: `contextActionsFor` only visits kinds the active metamodel has, so
+  // the obstacle analysis's extra entries are ignored when the model's metamodel is `KAOS`.
+  palette: KAOS_OBSTACLES_PALETTE as unknown as IstarExtension<
+    KaosElementKind | KaosObstacleElementKind,
+    KaosLinkKind | KaosObstacleLinkKind
+  >['palette'],
 };

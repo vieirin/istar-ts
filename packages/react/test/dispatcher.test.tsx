@@ -387,3 +387,42 @@ describe('dispatcherFor', () => {
     expect(kinds).toContain('createNode');
   });
 });
+
+// #142: the canvas asks the dispatcher the questions a GLSP client asks its server, instead of
+// answering them locally with `canLink` and the registry.
+describe('asking the dispatcher for hints, the palette and edge checks', () => {
+  test('sends requestTypeHints, requestContextActions and requestCheckEdge, never canLink', async () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 10, y: 10, parent: actor.id });
+    const quality = store.addElement({ kind: 'istar.Quality', x: 10, y: 80, parent: actor.id });
+    const kinds: string[] = [];
+    const dispatcher = recordingDispatcher(createActionDispatcher(store), kinds);
+    const editorRef: { current?: IstarEditor } = {};
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store} dispatcher={dispatcher}>
+          <Grab onEditor={(e) => (editorRef.current = e)} />
+          <IstarCanvas />
+        </IstarProvider>
+      </div>,
+    );
+
+    // Mounting asks for type hints and the palette (cached until the metamodel changes).
+    expect(kinds).toContain('requestTypeHints');
+    expect(kinds).toContain('requestContextActions');
+
+    // A connection check asks `requestCheckEdge` (cached per kind/source/target); the first call
+    // only primes the cache and answers optimistically (never blocking or dropping a click, see
+    // `checkConnection` in `context.tsx`), the dispatcher's reply lands a macrotask later.
+    act(() =>
+      editorRef.current!.setTool({ kind: 'istar.AndRefinementLink', type: 'link' } as never),
+    );
+    editorRef.current!.checkConnection(quality.id, goal.id);
+    expect(kinds).toContain('requestCheckEdge');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(editorRef.current!.checkConnection(quality.id, goal.id)).toMatchObject({ ok: false });
+
+    expect(kinds).not.toContain('canLink');
+  });
+});

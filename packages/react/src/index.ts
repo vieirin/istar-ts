@@ -34,6 +34,8 @@ export {
   applyExtensions,
   createRegistry,
   metamodelWithExtensions,
+  paletteDescriptionFor,
+  paletteDescriptionFromRegistry,
   registryForMetamodel,
   defaultNameFor,
   defaultPropertiesFor,

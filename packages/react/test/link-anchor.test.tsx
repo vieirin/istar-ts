@@ -163,7 +163,7 @@ describe('IstarCanvas with links that target links', () => {
     expect(flow().classList.contains('is-linking-to-links')).toBe(false);
   });
 
-  test('a connection dropped on an anchor is checked against the link itself', () => {
+  test('a connection dropped on an anchor is checked against the link itself', async () => {
     const { editor, store } = renderNfr();
     act(() => editor().setTool({ type: 'link', kind: 'nfr.ArgumentLink' } as never));
     const claim = [...store.getModel().elements.values()].find((e) => e.kind === 'nfr.Claim')!;
@@ -171,7 +171,11 @@ describe('IstarCanvas with links that target links', () => {
       (l) => l.kind === 'nfr.ContributionLink' && l.id !== CONTRIBUTION,
     )!;
     expect(editor().checkConnection(claim.id, linkAnchorId(other.id))).toEqual({ ok: true });
-    // One argument per pair: the claim already argues about CONTRIBUTION.
+    // `checkConnection` asks the dispatcher (`requestCheckEdge`, #142): a first call only primes
+    // its cache and returns the optimistic neutral answer; a second, after the request settles,
+    // reads the real one. One argument per pair: the claim already argues about CONTRIBUTION.
+    editor().checkConnection(claim.id, linkAnchorId(CONTRIBUTION));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(editor().checkConnection(claim.id, linkAnchorId(CONTRIBUTION))).toMatchObject({
       ok: false,
     });
