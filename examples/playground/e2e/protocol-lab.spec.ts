@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import type { Download } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import {
   canvasPane,
@@ -13,10 +11,12 @@ import {
   logRowTexts,
   nodeById,
   openLabTab,
+  readDownload,
   redoButton,
   resetToEmptyModel,
   selectActorTool,
   selectTool,
+  stripSaveDate,
   undoButton,
 } from './helpers';
 
@@ -25,16 +25,6 @@ import {
  * drag, connect, delete and undo, each checked against the action log (`#45`) and the rendered
  * canvas, not just the model. One test per lesson, named after it.
  */
-async function readDownload(download: Download): Promise<string> {
-  const path = await download.path();
-  if (!path) throw new Error('download produced no path');
-  return readFile(path, 'utf8');
-}
-
-function stripSaveDate(text: string): string {
-  return text.replace(/"saveDate":\s*"[^"]*",?\n?/, '');
-}
-
 test.describe('protocol lab', () => {
   test.beforeEach(async ({ page }) => {
     await gotoApp(page);

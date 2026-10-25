@@ -91,6 +91,9 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
     devDependencies:
+      '@eclipse-glsp/playwright':
+        specifier: 2.9.0-next.20
+        version: 2.9.0-next.20(@playwright/test@1.64.1)(playwright-core@1.64.1)
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
@@ -404,6 +407,12 @@ packages:
 
   '@eclipse-glsp/graph@2.8.0':
     resolution: {integrity: sha512-FNLQ27K5w42ygxPnWHEXOLChQR3HBXou5J5UMXhTKJJTFy/lbGyxCmtsKDZ72rvj8l3Wyxg15SRLQUjykFxPbA==}
+
+  '@eclipse-glsp/playwright@2.9.0-next.20':
+    resolution: {integrity: sha512-8ShrOjQPG0aCcJkdDyWnthyX624xGdZ5lodu3cDXVNRNdqRpcHjZxfbSa1uIO97V7hSC7qrZzPZUjR153Hqzng==}
+    peerDependencies:
+      '@playwright/test': ^1.47.0
+      playwright-core: ^1.47.0
 
   '@eclipse-glsp/protocol@2.8.0':
     resolution: {integrity: sha512-Dd9sVtX1kRkvWnGeyF9pC2DrHUDYaDgm0TukuRIaw4SvlKeKK2w48c2hmpRkKpsIKbWw8lk8R53FDKTqE52jnQ==}
@@ -2423,6 +2432,10 @@ packages:
     resolution: {integrity: sha512-aZbgViZrg1QNcG+LULa7nhZpJTZSLm/mXnHXnbAbjmN5aSa0y7V+wvv6+4WaBtpISJzThKy+PIPxc1Nq1EJ9mg==}
     engines: {node: '>= 14.0.0'}
 
+  ts-dedent@2.3.0:
+    resolution: {integrity: sha512-JfJeIHke7y2egdGGgRAvpCwYFUsHlM2gPcrVOxFkznt/4uzQ7HFmvE63iFHVLBJNDuyDOQgijDK/tXH/f6Msjg==}
+    engines: {node: '>=6.10'}
+
   tsdown@0.23.0:
     resolution: {integrity: sha512-BaT+ep1xnj5hdyICLd5r5SYYE+TXnI1ATePLykv9vcKpHpFTWUWRH+x1AF/E2qcu3YB6+vI8IdyxIIIffEqw5Q==}
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
@@ -2915,6 +2928,13 @@ snapshots:
     transitivePeerDependencies:
       - inversify
       - reflect-metadata
+
+  '@eclipse-glsp/playwright@2.9.0-next.20(@playwright/test@1.64.1)(playwright-core@1.64.1)':
+    dependencies:
+      '@playwright/test': 1.64.1
+      playwright-core: 1.64.1
+      reflect-metadata: 0.2.2
+      ts-dedent: 2.3.0
 
   '@eclipse-glsp/protocol@2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)':
     dependencies:
@@ -4538,6 +4558,8 @@ snapshots:
   tree-kill@1.2.2: {}
 
   triple-beam@1.4.1: {}
+
+  ts-dedent@2.3.0: {}
 
   tsdown@0.23.0(typescript@7.0.2):
     dependencies:

@@ -1,0 +1,72 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.pg-both {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.pg-both-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--pg-start-panel-bg);
+  border-bottom: 1px solid var(--pg-start-panel-border);
+  flex-shrink: 0;
+}
+
+.pg-both-back {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pg-both-note {
+  flex: 1;
+  margin: 0;
+  color: var(--pg-start-muted);
+}
+
+.pg-both-panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.pg-both-react,
+.pg-both-glsp {
+  flex: 1 1 50%;
+  min-width: 0;
+  height: 100%;
+}
+
+.pg-both-react .istar-canvas {
+  height: 100%;
+}
+
+.pg-both-glsp {
+  position: relative;
+  border-left: 1px solid var(--pg-start-panel-border);
+}
+
+.pg-both-glsp-diagram {
+  position: absolute;
+  inset: 0;
+}
+
+/* The sprotty root div the stock client mounts into fills `.pg-both-glsp` (same fix as
+   `glsp.css`'s own comment, #103): only its own `svg` needs sizing. */
+.pg-both-glsp-diagram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pg-both-log {
+  padding: 0.5rem;
+}
