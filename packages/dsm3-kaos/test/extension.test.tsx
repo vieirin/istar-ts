@@ -1,15 +1,18 @@
 import type { IstarLink } from '@istar-ts/core';
-import { parsePistar } from '@istar-ts/core';
+import { createModelStore, parsePistar } from '@istar-ts/core';
 import {
   IstarCanvas,
+  IstarProvider,
   applyExtensions,
   paletteSections,
   registryForMetamodel,
+  useIstarEditor,
 } from '@istar-ts/react';
-import type { AnyIstarRegistry, LinkLabelProps } from '@istar-ts/react';
+import type { AnyIstarRegistry, IstarEditor, LinkLabelProps } from '@istar-ts/react';
 import { render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { useLayoutEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
   ConflictGlyph,
@@ -171,6 +174,37 @@ describe('kaosExtension with the obstacle analysis', () => {
     expect(plain.elements['kaosObstacles.Obstacle']).toBeUndefined();
     expect(plain.links['kaosObstacles.ResolutionLink']).toBeUndefined();
     expect(plain.elements['kaos.DomainProperty']?.properties).toBe(domainPropertyProperties);
+  });
+
+  it('is still offered when the model is plain KAOS (requestContextActions)', async () => {
+    // #142: the provider's own dispatcher answers `requestContextActions` from
+    // `kaosExtension.palette` (`KAOS_OBSTACLES_PALETTE`), which also covers plain KAOS's kinds —
+    // `contextActionsFor` only visits kinds the active metamodel has, so the obstacle kinds in
+    // that palette are simply never reached here.
+    const store = createModelStore(undefined, { metamodel: KAOS as never });
+    const editorRef: { current?: IstarEditor } = {};
+    function Grab(): null {
+      const editor = useIstarEditor();
+      useLayoutEffect(() => {
+        editorRef.current = editor;
+      });
+      return null;
+    }
+    render(
+      <IstarProvider store={store as never} extensions={[kaosExtension] as never}>
+        <Grab />
+      </IstarProvider>,
+    );
+    const result = await editorRef.current!.dispatcher.dispatch({
+      kind: 'requestContextActions',
+      requestId: 'r1',
+      contextId: 'tool-palette',
+      editorContext: { selectedElementIds: [] },
+    });
+    if (!result.ok || !result.response) throw new Error('setup failed');
+    const labels = result.response.actions.map((a) => a.label);
+    expect(labels).toEqual(expect.arrayContaining(['Behavioral Goal', 'Refinement']));
+    expect(labels).not.toContain('Obstacle');
   });
 
   it('draws kaos-las.txt', () => {

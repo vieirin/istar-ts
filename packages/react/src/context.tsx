@@ -45,7 +45,7 @@ import type { ElementActions, IstarExtension, IstarRegistry, LinkActions } from 
 import {
   applyExtensions,
   defaultRegistry,
-  paletteDescriptionFromRegistry,
+  paletteDescriptionFor,
   registryForMetamodel,
 } from './registry';
 import { linkIdOfAnchor } from './layout';
@@ -322,12 +322,14 @@ export function IstarProvider<EK extends string = ElementKind, LK extends string
         : baseRegistry;
     return props.extensions?.length ? applyExtensions(complete, props.extensions) : complete;
   }, [metamodel, baseRegistry, props.extensions]);
-  // The palette is fixed at creation time, from the registry this provider mounted with (like
-  // the rest of this dispatcher's options); it does not track later registry changes (e.g. a
-  // dynamically swapped `extensions` prop), the same limitation `createActionDispatcher`'s other
-  // options already have.
+  // The palette is fixed at creation time, from the registry and extensions this provider
+  // mounted with (like the rest of this dispatcher's options); it does not track later changes
+  // (e.g. a dynamically swapped `extensions` prop), the same limitation `createActionDispatcher`'s
+  // other options already have.
   const [ownDispatcher] = useState(() =>
-    createActionDispatcher(store, { palette: paletteDescriptionFromRegistry(registry) }),
+    createActionDispatcher(store, {
+      palette: paletteDescriptionFor(registry, props.extensions ?? []),
+    }),
   );
   useEffect(() => () => ownDispatcher.dispose(), [ownDispatcher]);
   const dispatcher = props.dispatcher ?? ownDispatcher;
