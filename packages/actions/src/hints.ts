@@ -26,12 +26,13 @@ import type {
   ShapeTypeHint,
 } from './actions';
 
-function isHub(definition: ElementKindDefinition): boolean {
+/** A generated kind (a hub, leg or end) that an n-ary link's declaration adds on its own. */
+export function isHub(definition: ElementKindDefinition): boolean {
   return definition.role === 'hub';
 }
 
 /** Element kinds a rule selector matches, as `canLink` matches elements against it. */
-function matching(metamodel: AnyMetamodel, selector: string): string[] {
+export function matching(metamodel: AnyMetamodel, selector: string): string[] {
   const kinds: string[] = [];
   for (const definition of metamodel.elements.values()) {
     // A hub is only matched by its own kind's name: categories never include it.
@@ -52,12 +53,12 @@ function matching(metamodel: AnyMetamodel, selector: string): string[] {
   return kinds;
 }
 
-function union(metamodel: AnyMetamodel, selectors: readonly string[]): string[] {
+export function union(metamodel: AnyMetamodel, selectors: readonly string[]): string[] {
   return [...new Set(selectors.flatMap((selector) => matching(metamodel, selector)))];
 }
 
 /** Kinds of a category, without hubs. */
-function ofCategory(metamodel: AnyMetamodel, category?: 'actor' | 'node'): string[] {
+export function ofCategory(metamodel: AnyMetamodel, category?: 'actor' | 'node'): string[] {
   return [...metamodel.elements.values()]
     .filter((d) => !isHub(d) && (category === undefined || d.category === category))
     .map((d) => d.kind);

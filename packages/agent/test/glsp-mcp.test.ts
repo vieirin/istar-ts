@@ -85,6 +85,8 @@ describe('backend A over serveIstarGlsp({ mcp: true })', () => {
       'diagram-model',
       'element-types',
       'get-selection',
+      // The built-in metamodel context provider (#240), listed as a read-only tool by default.
+      'metamodel',
       'query-elements',
       'session-info',
       'validate-diagram',

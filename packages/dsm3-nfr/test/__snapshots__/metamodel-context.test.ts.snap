@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`metamodelContextText(NFR) > is deterministic and matches a snapshot 1`] = `
+"# nfr metamodel
+
+## Node kinds
+- nfr.NFR (NFR softgoal) [on paper]
+- nfr.Operationalization (Operationalization) [on paper]
+- nfr.Claim (Claim) [on paper]
+
+## Link kinds
+- nfr.AndRefinementLink (And-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization
+- nfr.OrRefinementLink (Or-Refinement): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization
+- nfr.ContributionLink (Contribution): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown
+- nfr.CorrelationLink (Correlation): node link, nfr.NFR, nfr.Operationalization → nfr.NFR, nfr.Operationalization; values: ++, +, some+, some-, –, – –, unknown
+- nfr.ArgumentLink (Argument): node link, nfr.Claim → nfr.AndRefinementLink, nfr.OrRefinementLink, nfr.ContributionLink, nfr.CorrelationLink, nfr.ArgumentLink"
+`;

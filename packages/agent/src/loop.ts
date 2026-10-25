@@ -4,7 +4,7 @@
  * (D4) and the headless evaluation runner (D5) drive the same code.
  */
 import type { HostContextProvider } from '@istar-ts/actions';
-import { contextText } from '@istar-ts/actions';
+import { contextText, metamodelContextProvider } from '@istar-ts/actions';
 import type { AnyIstarModel } from '@istar-ts/core';
 import type { ChangeSetEntry, ChangeSetTarget } from './change-set';
 import type { AssistantMessage, ChatClient, ChatDelta, ChatMessage, ToolCall, Usage } from './chat';
@@ -116,11 +116,14 @@ interface RunAgentCommon {
   readonly system?: string;
   /**
    * The host's context providers (`@istar-ts/actions`' `HostContextProvider`, #175): each one
-   * whose `prompt` isn't false adds a section after `system` (`systemPromptWith`).
+   * whose `prompt` isn't false adds a section after `system` (`systemPromptWith`). The built-in
+   * metamodel context provider (#240) is prepended automatically, when `getModel` is given.
    */
   readonly context?: readonly HostContextProvider[];
   /** The model a provider whose text is a function reads (e.g. `store.getModel`). */
   readonly getModel?: () => AnyIstarModel;
+  /** Opts out of the built-in metamodel context provider (#240). Default true. */
+  readonly metamodelContext?: boolean;
   /** Model calls at most. Default 20. */
   readonly maxSteps?: number;
   /** Stop after this many refused tool calls in a row. Default 3. */
@@ -153,15 +156,20 @@ export const DEFAULT_SYSTEM_PROMPT: string = [
  * `system`, then one section per provider in `context` whose `prompt` isn't false: its title
  * (default: its name) as a `##` heading, then its text, read now (from `getModel()`, for a
  * provider whose text is a function). How `runAgent` builds its system prompt; a host that talks
- * to a `ChatClient` itself can build the same one.
+ * to a `ChatClient` itself can build the same one. The built-in metamodel context provider
+ * (#240, `@istar-ts/actions`' `metamodelContextProvider`) is prepended before `context`, unless
+ * `metamodelContext` is false or there is no `getModel` to read the model's metamodel from.
  */
 export async function systemPromptWith(
   system: string,
   context: readonly HostContextProvider[],
   getModel?: () => AnyIstarModel,
+  metamodelContext = true,
 ): Promise<string> {
   const sections = [system];
-  for (const provider of context) {
+  const providers =
+    metamodelContext && getModel ? [metamodelContextProvider(), ...context] : context;
+  for (const provider of providers) {
     if (provider.prompt === false) continue;
     if (typeof provider.text !== 'string' && !getModel) {
       throw new TypeError(`context provider "${provider.name}" reads the model: pass getModel`);
@@ -210,6 +218,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
     options.system ?? DEFAULT_SYSTEM_PROMPT,
     options.context ?? [],
     options.getModel,
+    options.metamodelContext,
   );
 
   const scratch = 'changeSet' in options ? await options.changeSet.openScratch() : undefined;

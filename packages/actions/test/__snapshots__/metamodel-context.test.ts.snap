@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a synthetic extended metamodel > matches a snapshot 1`] = `
+"# istar-2.0 metamodel
+
+## Actor kinds
+- istar.Actor (Actor)
+- istar.Agent (Agent)
+- istar.Role (Role)
+
+## Node kinds
+- istar.Goal (Goal) [inner]
+- istar.Quality (Quality) [inner]
+- istar.Resource (Resource) [inner]
+- istar.Task (Task) [inner]
+- x.Milestone (Milestone) [inner]
+
+## Link kinds
+- istar.IsALink (Is-A): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role
+- istar.ParticipatesInLink (Participates-In): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role
+- istar.DependencyLink (Dependency): dependency link, istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone
+- istar.AndRefinementLink (And-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone
+- istar.OrRefinementLink (Or-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone
+- istar.NeededByLink (Needed-By): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone
+- istar.QualificationLink (Qualification): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone
+- istar.ContributionLink (Contribution): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone → istar.Goal, istar.Quality, istar.Resource, istar.Task, x.Milestone; values: make, help, hurt, break
+- x.Joint (Joint) [n-ary, via a hub]: node link, istar.Goal, x.Milestone → istar.Goal, x.Milestone"
+`;
+
+exports[`metamodelContextText > matches a snapshot for iStar 2.0 1`] = `
+"# istar-2.0 metamodel
+
+## Actor kinds
+- istar.Actor (Actor)
+- istar.Agent (Agent)
+- istar.Role (Role)
+
+## Node kinds
+- istar.Goal (Goal) [inner]
+- istar.Quality (Quality) [inner]
+- istar.Resource (Resource) [inner]
+- istar.Task (Task) [inner]
+
+## Link kinds
+- istar.IsALink (Is-A): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role
+- istar.ParticipatesInLink (Participates-In): actor link, istar.Actor, istar.Agent, istar.Role → istar.Actor, istar.Agent, istar.Role
+- istar.DependencyLink (Dependency): dependency link, istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Actor, istar.Agent, istar.Role, istar.Goal, istar.Quality, istar.Resource, istar.Task
+- istar.AndRefinementLink (And-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task
+- istar.OrRefinementLink (Or-Refinement): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task
+- istar.NeededByLink (Needed-By): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task
+- istar.QualificationLink (Qualification): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task
+- istar.ContributionLink (Contribution): node link, istar.Goal, istar.Quality, istar.Resource, istar.Task → istar.Goal, istar.Quality, istar.Resource, istar.Task; values: make, help, hurt, break"
+`;

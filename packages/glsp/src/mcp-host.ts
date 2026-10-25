@@ -8,7 +8,7 @@
  */
 import type { GoalDiagnostic } from '@istar-ts/core';
 import type { HostContextProvider, HostTool } from '@istar-ts/actions';
-import { contextText, hostToolContext } from '@istar-ts/actions';
+import { contextText, hostToolContext, metamodelContextProvider } from '@istar-ts/actions';
 import type { ModelState } from '@eclipse-glsp/server';
 import type {
   AbstractMcpDiagramResourceHandler,
@@ -35,9 +35,19 @@ export interface IstarMcpHostExtensions {
   /**
    * Context providers served as session-scoped resources (`glsp://diagrams/{sessionId}/context/
    * <name>`), unless `resource: false`. With server-mcp's default `dataMode: 'tools'` each is
-   * listed as a read-only tool of its name instead.
+   * listed as a read-only tool of its name instead. The built-in metamodel context provider
+   * (#240, `@istar-ts/actions`' `metamodelContextProvider`) is prepended automatically, unless
+   * `metamodelContext: false`.
    */
   readonly context?: readonly HostContextProvider[];
+  /** Opts out of the built-in metamodel context provider (#240). Default true. */
+  readonly metamodelContext?: boolean;
+}
+
+/** `host.context`, with the built-in metamodel context provider (#240) prepended by default. */
+export function contextWithMetamodel(host: IstarMcpHostExtensions): readonly HostContextProvider[] {
+  const context = host.context ?? [];
+  return host.metamodelContext === false ? context : [metamodelContextProvider(), ...context];
 }
 
 /** The server-mcp and zod pieces the handlers build on. */

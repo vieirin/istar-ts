@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`metamodelContextText(KAOS) > is deterministic and matches a snapshot 1`] = `
+"# kaos metamodel
+
+## Node kinds
+- kaos.BehavioralGoal (Behavioral Goal) [on paper]
+  properties: Type (string), Category (string), Source (string), Priority (string), Issue (string), FormalSpec (string), FitCriterion (string), Stability (string)
+- kaos.Softgoal (Softgoal) [on paper]
+  properties: Type (string), Category (string), Source (string), Priority (string), Issue (string), FormalSpec (string), FitCriterion (string), Stability (string)
+- kaos.Agent (Agent) [on paper]
+- kaos.EnvironmentAgent (Environment Agent) [on paper]
+- kaos.DomainProperty (Domain Property) [on paper]
+  properties: Kind (string)?, FormalSpec (string)?
+
+## Link kinds
+- kaos.RefinementLink (Refinement) [n-ary, via a hub]: node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
+- kaos.ResponsibilityAssignment (Responsibility Assignment): node link, kaos.Agent, kaos.EnvironmentAgent → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
+- kaos.Conflict (Conflict): node link, kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty → kaos.BehavioralGoal, kaos.Softgoal, kaos.Agent, kaos.EnvironmentAgent, kaos.DomainProperty
+  properties: BoundaryCondition (string)"
+`;

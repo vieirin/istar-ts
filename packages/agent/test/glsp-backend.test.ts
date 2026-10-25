@@ -520,3 +520,29 @@ describe('Propose mode over backend A', () => {
     });
   });
 });
+
+describe('the built-in metamodel context provider (#240)', () => {
+  test('is listed by default on the live session and a scratch one', async () => {
+    const { session } = await setup();
+    expect(session.liveRegistry.list().map((s) => s.name)).toContain('metamodel');
+    const scratch = await session.changeSet.openScratch();
+    expect(scratch.registry.list().map((s) => s.name)).toContain('metamodel');
+    scratch.close?.();
+  });
+
+  test('is absent with metamodelContext: false', async () => {
+    const store = createModelStore() as unknown as ModelStore<string, string>;
+    const dispatcher = createActionDispatcher(store, { palette: paletteOf(ISTAR_GLSP) });
+    const session = await openGlspMcpSession(() => ({
+      store,
+      dispatcher,
+      metamodel: metamodelOf(store.getModel()) as AnyMetamodel,
+      metamodelContext: false,
+    }));
+    sessions.push(session);
+    expect(session.liveRegistry.list().map((s) => s.name)).not.toContain('metamodel');
+    const scratch = await session.changeSet.openScratch();
+    expect(scratch.registry.list().map((s) => s.name)).not.toContain('metamodel');
+    scratch.close?.();
+  });
+});
