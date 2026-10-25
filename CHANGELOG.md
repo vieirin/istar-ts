@@ -4,6 +4,11 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **react:** node resize (`NodeResizer` in `nodes.tsx`) now dispatches through
+  `dispatcherFor('canvas')` instead of writing the store directly (#141, stage 1 of #144): one
+  `compound` of `istar.updateDisplay` (size) and `changeBounds` (the position delta), so it
+  stays one undo step, gets the shield's guards and shows up in the action log; a rejection
+  snaps the node back, as other canvas edits already do.
 - **playground:** fix the `glsp-edges.spec.ts` self-refinement e2e test flaking under load
   (#124): its two clicks landed on the exact same pixel of the same node, and under load the
   stock client's dangling feedback edge (`EdgeCreationToolMouseListener`,
