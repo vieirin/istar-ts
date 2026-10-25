@@ -7,6 +7,8 @@
  * action traffic to the console. Kept out of `/react.html`'s bundle: nothing here is imported
  * from `main.tsx`/`App.tsx`.
  */
+import type { AnyMetamodel } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import type { IstarGlspContribution } from '@istar-ts/glsp';
 import { ISTAR_GLSP, createIstarSharedModel, gmodelTypes } from '@istar-ts/glsp';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
@@ -20,6 +22,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import istar2Welcome from '../../../../fixtures/pistar/welcome.txt?raw';
 import kaosWelcome from '../../../../fixtures/dsm3/kaos-welcome.txt?raw';
 import nfrWelcome from '../../../../fixtures/dsm3/nfr-welcome.txt?raw';
+import fileMetamodel from '../../../../fixtures/extensions/fileMetamodel.txt?raw';
 
 interface FixtureEntry {
   readonly label: string;
@@ -28,7 +31,9 @@ interface FixtureEntry {
   readonly contribution: IstarGlspContribution;
 }
 
-/** One fixture per contribution (#83's "iStar plus one KAOS and one NFR"). */
+/** One fixture per contribution (#83's "iStar plus one KAOS and one NFR"), plus one (#97) whose
+ * own `"metamodel"` block extends iStar 2.0 with kinds (`ra4.Plan`, …) the contribution itself
+ * never declares. */
 const FIXTURES: readonly FixtureEntry[] = [
   {
     label: 'iStar 2.0 — welcome',
@@ -47,6 +52,12 @@ const FIXTURES: readonly FixtureEntry[] = [
     text: nfrWelcome,
     sourceUri: 'nfr-welcome.txt',
     contribution: NFR_GLSP,
+  },
+  {
+    label: 'iStar 2.0 — file metamodel',
+    text: fileMetamodel,
+    sourceUri: 'fileMetamodel.txt',
+    contribution: ISTAR_GLSP,
   },
 ];
 
@@ -110,6 +121,10 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
     model: fixture.text,
     sourceModelName: fixture.sourceUri,
   });
+  // The loaded model's own metamodel, not the contribution's fixed one: a fixture's own
+  // `"metamodel"` block (#97) extends it before the client's view types are registered, so a
+  // file-declared kind gets a view too, not just a server-side GModel type.
+  const metamodel = metamodelOf(shared.store.getModel()) as unknown as AnyMetamodel;
   const channel = new MessageChannel();
   // `serveIstarGlsp`'s own `GlspPortLike` (packages/glsp/src/browser.ts) is structurally
   // narrower than DOM's `MessagePort`, the same mismatch `startIstarGlspWorker` works around.
@@ -120,8 +135,8 @@ async function mountFixture(fixture: FixtureEntry): Promise<void> {
   const client = mountGlspClient(element, {
     diagramType: fixture.contribution.diagramType,
     sourceUri: fixture.sourceUri,
-    types: gmodelTypes(fixture.contribution.metamodel, fixture.contribution.types).all,
-    metamodel: fixture.contribution.metamodel,
+    types: gmodelTypes(metamodel, fixture.contribution.types).all,
+    metamodel,
     port: channel.port1,
     onMessage: (action) => showMessage(action.message, action.severity),
     logActions,

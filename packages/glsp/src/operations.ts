@@ -14,7 +14,8 @@
  * the unchanged model is pushed again so the client drops its local feedback (a dragged node
  * snaps back).
  */
-import type { GoalDiagnostic } from '@istar-ts/core';
+import type { AnyMetamodel, GoalDiagnostic } from '@istar-ts/core';
+import { metamodelOf } from '@istar-ts/core';
 import { diagnosticToMarker } from '@istar-ts/actions';
 import {
   ActionDispatcher,
@@ -25,10 +26,13 @@ import {
   CompoundOperation,
   CreateEdgeOperation,
   CreateNodeOperation,
+  CreateOperation,
+  CreateOperationHandler,
   DeleteElementOperation,
   MessageAction,
   ModelState,
   OperationHandler,
+  OperationHandlerRegistry,
   ReconnectEdgeOperation,
   SetMarkersAction,
   TriggerEdgeCreationAction,
@@ -219,23 +223,33 @@ export abstract class IstarOperationHandler extends OperationHandler {
   }
 }
 
-/** The GModel types of the contribution's element kinds a client can create (hubs come with links). */
-function nodeTypes(contribution: IstarGlspContribution | undefined): string[] {
-  if (!contribution) return [];
-  const { metamodel } = contribution;
-  const types = gmodelTypes(metamodel, contribution.types);
+/**
+ * The GModel types of the node kinds a client can create (hubs come with links): the session's
+ * loaded model's metamodel, not the contribution's own, so a file's own `"metamodel"` block
+ * (#97) is included once the file is loaded. Read live (a getter on the handler, not a field set
+ * once at session start), since `OperationHandlerRegistryInitializer` only reads it before any
+ * file is loaded — `DefaultElementTypesProvider` (server-mcp's `element-types`) and
+ * `getTriggerActions` read it fresh on every call.
+ */
+function nodeTypes(runner: IstarOperationRunner | undefined): string[] {
+  if (!runner) return [];
+  const metamodel = metamodelOf(runner.state.model) as unknown as AnyMetamodel;
+  const types = gmodelTypes(metamodel, runner.contribution.types);
   return [...metamodel.elements.values()]
     .filter((d) => d.role !== 'hub')
     .map((d) => types.of(d.kind)!);
 }
 
-function edgeTypes(contribution: IstarGlspContribution | undefined): string[] {
-  if (!contribution) return [];
-  const types = gmodelTypes(contribution.metamodel, contribution.types);
-  return [...contribution.metamodel.links.keys()].map((kind) => types.of(kind)!);
+function edgeTypes(runner: IstarOperationRunner | undefined): string[] {
+  if (!runner) return [];
+  const metamodel = metamodelOf(runner.state.model) as unknown as AnyMetamodel;
+  const types = gmodelTypes(metamodel, runner.contribution.types);
+  return [...metamodel.links.keys()].map((kind) => types.of(kind)!);
 }
 
-/** `createNode`, for every node type of the contribution (GLSP registers create handlers by type). */
+/** `createNode`, for every node type of the loaded model (GLSP registers create handlers by type;
+ * `IstarOperationHandlerRegistry` routes every `createNode`, whatever its type, to this handler
+ * anyway, so `elementTypeIds` here only feeds `getTriggerActions` and `element-types`). */
 @injectable()
 export class IstarCreateNodeOperationHandler
   extends IstarOperationHandler
@@ -243,14 +257,17 @@ export class IstarCreateNodeOperationHandler
 {
   readonly operationType: typeof CreateNodeOperation.KIND = CreateNodeOperation.KIND;
   override readonly label: string = 'Create node';
-  elementTypeIds: string[] = nodeTypes(this.runner?.contribution);
+
+  get elementTypeIds(): string[] {
+    return nodeTypes(this.runner);
+  }
 
   getTriggerActions(): TriggerNodeCreationAction[] {
     return this.elementTypeIds.map((type) => TriggerNodeCreationAction.create(type));
   }
 }
 
-/** `createEdge`, for every edge type of the contribution: plain, dependency and n-ary links. */
+/** `createEdge`, for every edge type of the loaded model: plain, dependency and n-ary links. */
 @injectable()
 export class IstarCreateEdgeOperationHandler
   extends IstarOperationHandler
@@ -258,7 +275,10 @@ export class IstarCreateEdgeOperationHandler
 {
   readonly operationType: typeof CreateEdgeOperation.KIND = CreateEdgeOperation.KIND;
   override readonly label: string = 'Create edge';
-  elementTypeIds: string[] = edgeTypes(this.runner?.contribution);
+
+  get elementTypeIds(): string[] {
+    return edgeTypes(this.runner);
+  }
 
   getTriggerActions(): TriggerEdgeCreationAction[] {
     return this.elementTypeIds.map((type) => TriggerEdgeCreationAction.create(type));
@@ -303,6 +323,25 @@ export class IstarApplyLabelEditOperationHandler extends IstarOperationHandler {
 @injectable()
 export class IstarCompoundOperationHandler extends IstarOperationHandler {
   readonly operationType: string = CompoundOperation.KIND;
+}
+
+/**
+ * Routes `createNode`/`createEdge` to the one handler bound for that operation kind, regardless
+ * of the element type: GLSP's own registry keys a create handler by `<operationType>_
+ * <elementTypeId>`, fixed from `elementTypeIds` at session start (`OperationHandlerRegistry
+ * .registerHandler`, `OperationHandlerRegistryInitializer`), before any file is loaded. A kind a
+ * file's own `"metamodel"` block adds (#97) would otherwise find no handler and GLSP would drop
+ * the operation silently (framework-notes §1). `translateOperation` is what rejects a truly
+ * unknown type, with a diagnostic (`Untranslatable`, code `unknown-kind`).
+ */
+@injectable()
+export class IstarOperationHandlerRegistry extends OperationHandlerRegistry {
+  override getOperationHandler(operation: Operation): OperationHandler | undefined {
+    if (!CreateOperation.is(operation)) return super.getOperationHandler(operation);
+    return this.getAll().find(
+      (handler) => CreateOperationHandler.is(handler) && handler.operationType === operation.kind,
+    );
+  }
 }
 
 /** Every operation handler of the write side, in the order `IstarDiagramModule` binds them. */

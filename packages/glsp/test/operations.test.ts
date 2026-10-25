@@ -333,10 +333,15 @@ describe('GLSP operations through the dispatcher', () => {
     expect(result.kinds.indexOf('updateModel')).toBeLessThan(result.kinds.indexOf('message'));
     expect(s.state.store.canUndo()).toBe(false);
 
-    // A type no create handler is registered for: GLSP finds no handler and does nothing.
+    // A type no kind of the model's metamodel stands for: translateOperation rejects it with a
+    // diagnostic (#97; `IstarOperationHandlerRegistry` routes every createNode to this handler,
+    // whatever its type, so this is no longer dropped silently).
     const unknown = await edit(s, CreateNodeOperation.create('node:istar.Nothing'));
     expect(unknown.after).toBe(unknown.before);
-    expect(unknown.kinds).toEqual([]);
+    const unknownMessage = unknown.messages.find((m) => m.action.kind === 'message')!
+      .action as unknown as { severity: string; message: string };
+    expect(unknownMessage.severity).toBe('ERROR');
+    expect(unknownMessage.message).toContain('is not a element type of istar-2.0');
 
     // A rejection that names an element marks it; the next accepted edit clears the marks.
     const marked = await edit(
