@@ -176,4 +176,105 @@ describe('Propose mode over backend A', () => {
     expect([...store.getModel().elements.keys()]).toEqual([...before.elements.keys()]);
     expect(store.getModel().links.size).toBe(0);
   });
+
+  test('an undone step is dropped from the change set (#163)', async () => {
+    const { store, session } = await setup();
+    const client = scripted([
+      () => [
+        'create-nodes',
+        {
+          nodes: [
+            {
+              elementTypeId: 'node:istar.Task',
+              position: { x: 0, y: 0 },
+              containerId: 'lab',
+              args: { name: 'A' },
+            },
+          ],
+        },
+      ],
+      () => [
+        'create-nodes',
+        {
+          nodes: [
+            {
+              elementTypeId: 'node:istar.Task',
+              position: { x: 60, y: 0 },
+              containerId: 'lab',
+              args: { name: 'B' },
+            },
+          ],
+        },
+      ],
+      () => ['undo', {}],
+    ]);
+
+    const run = await runAgent({
+      client,
+      prompt: 'Add A then B, then undo.',
+      changeSet: session.changeSet,
+    });
+    expect(run.changeSet.map((e) => e.name)).toEqual(['create-nodes', 'create-nodes', 'undo']);
+
+    const steps = run.changeSet.map((entry) => session.changeSet.step(entry));
+    expect(steps[0]).not.toBeUndefined();
+    expect(steps[1]).toBeUndefined();
+    expect(steps[2]).toBeUndefined();
+    expect(session.changeSet.describeUndo(run.changeSet[2]!.result)).toBe(
+      "agent undid: create Task 'B' in Actor 'Lab'",
+    );
+
+    const kept = run.changeSet.filter((entry) => session.changeSet.step(entry) !== undefined);
+    const applied = await session.changeSet.apply(kept);
+    expect(applied).toMatchObject({ ok: true });
+    expect(applied.ok && applied.createdIds).toEqual(steps[0]!.createdIds);
+
+    const live = store.getModel();
+    const names = [...live.elements.values()].map((e) => e.name);
+    expect(names).toContain('A');
+    expect(names).not.toContain('B');
+  });
+
+  test('a redone step comes back into the change set (#163)', async () => {
+    const { store, session } = await setup();
+    const client = scripted([
+      () => [
+        'create-nodes',
+        {
+          nodes: [
+            {
+              elementTypeId: 'node:istar.Task',
+              position: { x: 0, y: 0 },
+              containerId: 'lab',
+              args: { name: 'A' },
+            },
+          ],
+        },
+      ],
+      () => ['undo', {}],
+      () => ['redo', {}],
+    ]);
+
+    const run = await runAgent({
+      client,
+      prompt: 'Add A, undo, redo.',
+      changeSet: session.changeSet,
+    });
+    expect(run.changeSet.map((e) => e.name)).toEqual(['create-nodes', 'undo', 'redo']);
+
+    const steps = run.changeSet.map((entry) => session.changeSet.step(entry));
+    expect(steps[0]).not.toBeUndefined();
+    expect(steps[1]).toBeUndefined();
+    expect(steps[2]).toBeUndefined();
+    expect(session.changeSet.describeUndo(run.changeSet[2]!.result)).toBe(
+      "agent redid: create Task 'A' in Actor 'Lab'",
+    );
+
+    const kept = run.changeSet.filter((entry) => session.changeSet.step(entry) !== undefined);
+    const applied = await session.changeSet.apply(kept);
+    expect(applied).toMatchObject({ ok: true });
+
+    const live = store.getModel();
+    expect([...live.elements.values()].map((e) => e.name)).toContain('A');
+  });
 });

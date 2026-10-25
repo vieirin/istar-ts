@@ -76,7 +76,7 @@ export default function AgentDrawer({
   const [seenChangeSet, setSeenChangeSet] = useState<readonly ChangeSetEntry[] | undefined>(
     undefined,
   );
-  const { proposedStep } = session;
+  const { proposedStep, describeUndo } = session;
   // The change set's steps: its successful mutating calls only (#156). The run's other calls go
   // in the review's collapsed context section.
   const proposed = useMemo(
@@ -116,14 +116,14 @@ export default function AgentDrawer({
       .filter((call) => !stepIds.has(call.id))
       .map((call) => ({
         key: call.id,
-        label: call.name,
+        label: describeUndo(call.result) ?? call.name,
         detail: callJson(call),
         outcome: {
           ok: call.result.ok,
           text: call.result.ok ? 'ok' : resultText(call.result),
         },
       }));
-  }, [session.transcript, proposed]);
+  }, [session.transcript, proposed, describeUndo]);
 
   const onRun = (): void => {
     session.run(apiKey, prompt);
