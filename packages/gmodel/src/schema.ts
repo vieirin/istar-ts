@@ -36,6 +36,12 @@ export interface GModelElementArgs {
   display?: ElementDisplay | LinkDisplay;
   /** JSON keys the file holds that istar-ts doesn't model, verbatim. */
   extra?: Extra;
+  /**
+   * An actor's own `x`/`y`, absolute model coordinates, regardless of its node's `position`
+   * (the boundary box's corner, which can differ when a frameless actor — registry
+   * `boundary: false` — has an element above or left of it; #194).
+   */
+  position?: Point;
 }
 
 /** The root, `graph`. */

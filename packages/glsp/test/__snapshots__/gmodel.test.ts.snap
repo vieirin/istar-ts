@@ -9,6 +9,10 @@ exports[`modelToGModel > a small iStar model 1`] = `
           "Description": "",
         },
         "kind": "istar.Actor",
+        "position": {
+          "x": 308,
+          "y": 105,
+        },
       },
       "children": [
         {

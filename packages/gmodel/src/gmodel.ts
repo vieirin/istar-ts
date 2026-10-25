@@ -108,12 +108,16 @@ function label(
 }
 
 /** What a node or edge carries of its element or link besides the graph: kind, properties, … */
-function argsOf(source: IstarElement<string> | IstarLink<string>): GModelElementArgs {
+function argsOf(
+  source: IstarElement<string> | IstarLink<string>,
+  position?: Point,
+): GModelElementArgs {
   return {
     kind: source.kind,
     ...(source.customProperties ? { customProperties: source.customProperties } : {}),
     ...(source.display ? { display: source.display } : {}),
     ...(source.extra ? { extra: source.extra } : {}),
+    ...(position ? { position } : {}),
   };
 }
 
@@ -194,6 +198,7 @@ export function modelToGModelSchema<EK extends string, LK extends string>(
     origin: Point,
     cssClasses: string[],
     children: GModelChildSchema[],
+    argsPosition?: Point,
   ): GNodeSchema => {
     boxes.set(element.id, box);
     return {
@@ -201,7 +206,7 @@ export function modelToGModelSchema<EK extends string, LK extends string>(
       type: typeOf(element.kind),
       position: { x: box.x - origin.x, y: box.y - origin.y },
       size: { width: box.width, height: box.height },
-      args: argsOf(element),
+      args: argsOf(element, argsPosition),
       cssClasses,
       children,
     };
@@ -239,7 +244,12 @@ export function modelToGModelSchema<EK extends string, LK extends string>(
         children.push(elementNode(child, { x: child.x, y: child.y, ...sizeOf(child) }, box));
       }
     }
-    nodes.push(node(actor, box, origin, collapsed ? ['collapsed'] : [], children));
+    nodes.push(
+      node(actor, box, origin, collapsed ? ['collapsed'] : [], children, {
+        x: actor.x,
+        y: actor.y,
+      }),
+    );
   }
 
   for (const element of model.elements.values()) {
