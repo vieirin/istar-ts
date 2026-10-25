@@ -19,5 +19,6 @@ export default defineConfig({
   test: {
     name: 'glsp',
     environment: 'node',
+    setupFiles: ['../../test-support/freeze-date.ts'],
   },
 });

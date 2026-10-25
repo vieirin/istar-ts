@@ -57,9 +57,9 @@ function nextChange(mirror: ModelStore): Promise<ModelChangeEvent> {
 }
 
 // `toPistar` stamps a fresh `saveDate` (`new Date()`) on a model with none of its own (every
-// model here, since none is parsed from a file): pinning it keeps two calls for the same
-// content equal, so a wall-clock second crossed between them can't make a comparison fail.
-const text = (model: AnyIstarModel): string => toPistar(model, { saveDate: new Date(0) });
+// model here, since none is parsed from a file); the frozen test clock (see
+// `test-support/freeze-date.ts`) keeps two calls for the same content equal.
+const text = (model: AnyIstarModel): string => toPistar(model);
 
 /** Each port's last answer comes after every notification sent before it: a barrier. */
 const barrier = (mirror: MirrorStore) =>

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import type { IstarAction } from '@istar-ts/actions';
 import { createEmptyModel, createModelStore, toPistar } from '@istar-ts/core';
 import { createLogStore, exportLog, logReducer, parseLogExport } from '../src/lab/log';
@@ -100,15 +100,7 @@ describe('createLogStore', () => {
 });
 
 describe('exportLog / parseLogExport', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   test('round-trips the initial model and entries', () => {
-    // Each toPistar call stamps saveDate with the current second: pin the clock so the two
-    // calls below can't straddle a second boundary.
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-01-01T00:00:00Z'));
     const model = createEmptyModel();
     const log = createLogStore();
     log.setInitialModel(model);

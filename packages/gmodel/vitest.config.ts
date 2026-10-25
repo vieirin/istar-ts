@@ -18,5 +18,6 @@ export default defineConfig({
   test: {
     name: 'gmodel',
     environment: 'node',
+    setupFiles: ['../../test-support/freeze-date.ts'],
   },
 });

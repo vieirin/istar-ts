@@ -52,6 +52,11 @@ pnpm e2e:headed   # same, in a visible browser; pnpm e2e:ui for Playwright's UI 
   (design: `docs/metamodel-extensions.md`). Look kinds up in the model's metamodel
   (`metamodelOf`) instead of comparing against `istar.*` names or `isActorKind`; keep iStar 2.0
   overloads last and the built-in kind unions unchanged.
+- Every vitest project freezes `Date` before each test (`test-support/freeze-date.ts`, wired into
+  each `vitest.config.ts` via `setupFiles`), so `toPistar`'s `saveDate` stamp can't straddle a
+  wall-clock second and flake a comparison. Only `Date` is faked; timers, `performance.now()` and
+  React's scheduler run normally. A test that genuinely needs the real clock calls
+  `useRealDate()` from `test-support/use-real-date.ts`.
 - Where upstream behaviour is ambiguous, match what the piStar web tool does and leave a
   comment saying so.
 - Commit after each step with build + tests passing.
