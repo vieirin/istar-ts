@@ -4,6 +4,16 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **docs:** `docs/glsp.md` (#86, epic #74 docs stage): the GLSP server and client architecture
+  in the reference paper's terms (feature tiers, manifests and contributions, citing
+  `docs/papers/metin-bork-2025.md`), how to run the worker and Node hosts and the example
+  client (`/glsp.html`, `/both.html`), how a dialect contributes through `contributionFor`, and
+  the deliberate differences from the paper (one file for semantic model and notation, no model
+  server, one shared undo stack, React Flow as the primary client). `docs/action-protocol.md`'s
+  "Limitations, by design" no longer says istar-ts has no GLSP server runtime or
+  `@eclipse-glsp/*` dependency — `@istar-ts/glsp` now serves a wire-compatible stock GLSP
+  client; `@istar-ts/actions`'s own transport is unaffected and still isn't GLSP's wire
+  protocol (#44).
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a
@@ -112,33 +122,34 @@ Versions are published from GitHub release tags; see the release notes for full 
   the commit that shows the notice. They now read it in a layout effect and check the commit itself,
   for rejections settling after a microtask or a task.
 - **glsp:** new package `@istar-ts/glsp`, a GLSP server diagram module on `@eclipse-glsp/server`
-  2.8 (read side, #80): `modelToGModel` (actors as containers with actor-relative children,
-  dependums, n-ary hubs, link anchors; types `node:<kind>`/`edge:<kind>`), `IstarDiagramConfiguration`
-  (type hints from `typeHintsFor` in GModel types, `needsClientLayout: false`), `IstarModelState`
-  (one `ModelStore` and its dispatcher per session), `IstarSourceModelStorage` (`parsePistar`/
-  `toPistar` through a host-bound `PistarFiles`), and dialect contributions bound by Inversify
-  manifests (`IstarDiagramModule`, `IstarContributionModule`, `configureIstarDiagram`):
-  `ISTAR_GLSP`, `KAOS_GLSP`/`KAOS_OBSTACLES_GLSP` (`@istar-ts/glsp/kaos`) and `NFR_GLSP`
-  (`@istar-ts/glsp/nfr`). Inversify's legacy decorators build with tsdown, with an explicit
-  `@inject()` per constructor parameter. No React dependency.
-- **glsp:** the write side (#81): GLSP's operations (`createNode`, `createEdge`, `deleteElement`,
-  `changeBounds`, `changeContainer`, `reconnectEdge`, `applyLabelEdit`, `compound`) go through the
-  istar-ts dispatcher (`translateOperation` maps GModel types, ids and relative positions back);
-  `IstarCommandStack` delegates undo/redo to `glspUndo`/`glspRedo`, so there is one undo stack,
-  and dirty state is the dispatcher's (GLSP's `saveModel` saves through it). `updateModel` follows
-  every accepted operation, undo, redo and change by another client of the store; rejections are
-  a `message` plus markers. The palette comes from the contribution's `PaletteDescription`,
-  `requestCheckEdge` from the dispatcher (with `canLink`'s reason), markers from its
-  `requestMarkers`, and client-bound actions a client didn't list are dropped quietly.
-- **glsp:** hosts (#82). `@istar-ts/glsp/browser`: `startIstarGlspWorker` runs the server in a Web
-  Worker (the model lives there; GLSP on the worker itself, as `GLSPWebWorkerProvider` connects)
-  and `serveIstarGlsp` serves it on any `MessagePort` in the page. `@istar-ts/glsp/page`:
-  `connectWorkerDispatcher`, an istar-ts `ActionDispatcher` on the worker's model (no GLSP in the
-  page). `@istar-ts/glsp/node`: `startIstarGlspServer` on a WebSocket, `diskPistarFiles`, and an
-  opt-in MCP server (`mcp`, `@eclipse-glsp/server-mcp` 2.8.0 as an optional peer, loopback only);
+  2.8 (#80, read side; #81, write side; #82, hosts). Read side: `modelToGModel` (actors as
+  containers with actor-relative children, dependums, n-ary hubs, link anchors; types
+  `node:<kind>`/`edge:<kind>`), `IstarDiagramConfiguration` (type hints from `typeHintsFor`,
+  `needsClientLayout: false`), `IstarModelState` (one `ModelStore` and its dispatcher per
+  session), `IstarSourceModelStorage` (`parsePistar`/`toPistar` through a host-bound
+  `PistarFiles`), and dialect contributions bound by Inversify manifests (`IstarDiagramModule`,
+  `IstarContributionModule`, `configureIstarDiagram`): `ISTAR_GLSP`, `KAOS_GLSP`/
+  `KAOS_OBSTACLES_GLSP` (`@istar-ts/glsp/kaos`) and `NFR_GLSP` (`@istar-ts/glsp/nfr`).
+  Inversify's legacy decorators build with tsdown, with an explicit `@inject()` per constructor
+  parameter; no React dependency. Write side: GLSP's operations (`createNode`, `createEdge`,
+  `deleteElement`, `changeBounds`, `changeContainer`, `reconnectEdge`, `applyLabelEdit`,
+  `compound`) go through the istar-ts dispatcher (`translateOperation` maps GModel types, ids
+  and relative positions back); `IstarCommandStack` delegates undo/redo to
+  `glspUndo`/`glspRedo`, so there is one undo stack, and dirty state is the dispatcher's
+  (GLSP's `saveModel` saves through it). `updateModel` follows every accepted operation, undo,
+  redo and change by another client of the store; rejections are a `message` plus markers. The
+  palette comes from the contribution's `PaletteDescription`, `requestCheckEdge` from the
+  dispatcher (with `canLink`'s reason), markers from its `requestMarkers`, and client-bound
+  actions a client didn't list are dropped quietly. Hosts: `@istar-ts/glsp/browser`'s
+  `startIstarGlspWorker` runs the server in a Web Worker (the model lives there; GLSP on the
+  worker itself, as `GLSPWebWorkerProvider` connects) and `serveIstarGlsp` serves it on any
+  `MessagePort` in the page; `@istar-ts/glsp/page`'s `connectWorkerDispatcher` is an istar-ts
+  `ActionDispatcher` on the worker's model (no GLSP in the page); `@istar-ts/glsp/node`'s
+  `startIstarGlspServer` runs on a WebSocket, with `diskPistarFiles` and an opt-in MCP server
+  (`mcp`, `@eclipse-glsp/server-mcp` 2.8.0 as an optional peer, loopback only);
   `pnpm --filter @istar-ts/glsp serve <file>`. Shared-store hosting: a host passes its own
   `{ store, dispatcher }` (`IstarSharedModel`) and every session, plus the host's canvas, edits
-  one model; a session's store listener now unsubscribes when the session is disposed.
+  one model; a session's store listener unsubscribes when the session is disposed.
 
 - **examples:** the playground is now a multi-page Vite app: `/` is a React-free start page with
   cards picking the front end (`/react.html`, today's playground, unchanged in content; the stock
