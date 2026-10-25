@@ -6,11 +6,14 @@
  * (packages/react/src/styles.css) so the two clients read as the same tool, in both light and
  * dark (`prefers-color-scheme`).
  *
- * Default views only (#84 adds custom shapes): this colours the stock rect/path/text sprotty
- * already renders, selected through the attributes/classes `elementTypes.ts` and
+ * Colours the `rect`/`path`/`circle`/`text` the default views and `istar-views.ts`'s custom
+ * ones (#84) render, selected through the attributes/classes `elementTypes.ts` and
  * `@istar-ts/glsp`'s `modelToGModel` already produce —
  * `data-svg-metadata-type` (every element and link, set by GLSP's own `MetadataPlacer`) and
  * the `dependum`/`collapsed` CSS classes `modelToGModel` adds (`packages/glsp/src/gmodel.ts`).
+ * An actor's own `.sprotty-node` is its circle (#84's `ActorNodeView`), so it gets the plain
+ * node fill below like every other element, matching `@istar-ts/react`'s `ActorSymbol` (its
+ * `--istar-actor-fill` colours only the boundary, `.istar-glsp-actor-boundary` below).
  */
 
 :root {
@@ -54,15 +57,6 @@
   fill: var(--istar-glsp-node-fill);
   stroke: var(--istar-glsp-node-stroke);
   stroke-width: 1.5px;
-}
-
-/* Actor containers (`istar.Actor`/`.Agent`/`.Role`): a muted fill, as `--istar-actor-fill`. An
-   exact match, not a `.Actor`/`.Agent`/`.Role` suffix, since a dialect may name an ordinary node
-   kind that way (KAOS's `kaos.Agent` is a node, not a container). */
-[data-svg-metadata-type='node:istar.Actor'] > .sprotty-node,
-[data-svg-metadata-type='node:istar.Agent'] > .sprotty-node,
-[data-svg-metadata-type='node:istar.Role'] > .sprotty-node {
-  fill: var(--istar-glsp-actor-fill);
 }
 
 /* A dependum (the `dependum` class `modelToGModel` adds): same fill as its own kind, a dashed
