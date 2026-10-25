@@ -378,30 +378,35 @@ export interface Box extends Point, Size {}
 /** Space kept between inner elements and an actor's boundary (piStar's `updateBoundary` adds 10px). */
 export const ACTOR_PADDING = 10;
 
-/** An element's rendered size: its display override, else its kind's default size. */
-function elementSize(metamodel: AnyMetamodel, element: IstarElement<string>): Size {
-  const size = metamodel.elements.get(element.kind)?.size;
-  const width = element.display?.width ?? size?.width ?? 0;
-  const height = element.display?.height ?? size?.height ?? 0;
-  return { width, height };
+/** A kind's default size, absent any per-host override (see `actorBounds`' `defaultSizeOf`). */
+function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
+  return metamodel.elements.get(kind)?.size ?? { width: 0, height: 0 };
 }
 
 /**
  * An actor's boundary: the kind's default-size rectangle at the actor's position, grown to
  * include every inner element (each padded by `ACTOR_PADDING`), like piStar's `updateBoundary`
- * (which floors on the kind's default size, not the actor's last expanded `display` size).
+ * (which floors on the kind's default size, not the actor's last expanded `display` size; an
+ * inner element's own `display` size does override, same as its rendered size elsewhere).
  * Shared by `@istar-ts/react`'s node layout and `@istar-ts/glsp`'s GModel, so an actor draws the
- * same box in both: so children are looked up by category (`metamodelOf`), not `istar.*` names.
+ * same box in both: children are looked up by category (`metamodelOf`), not `istar.*` names.
+ *
+ * `defaultSizeOf` resolves a kind's default size; it defaults to the metamodel's, but a host
+ * whose registry overrides a kind's size independently of the metamodel (`@istar-ts/react`'s
+ * `IstarRegistry`) must pass one that reads its own sizes, or its boundary would stop matching
+ * what it actually draws.
  */
 export function actorBounds<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
   actorId: string,
   metamodel: Metamodel<EK, LK> = metamodelOf(model),
+  defaultSizeOf: (kind: EK) => Size = (kind) =>
+    metamodelSizeOf(metamodel as unknown as AnyMetamodel, kind),
 ): Box {
   const actor = model.elements.get(actorId);
   if (!actor) throw new Error(`no element "${actorId}" in the model`);
   const meta = metamodel as unknown as AnyMetamodel;
-  const ownSize = meta.elements.get(actor.kind)?.size ?? { width: 0, height: 0 };
+  const ownSize = defaultSizeOf(actor.kind);
   let minX = actor.x;
   let minY = actor.y;
   let maxX = actor.x + ownSize.width;
@@ -409,11 +414,13 @@ export function actorBounds<EK extends string, LK extends string>(
   for (const child of model.elements.values()) {
     if (child.parent !== actorId) continue;
     if (meta.elements.get(child.kind)?.category === 'actor') continue;
-    const size = elementSize(meta, child as IstarElement<string>);
+    const base = defaultSizeOf(child.kind);
+    const width = child.display?.width ?? base.width;
+    const height = child.display?.height ?? base.height;
     minX = Math.min(minX, child.x - ACTOR_PADDING);
     minY = Math.min(minY, child.y - ACTOR_PADDING);
-    maxX = Math.max(maxX, child.x + size.width + ACTOR_PADDING);
-    maxY = Math.max(maxY, child.y + size.height + ACTOR_PADDING);
+    maxX = Math.max(maxX, child.x + width + ACTOR_PADDING);
+    maxY = Math.max(maxY, child.y + height + ACTOR_PADDING);
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }

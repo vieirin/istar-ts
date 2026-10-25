@@ -71,16 +71,19 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
  * as the floor would leave empty space after children move inward.
  *
  * A thin wrapper over core's `actorBounds` (the shared geometry with `@istar-ts/glsp`'s
- * `modelToGModel`), kept under its old name and signature for compatibility; `registry` and
- * `children` are unused now that the box comes from the model's metamodel directly.
+ * `modelToGModel`), kept under its old name and signature for compatibility. `children` is
+ * unused: `actorBounds` finds the same elements itself (by parent id and category), since
+ * `modelToFlow`'s precomputed list was only a lookup shortcut, not a different set. `registry`
+ * is still used, as `defaultSizeOf`, so a registry that overrides a kind's size (independently
+ * of the metamodel) keeps the boundary it drew before this wrapped core's geometry.
  */
 export function actorBoundary<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
-  _registry: IstarRegistry<EK, LK>,
+  registry: IstarRegistry<EK, LK>,
   actor: IstarElement<EK>,
   _children: readonly IstarElement<EK>[],
 ): Box {
-  return actorBounds(model, actor.id);
+  return actorBounds(model, actor.id, metamodelOf(model), (kind) => registry.elements[kind].size);
 }
 
 export interface FlowGraph {

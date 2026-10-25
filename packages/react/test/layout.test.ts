@@ -2,7 +2,7 @@ import { createModelStore, parsePistar } from '@istar-ts/core';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { actorBoundary, defaultRegistry, modelToFlow } from '../src';
+import { actorBoundary, createRegistry, defaultRegistry, modelToFlow } from '../src';
 import { adoptFlowNode } from '../src/layout';
 
 const fixture = readFileSync(
@@ -68,6 +68,23 @@ describe('modelToFlow', () => {
     });
     const node = modelToFlow(store.getModel(), defaultRegistry).nodes.find((n) => n.id === g.id);
     expect([node?.width, node?.height]).toEqual([150, 60]);
+  });
+
+  test('a registry that overrides a kind size changes the boundary, like before the move to core', () => {
+    const store = createModelStore();
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    const registry = createRegistry({
+      elements: { 'istar.Goal': { size: { width: 300, height: 30 } } },
+    });
+    const box = actorBoundary(
+      store.getModel(),
+      registry,
+      store.getModel().elements.get(actor.id)!,
+      [store.getModel().elements.get(goal.id)!],
+    );
+    // 20 (goal.x) + 300 (overridden width) + 10 (padding) = 330, vs. 200 at the default size.
+    expect(box.width).toBe(330);
   });
 
   test('actor boundary grows with children and shrinks back toward the default size', () => {
