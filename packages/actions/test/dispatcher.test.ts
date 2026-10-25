@@ -298,12 +298,18 @@ describe('operations', () => {
 
   test('removing a property an owner never had leaves its customProperties as they were (#219)', async () => {
     const env = setup();
-    await env.dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Goal', args: { id: 'fresh' } });
+    await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Goal',
+      args: { id: 'fresh' },
+    });
     const before = env.store.getModel().elements.get('fresh')?.customProperties;
-    await env.dispatcher.dispatch({ kind: 'istar.updateProperties', elementId: 'fresh', properties: { a: null } });
+    await env.dispatcher.dispatch({
+      kind: 'istar.updateProperties',
+      elementId: 'fresh',
+      properties: { a: null },
+    });
     expect(env.store.getModel().elements.get('fresh')?.customProperties).toEqual(before);
-  });
-    expect(env.store.getModel().elements.get('g1')?.customProperties).toBeUndefined();
   });
 
   test('applyLabelEdit on a link: an empty text removes its name, as piStar writes it', async () => {
