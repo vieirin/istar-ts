@@ -14,6 +14,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   `@eclipse-glsp/*` dependency — `@istar-ts/glsp` now serves a wire-compatible stock GLSP
   client; `@istar-ts/actions`'s own transport is unaffected and still isn't GLSP's wire
   protocol (#44).
+- **dsm3-kaos, dsm3-nfr:** `@istar-ts/react`, `react` and `react-dom` are now optional peer
+  dependencies rather than hard dependencies (#92). Installing either package for its React-free
+  `./metamodel` entry no longer pulls in `@istar-ts/react` or `@xyflow/react`; the package root
+  (`kaosExtension`/`nfrExtension`) still needs them. Added a `test/package.test.ts` to each,
+  asserting the `peerDependenciesMeta` and that `./metamodel`'s import graph never reaches React.
 - **agent, playground:** fix the agent drawer's Propose mode over backend A (#155, #156, #157).
   The scratch session records each successful operation with the ids it created pinned
   (`injectCreatedIds`, moved from the lab's replay to `lab/createdIds.ts`), so applying a

@@ -157,13 +157,13 @@ importers:
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../core
-      '@istar-ts/react':
-        specifier: workspace:^
-        version: link:../react
     devDependencies:
       '@istar-ts/actions':
         specifier: workspace:^
         version: link:../actions
+      '@istar-ts/react':
+        specifier: workspace:^
+        version: link:../react
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -188,13 +188,13 @@ importers:
       '@istar-ts/core':
         specifier: workspace:^
         version: link:../core
-      '@istar-ts/react':
-        specifier: workspace:^
-        version: link:../react
     devDependencies:
       '@istar-ts/actions':
         specifier: workspace:^
         version: link:../actions
+      '@istar-ts/react':
+        specifier: workspace:^
+        version: link:../react
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

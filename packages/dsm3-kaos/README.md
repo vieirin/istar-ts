@@ -42,7 +42,9 @@ extendMetamodel(KAOS, kaosObstacleAnalysis)`): obstacles (van Lamsweerde & Letie
   types it) with no default, so DSM3 files and new domain properties don't gain it.
 - **`@istar-ts/dsm3-kaos/metamodel`**: the metamodel, kinds and property schemas without
   `@istar-ts/react`, built for `import` and `require` alike (as `@istar-ts/core` is), for Node
-  scripts and CommonJS test runners. The package root is ESM-only.
+  scripts and CommonJS test runners. The package root is ESM-only. `@istar-ts/react`, `react`
+  and `react-dom` are optional peer dependencies, needed only for `kaosExtension`; a consumer
+  of `./metamodel` alone needs only `@istar-ts/core`.
 
 ```tsx
 import {
