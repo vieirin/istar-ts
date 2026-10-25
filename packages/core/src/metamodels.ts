@@ -85,6 +85,13 @@ export interface ElementKindDefinition<K extends string = string> {
   readonly role?: 'hub';
   /** For a hub kind: the n-ary link kind it was generated for. */
   readonly of?: string;
+  /**
+   * What the kind means and when to use it, in 1-3 sentences: its definition, a hint for
+   * choosing it over a neighbouring kind, and (for built-in kinds) a cited source. Rendered by
+   * `@istar-ts/actions`' `metamodelContext` when present; optional so existing declarations and
+   * extensions keep compiling.
+   */
+  readonly description?: string;
 }
 
 /** The kinds generated for an n-ary link kind: its hub element kind, leg and end link kinds. */
@@ -154,6 +161,8 @@ export interface LinkKindDefinition<K extends string = string> {
   readonly role?: 'leg' | 'end';
   /** For a generated kind: the n-ary link kind it was generated for. */
   readonly of?: string;
+  /** See `ElementKindDefinition.description`. */
+  readonly description?: string;
 }
 
 /**
@@ -227,6 +236,8 @@ export interface ElementKindDeclaration<K extends string = string> {
   /** Presentation hints, kept as data for renderers (`@istar-ts/react` draws them). */
   readonly shape?: KindShape;
   readonly textBox?: KindTextBox;
+  /** See `ElementKindDefinition.description`. */
+  readonly description?: string;
 }
 
 export interface LinkKindDeclaration<K extends string = string> {
@@ -260,6 +271,8 @@ export interface LinkKindDeclaration<K extends string = string> {
   readonly parts?: Partial<HubLinkParts>;
   /** The hub's size. Default 20×20, as in DSM3-goals. */
   readonly hubSize?: Size;
+  /** See `ElementKindDefinition.description`. */
+  readonly description?: string;
 }
 
 /** A whole modelling language, turned into a `Metamodel` by `defineMetamodel`. */
@@ -445,6 +458,7 @@ function addElementKind(table: KindTable, declaration: ElementKindDeclaration<st
     ...(table.extension !== undefined ? { extension: table.extension } : {}),
     ...(declaration.shape ? { shape: declaration.shape } : {}),
     ...(declaration.textBox ? { textBox: declaration.textBox } : {}),
+    ...(declaration.description !== undefined ? { description: declaration.description } : {}),
   };
   table.elements.set(kind, definition);
   table.elementsByType.set(type, kind);
@@ -539,6 +553,7 @@ function addLinkKind(table: KindTable, declaration: LinkKindDeclaration<string>)
     pistarType: type,
     ...(table.extension !== undefined ? { extension: table.extension } : {}),
     ...(declaration.line ? { line: declaration.line } : {}),
+    ...(declaration.description !== undefined ? { description: declaration.description } : {}),
   };
   if (declaration.arity !== 'n') {
     table.links.set(kind, definition);
@@ -590,6 +605,7 @@ function addHubKinds(
     shape: HUB_SHAPE,
     role: 'hub',
     of: base.kind,
+    description: `The point where ${base.label}'s sources join on their way to its target, drawn as a small circle; not an intentional element in its own right.`,
   });
   table.elementsByType.set(`${base.pistarType}Hub`, parts.hub);
   // The base kind's same-actor rule is checked between a leg's source and the end's target
@@ -614,6 +630,7 @@ function addHubKinds(
     },
     pistarType: `${base.pistarType}Start`,
     role: 'leg',
+    description: `One source's leg of a ${base.label} link, drawn from the source to the shared hub.`,
   });
   table.linksByType.set(`${base.pistarType}Start`, parts.leg);
   claim(parts.end, `${base.pistarType}End`, 'link');
@@ -632,6 +649,7 @@ function addHubKinds(
     pistarType: `${base.pistarType}End`,
     ...(base.line ? { line: base.line } : {}),
     role: 'end',
+    description: `The ${base.label} link's hub-to-target leg, carrying the link's own meaning.`,
   });
   table.linksByType.set(`${base.pistarType}End`, parts.end);
 }
@@ -693,6 +711,80 @@ const ISTAR_LINK_LABELS: Readonly<Record<LinkKind, string>> = {
   'istar.ContributionLink': 'Contribution',
 };
 
+/**
+ * Base descriptions of iStar 2.0's kinds, written in our own words from the **iStar 2.0 Language
+ * Guide** (Dalpiaz, Franch & Horkoff, arXiv:1605.07767, 2016, CC BY 4.0): actors and intentional
+ * elements (§§2 and 4), actor links (§3), dependencies (§5) and intentional-element links (§6).
+ */
+const ISTAR_ELEMENT_DESCRIPTIONS: Readonly<Record<ElementKind, string>> = {
+  'istar.Actor':
+    'An intentional, autonomous entity that has strategic goals and exercises know-how to ' +
+    'pursue them, alone or with other actors (iStar 2.0 Language Guide §2). Use plain Actor ' +
+    'when neither Agent nor Role fits better.',
+  'istar.Agent':
+    'An actor with a concrete, physical manifestation — a specific person, organisation or ' +
+    'software system (iStar 2.0 Language Guide §2). Use it instead of Role for a named, ' +
+    'identifiable participant rather than an abstract part anyone could play.',
+  'istar.Role':
+    "An abstract characterisation of an actor's behaviour within some context, independent of " +
+    'who plays it (iStar 2.0 Language Guide §2). Use it instead of Agent when several concrete ' +
+    'actors could fill the same part.',
+  'istar.Goal':
+    'A state of affairs an actor wants achieved, with a clear-cut criterion for whether it is ' +
+    'met (iStar 2.0 Language Guide §4). Unlike a Quality, a Goal is either achieved or not; ' +
+    'unlike a Task, it says what to achieve, not how.',
+  'istar.Quality':
+    'An attribute an actor wants some degree of, with no binary success criterion — it is ' +
+    'satisficed rather than achieved outright (iStar 2.0 Language Guide §4). Use it instead of ' +
+    'Goal for non-functional concerns (e.g. performance, usability) that admit degrees.',
+  'istar.Task':
+    'A course of action an actor wants carried out, usually to achieve a Goal, satisfice a ' +
+    'Quality, or produce or consume a Resource (iStar 2.0 Language Guide §4). Unlike a Goal, it ' +
+    'specifies how, not just what.',
+  'istar.Resource':
+    'A physical or informational entity an actor needs available to perform a Task (iStar 2.0 ' +
+    'Language Guide §4). Its mere availability, not its satisfaction, is what matters — it has ' +
+    'no intentional content of its own.',
+};
+
+/**
+ * Base descriptions of iStar 2.0's link kinds (see `ISTAR_ELEMENT_DESCRIPTIONS` for the source).
+ */
+const ISTAR_LINK_DESCRIPTIONS: Readonly<Record<LinkKind, string>> = {
+  'istar.IsALink':
+    'Generalisation/specialisation between two actors of the same category — two Roles, or two ' +
+    'general Actors (iStar 2.0 Language Guide §3): the specific actor inherits the general ' +
+    "one's properties.",
+  'istar.ParticipatesInLink':
+    'Any association between two actors other than generalisation/specialisation, e.g. an ' +
+    'Agent playing a Role (iStar 2.0 Language Guide §3). Unlike Is-A, it places no restriction ' +
+    "on the actors' categories.",
+  'istar.DependencyLink':
+    'A social relationship in which a depender actor relies on a dependee actor for a dependum ' +
+    '(a Goal, Quality, Task or Resource) it cannot, or prefers not to, provide for itself ' +
+    '(iStar 2.0 Language Guide §5).',
+  'istar.AndRefinementLink':
+    'Decomposes an intentional element into sub-elements that must *all* be satisfied for the ' +
+    'parent to be satisfied (iStar 2.0 Language Guide §6.1). Contrast with Or-Refinement, where ' +
+    'any one alternative suffices.',
+  'istar.OrRefinementLink':
+    'Decomposes an intentional element into alternative sub-elements, any *one* of which ' +
+    'satisfies the parent (iStar 2.0 Language Guide §6.1). Contrast with And-Refinement, which ' +
+    'needs every child.',
+  'istar.NeededByLink':
+    'Links a Task to the Resource it requires in order to be performed (iStar 2.0 Language ' +
+    'Guide §6.2).',
+  'istar.QualificationLink':
+    'Links a Quality to the Goal, Task or Resource it qualifies, expressing a desired attribute ' +
+    "of that element's achievement, execution or provision (iStar 2.0 Language Guide §6.4).",
+  'istar.ContributionLink':
+    'Expresses how satisfying one intentional element affects another, with a strength from ' +
+    "'make' (sufficient positive evidence) through 'help' (partial positive) and 'hurt' " +
+    "(partial negative) to 'break' (sufficient negative evidence) (iStar 2.0 Language Guide " +
+    '§6.3). Unlike a Refinement, it is a weaker, quantifiable influence rather than a ' +
+    'decomposition.',
+};
+
 function istarLinks(
   kinds: readonly LinkKind[],
   category: LinkCategory,
@@ -703,6 +795,7 @@ function istarLinks(
     category,
     label: ISTAR_LINK_LABELS[kind],
     info: LINK_KIND_INFO[kind],
+    description: ISTAR_LINK_DESCRIPTIONS[kind],
   }));
 }
 
@@ -715,12 +808,14 @@ export const ISTAR_2_0_DECLARATION: RootMetamodelDeclaration<ElementKind, LinkKi
       kind,
       category: 'actor',
       size: DEFAULT_ELEMENT_SIZE[kind],
+      description: ISTAR_ELEMENT_DESCRIPTIONS[kind],
     })),
     ...NODE_KINDS.map((kind): ElementKindDeclaration<ElementKind> => ({
       kind,
       category: 'node',
       size: DEFAULT_ELEMENT_SIZE[kind],
       info: NODE_KIND_INFO[kind],
+      description: ISTAR_ELEMENT_DESCRIPTIONS[kind],
     })),
   ],
   links: [

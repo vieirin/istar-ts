@@ -51,6 +51,15 @@ describe('the obstacle analysis extension', () => {
     expect(KAOS_OBSTACLES.links.get('kaosObstacles.ObstacleRefinementLink')?.arity).toBe('n');
   });
 
+  it('gives every KAOS_OBSTACLES element and link kind a non-empty description', () => {
+    for (const definition of KAOS_OBSTACLES.elements.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+    for (const definition of KAOS_OBSTACLES.links.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+  });
+
   it('cannot name its kinds under the root’s kaos. prefix', () => {
     expect(() =>
       extendMetamodel(KAOS, {

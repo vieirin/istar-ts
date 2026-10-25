@@ -26,6 +26,33 @@ const ON_PAPER: NodeKindInfo = {
 const GOALS = ['kaos.BehavioralGoal', 'kaos.Softgoal'] as const;
 
 /**
+ * Base descriptions of the obstacle analysis's kinds, written in our own words from van
+ * Lamsweerde & Letier, *Handling Obstacles in Goal-Oriented Requirements Engineering*, IEEE
+ * TSE 26(10), 2000, and §3.6 of the KAOS Tutorial transcribed in
+ * `../goal-controller/docs/papers/respectit-kaos-tutorial.md` (Respect-IT, 2007).
+ */
+const OBSTACLE_ELEMENT_DESCRIPTION =
+  'A condition, other than a goal, whose satisfaction may prevent one or more goals from ' +
+  'being achieved (van Lamsweerde & Letier, IEEE TSE 26(10), 2000; KAOS Tutorial glossary, ' +
+  "'Obstacle').";
+
+const OBSTACLE_LINK_DESCRIPTIONS = {
+  refinement:
+    'Refines an obstacle into sub-obstacles and domain properties whose conjunction entails ' +
+    'it, mirroring goal refinement (several sources join at a hub); several hubs on the same ' +
+    'obstacle are alternative, OR-related ways to bring it about (van Lamsweerde & Letier, ' +
+    'IEEE TSE 26(10), 2000; KAOS Tutorial §3.6).',
+  obstruction:
+    'Links an obstacle to the goal or domain property it obstructs: formally, the obstacle ' +
+    "together with the domain properties entails the goal's negation — {O, Dom} ⊨ ¬G (van " +
+    'Lamsweerde & Letier, IEEE TSE 26(10), 2000).',
+  resolution:
+    'Links a goal to an obstacle it resolves — e.g. by preventing the obstacle, restoring the ' +
+    'obstructed goal once it occurs, or minimising its effects (van Lamsweerde & Letier, IEEE ' +
+    'TSE 26(10), 2000; KAOS Tutorial §3.6).',
+} as const;
+
+/**
  * The obstacle analysis, applied with `extendMetamodel(KAOS, kaosObstacleAnalysis)` (or use
  * `KAOS_OBSTACLES`). Kinds are `kaosObstacles.*`, since the root reserves `kaos.`; files say
  * `kaos.Obstacle`, `kaos.ObstacleRefinementLinkHub/Start/End`, `kaos.ObstructionLink` and
@@ -45,6 +72,7 @@ export const kaosObstacleAnalysis: MetamodelExtension<
       // DSM3's KAOS element size.
       size: { width: 135, height: 36 },
       pistarType: 'kaos.Obstacle',
+      description: OBSTACLE_ELEMENT_DESCRIPTION,
     },
   ],
   links: [
@@ -61,6 +89,7 @@ export const kaosObstacleAnalysis: MetamodelExtension<
         sameActor: false,
         unique: false,
       },
+      description: OBSTACLE_LINK_DESCRIPTIONS.refinement,
     },
     {
       // An obstacle obstructs a goal or a domain property (KAOSTools' `obstructedby`).
@@ -73,6 +102,7 @@ export const kaosObstacleAnalysis: MetamodelExtension<
         sameActor: false,
         unique: 'kind',
       },
+      description: OBSTACLE_LINK_DESCRIPTIONS.obstruction,
     },
     {
       // A goal resolves an obstacle (KAOSTools' `resolvedby`), drawn from the goal.
@@ -85,6 +115,7 @@ export const kaosObstacleAnalysis: MetamodelExtension<
         sameActor: false,
         unique: 'kind',
       },
+      description: OBSTACLE_LINK_DESCRIPTIONS.resolution,
     },
   ],
 });

@@ -27,6 +27,15 @@ describe('NFR', () => {
     }
   });
 
+  it('gives every element and link kind a non-empty description', () => {
+    for (const definition of NFR.elements.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+    for (const definition of NFR.links.values()) {
+      expect(definition.description).toMatch(/\S/);
+    }
+  });
+
   it('writes new models as DSM3-goals does', () => {
     const file = JSON.parse(toPistar(createEmptyModel(undefined, { metamodel: NFR })));
     expect(file).toMatchObject({ tool: 'dsm3-goals', metamodelVersion: '1.0' });
