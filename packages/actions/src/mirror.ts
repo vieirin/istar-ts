@@ -45,8 +45,8 @@ export interface MirrorStoreOptions<EK extends string = ElementKind, LK extends 
   /** `parsePistar`'s `fileMetamodel`: apply the file's own `"metamodel"` block. Default false. */
   readonly fileMetamodel?: boolean;
   /**
-   * How many undo steps the remote keeps, for `canUndo` (see `MirrorStore`). Default 100, a
-   * `ModelStore`'s default.
+   * How many undo steps the remote keeps, for `canUndo` estimate (see `MirrorStore`). Only used
+   * when the dispatcher doesn't send exact values. Default 100, a `ModelStore`'s default.
    */
   readonly historyLimit?: number;
   /** Hears a failed update (a transport fault, a file that doesn't parse). Default: ignored. */
@@ -59,9 +59,10 @@ export interface MirrorStoreOptions<EK extends string = ElementKind, LK extends 
  * `clearHistory`) throws a `ModelOperationError`: dispatch the edit to the remote instead.
  *
  * Undo is the remote's, one stack for all its clients: `undo`/`redo` dispatch `glspUndo` /
- * `glspRedo` to it. `canUndo`/`canRedo` are an estimate counted from the notifications heard
- * since the mirror connected (the remote doesn't publish its stack's depth): edits made before
- * then are not counted.
+ * `glspRedo` to it. `canUndo`/`canRedo` are exact when the dispatcher sends them with each
+ * change (a dispatcher created with `sendModel`), or an estimate counted from the notifications
+ * heard since the mirror connected (the remote doesn't publish its stack's depth when not sending
+ * them): edits made before then are not counted.
  */
 export interface MirrorStore<
   EK extends string = ElementKind,
@@ -203,8 +204,14 @@ export function createMirrorStore<EK extends string = ElementKind, LK extends st
   };
 
   /** Counts the remote's undo stack from what it reports (see `MirrorStore`). */
-  const track = (source: Source): void => {
-    if (source === 'edit') {
+  const track = (
+    source: Source,
+    exact?: { readonly canUndo: boolean; readonly canRedo: boolean },
+  ): void => {
+    if (exact) {
+      undoDepth = exact.canUndo ? 1 : 0;
+      redoDepth = exact.canRedo ? 1 : 0;
+    } else if (source === 'edit') {
       undoDepth = Math.min(undoDepth + 1, limit);
       redoDepth = 0;
     } else if (source === 'undo') {
@@ -246,7 +253,12 @@ export function createMirrorStore<EK extends string = ElementKind, LK extends st
 
   const unsubscribe = r.subscribe((action) => {
     if (disposed || action.kind !== 'sourceModelChanged') return;
-    track(action.source);
+    track(
+      action.source,
+      action.canUndo !== undefined && action.canRedo !== undefined
+        ? { canUndo: action.canUndo, canRedo: action.canRedo }
+        : undefined,
+    );
     if (action.newRoot) {
       pushed++;
       try {

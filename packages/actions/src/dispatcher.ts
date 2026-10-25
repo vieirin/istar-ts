@@ -246,6 +246,7 @@ export function createActionDispatcher<
       source: event.source,
       changes: event.changes,
       ...(options.sendModel ? { newRoot: toPistarObject(event.model) } : {}),
+      ...(options.sendModel ? { canUndo: s.canUndo(), canRedo: s.canRedo() } : {}),
     });
     updateDirty(REASONS[event.source]);
   });

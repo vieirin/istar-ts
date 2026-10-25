@@ -326,6 +326,16 @@ export interface ModelSourceChangedAction extends Action {
    * extra.
    */
   readonly newRoot?: PistarFile;
+  /**
+   * Whether undo is possible, from the remote store after this change (when the dispatcher was
+   * created with `sendModel`). An iStar extra; a mirror uses this to know the exact state.
+   */
+  readonly canUndo?: boolean;
+  /**
+   * Whether redo is possible, from the remote store after this change (when the dispatcher was
+   * created with `sendModel`). An iStar extra; a mirror uses this to know the exact state.
+   */
+  readonly canRedo?: boolean;
 }
 
 /** Saves the model through the host's `save` callback. */

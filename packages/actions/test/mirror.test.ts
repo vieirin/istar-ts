@@ -309,4 +309,87 @@ describe('createMirrorStore', () => {
     await remote.dispatch({ kind: 'createNode', elementTypeId: 'istar.Actor' });
     expect(mirror.getModel().elements.size).toBe(0);
   });
+
+  test('with sendModel: canUndo/canRedo are exact, matching the remote store', async () => {
+    const { store, connect } = serve(undefined, true);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+
+    expect(mirror.canUndo()).toBe(false);
+    expect(store.canUndo()).toBe(false);
+    expect(mirror.canRedo()).toBe(false);
+    expect(store.canRedo()).toBe(false);
+
+    // Create an element
+    await mirror.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Actor',
+      args: { id: 'test1' },
+    });
+    expect(mirror.canUndo()).toBe(store.canUndo());
+    expect(mirror.canRedo()).toBe(store.canRedo());
+    expect(mirror.canUndo()).toBe(true);
+
+    // Undo
+    await mirror.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(mirror.canUndo()).toBe(store.canUndo());
+    expect(mirror.canRedo()).toBe(store.canRedo());
+    expect(mirror.canUndo()).toBe(false);
+    expect(mirror.canRedo()).toBe(true);
+
+    // Redo
+    await mirror.dispatcher.dispatch({ kind: 'glspRedo' });
+    expect(mirror.canUndo()).toBe(store.canUndo());
+    expect(mirror.canRedo()).toBe(store.canRedo());
+    expect(mirror.canUndo()).toBe(true);
+    expect(mirror.canRedo()).toBe(false);
+  });
+
+  test('without sendModel: canUndo/canRedo use the estimate', async () => {
+    const { connect } = serve(undefined, false);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+
+    expect(mirror.canUndo()).toBe(false);
+    expect(mirror.canRedo()).toBe(false);
+
+    // Create an element
+    await mirror.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Actor',
+      args: { id: 'test1' },
+    });
+    expect(mirror.canUndo()).toBe(true);
+    expect(mirror.canRedo()).toBe(false);
+
+    // Undo
+    await mirror.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(mirror.canUndo()).toBe(false);
+    expect(mirror.canRedo()).toBe(true);
+
+    // Redo
+    await mirror.dispatcher.dispatch({ kind: 'glspRedo' });
+    expect(mirror.canUndo()).toBe(true);
+    expect(mirror.canRedo()).toBe(false);
+  });
+
+  test('canUndo is false when undoing past history', async () => {
+    const { store, connect } = serve(undefined, true);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+
+    // Fill the history
+    await mirror.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Actor',
+      args: { id: 'test1' },
+    });
+    expect(mirror.canUndo()).toBe(true);
+
+    // Undo
+    await mirror.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(mirror.canUndo()).toBe(false);
+    expect(store.canUndo()).toBe(false);
+    expect(mirror.canUndo()).toBe(store.canUndo());
+  });
 });
