@@ -265,6 +265,17 @@ export interface SetLinkValueOperation extends Operation {
   readonly value: string | null;
 }
 
+/**
+ * Merges into a link's `display` (its bend points, `vertices`): a key set to `undefined` is
+ * removed, the rest is written as-is. Same semantics as `LinkPatch.display` (`@istar-ts/core`),
+ * which this forwards to. GLSP's counterpart is `changeRoutingPoints`.
+ */
+export interface UpdateLinkDisplayOperation extends Operation {
+  readonly kind: 'istar.updateLinkDisplay';
+  readonly linkId: string;
+  readonly patch: Readonly<Record<string, unknown>>;
+}
+
 /** Every operation, keyed by `kind`. */
 export type IstarOperation<EK extends string = ElementKind, LK extends string = LinkKind> =
   | CreateNodeOperation<EK>
@@ -281,7 +292,8 @@ export type IstarOperation<EK extends string = ElementKind, LK extends string = 
   | UpdateDiagramOperation
   | UpdatePropertiesOperation
   | UpdateDisplayOperation
-  | SetLinkValueOperation;
+  | SetLinkValueOperation
+  | UpdateLinkDisplayOperation;
 
 // ---------------------------------------------------------------------------------------------
 // Model
@@ -543,6 +555,7 @@ const OPERATION_KIND_LIST: readonly IstarOperation['kind'][] = [
   'istar.updateProperties',
   'istar.updateDisplay',
   'istar.setLinkValue',
+  'istar.updateLinkDisplay',
 ];
 
 const REQUEST_KIND_LIST: readonly IstarRequestAction['kind'][] = [

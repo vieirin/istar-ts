@@ -33,7 +33,9 @@ a list; if one child is rejected, none is applied).
 **Operations** (`istar.*`): `istar.addLeg`, `istar.removeLeg`, `istar.setCollapsed`,
 `istar.updateDiagram`, `istar.updateProperties`, `istar.updateDisplay` (an element's `display`
 patch — colour, the auto-grown height — merged like `ElementPatch.display`), `istar.setLinkValue`
-(an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it).
+(an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it),
+`istar.updateLinkDisplay` (a link's `display` patch — its bend points, `vertices` — merged like
+`LinkPatch.display`; GLSP's counterpart is `changeRoutingPoints`).
 
 **Requests/responses** (GLSP): `requestModel`/`setModel` (the model as piStar JSON, via
 `toPistar`), `requestTypeHints`/`setTypeHints` (shape and edge hints derived from the

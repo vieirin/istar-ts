@@ -110,5 +110,7 @@ export function describeOperation(
           ? `clear the value of ${named(operation.linkId)}`
           : `set the value of ${named(operation.linkId)} to ${quoted(operation.value)}`,
       ];
+    case 'istar.updateLinkDisplay':
+      return [`reroute ${named(operation.linkId)}`];
   }
 }

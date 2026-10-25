@@ -229,6 +229,22 @@ describe('GLSP operations through the dispatcher', () => {
       target: GOOD_QUALITY,
     });
 
+    // Set a link's bend points through changeRoutingPoints, then clear them.
+    await edit(
+      s,
+      ChangeRoutingPointsOperation.create([
+        { elementId: HELP_LINK, newRoutingPoints: [{ x: 100, y: 200 }] },
+      ]),
+    );
+    expect(s.state.model.links.get(HELP_LINK)!.display).toEqual({
+      vertices: [{ x: 100, y: 200 }],
+    });
+    await edit(
+      s,
+      ChangeRoutingPointsOperation.create([{ elementId: HELP_LINK, newRoutingPoints: [] }]),
+    );
+    expect(s.state.model.links.get(HELP_LINK)!.display).toBeUndefined();
+
     // Rename an element, and change a link's value through its value label.
     await edit(
       s,
@@ -251,7 +267,7 @@ describe('GLSP operations through the dispatcher', () => {
       expect(s.kinds(from)).toContain('updateModel');
       undos++;
     }
-    expect(undos).toBe(11);
+    expect(undos).toBe(13);
     expect(toPistar(s.state.model)).toBe(start);
     expect(commandStack.isDirty).toBe(false);
 
@@ -571,6 +587,37 @@ describe('translateOperation', () => {
     expect(
       translateOperation(
         ApplyLabelEditOperation.create({ labelId: 'nope', text: '' }),
+        model,
+        ISTAR_GLSP,
+      ),
+    ).toMatchObject({ ok: false, diagnostics: [{ elementId: 'nope', severity: 'error' }] });
+  });
+
+  test('changeRoutingPoints maps each element to istar.updateLinkDisplay, and rejects an unknown one', async () => {
+    const s = await open(ISTAR_GLSP, 'welcome.txt');
+    const model = s.state.model;
+    expect(
+      translateOperation(
+        ChangeRoutingPointsOperation.create([
+          { elementId: HELP_LINK, newRoutingPoints: [{ x: 1, y: 2 }] },
+        ]),
+        model,
+        ISTAR_GLSP,
+      ),
+    ).toEqual({
+      ok: true,
+      operation: {
+        kind: 'istar.updateLinkDisplay',
+        linkId: HELP_LINK,
+        patch: { vertices: [{ x: 1, y: 2 }] },
+      },
+    });
+    expect(translateOperation(ChangeRoutingPointsOperation.create([]), model, ISTAR_GLSP)).toEqual({
+      ok: true,
+    });
+    expect(
+      translateOperation(
+        ChangeRoutingPointsOperation.create([{ elementId: 'nope', newRoutingPoints: [] }]),
         model,
         ISTAR_GLSP,
       ),
