@@ -137,4 +137,26 @@ describe('type hints follow the loaded model, even after the fact', () => {
       .shapeHints;
     expect(shapeHints.map((h) => h.elementTypeId)).toContain('node:ra4.Plan');
   });
+
+  test('#200: dispatching istar.setFileMetamodel re-sends setTypeHints too', async () => {
+    const shared = createIstarSharedModel(ISTAR_GLSP);
+    const { server, sent } = await startServer(files, createIstarServerModules({ shared }));
+    const a = await openOn(server, sent, ISTAR_GLSP, undefined, { clientId: 'a' });
+    await validationSettled(sent, 'a');
+    expect(
+      a.root.children?.some((c) => (c as { type?: string }).type === 'node:beliefs.Belief'),
+    ).toBeFalsy();
+
+    const from = sent.length;
+    const result = await shared.dispatcher.dispatch({
+      kind: 'istar.setFileMetamodel',
+      block: { name: 'beliefs', elements: [{ kind: 'beliefs.Belief', category: 'node' }] },
+    });
+    expect(result.ok).toBe(true);
+
+    const hints = await next(sent, 'setTypeHints', from, 'a');
+    const shapeHints = (hints.action as unknown as { shapeHints: { elementTypeId: string }[] })
+      .shapeHints;
+    expect(shapeHints.map((h) => h.elementTypeId)).toContain('node:beliefs.Belief');
+  });
 });

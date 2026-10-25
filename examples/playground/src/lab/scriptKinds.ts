@@ -73,5 +73,9 @@ export function templateFor(kind: IstarOperation['kind'], model: AnyIstarModel):
       return { kind, linkId, value: 'help' };
     case 'istar.updateLinkDisplay':
       return { kind, linkId, patch: { vertices: [{ x: 0, y: 0 }] } };
+    case 'istar.changeLinkKind':
+      return { kind, linkIds: [linkId], elementTypeId: 'istar.OrRefinementLink' };
+    case 'istar.setFileMetamodel':
+      return { kind, block: null };
   }
 }

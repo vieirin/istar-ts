@@ -99,6 +99,12 @@ describe('HANDLED_ACTION_KINDS', () => {
         linkId: 'contrib',
         patch: { vertices: [{ x: 1, y: 2 }] },
       },
+      'istar.changeLinkKind': {
+        kind: 'istar.changeLinkKind',
+        linkIds: [],
+        elementTypeId: 'istar.ContributionLink',
+      },
+      'istar.setFileMetamodel': { kind: 'istar.setFileMetamodel', block: null },
       requestModel: { kind: 'requestModel', requestId: 'r1' },
       requestTypeHints: { kind: 'requestTypeHints', requestId: 'r2' },
       requestCheckEdge: {

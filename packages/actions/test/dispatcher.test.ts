@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import type { GoalDiagnostic, ModelStore, PistarFile } from '@istar-ts/core';
 import {
@@ -6,12 +8,14 @@ import {
   createModelStore,
   defineProperties,
   extendMetamodel,
+  parsePistar,
   prop,
   toPistar,
   toPistarObject,
 } from '@istar-ts/core';
 import type { ActionDispatcher, ActionDispatcherOptions, ActionGuard, IstarAction } from '../src';
 import { createActionDispatcher, diagnosticToMarker, markerToDiagnostic } from '../src';
+import { loadFixtures } from './fixtures';
 
 let next = 0;
 const createId = (): string => `id${++next}`;
@@ -384,6 +388,216 @@ describe('operations', () => {
 
     await env.dispatcher.dispatch({ kind: 'istar.setLinkValue', linkId: 'c', value: null });
     expect(env.store.getModel().links.get('c')?.label).toBeUndefined();
+  });
+
+  test('istar.changeLinkKind rewrites every listed link in place, as one undo step', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 't',
+      targetElementId: 'g1',
+      args: { id: 'r1', name: 'first' },
+    });
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 'g2',
+      targetElementId: 'g1',
+      args: { id: 'r2' },
+    });
+    const before = env.store.getModel();
+    const file = toPistar(before);
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.changeLinkKind',
+      linkIds: ['r1', 'r2'],
+      elementTypeId: 'istar.OrRefinementLink',
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    const after = env.store.getModel();
+    expect(after.links.get('r1')).toMatchObject({
+      kind: 'istar.OrRefinementLink',
+      source: 't',
+      target: 'g1',
+      name: 'first',
+    });
+    expect(after.links.get('r2')).toMatchObject({ kind: 'istar.OrRefinementLink' });
+    // Order and identity of other links/elements are untouched.
+    expect([...after.links.keys()]).toEqual([...before.links.keys()]);
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).toBe(file);
+  });
+
+  test('istar.changeLinkKind is a no-op for an empty list, or links already of that kind', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 't',
+      targetElementId: 'g1',
+      args: { id: 'r1' },
+    });
+    const before = env.store.getModel();
+
+    const empty = await env.dispatcher.dispatch({
+      kind: 'istar.changeLinkKind',
+      linkIds: [],
+      elementTypeId: 'istar.OrRefinementLink',
+    });
+    expect(empty).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel()).toBe(before);
+
+    const same = await env.dispatcher.dispatch({
+      kind: 'istar.changeLinkKind',
+      linkIds: ['r1'],
+      elementTypeId: 'istar.AndRefinementLink',
+    });
+    expect(same).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel()).toBe(before);
+  });
+
+  test('istar.changeLinkKind rejects an unknown link, unknown kind, or a canLink refusal, untouched', async () => {
+    const env = setup();
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.AndRefinementLink',
+      sourceElementId: 't',
+      targetElementId: 'g1',
+      args: { id: 'r1' },
+    });
+    await expectRejected(env, {
+      kind: 'istar.changeLinkKind',
+      linkIds: ['missing'],
+      elementTypeId: 'istar.OrRefinementLink',
+    });
+    await expectRejected(env, {
+      kind: 'istar.changeLinkKind',
+      linkIds: ['r1'],
+      elementTypeId: 'istar.Nope' as 'istar.OrRefinementLink',
+    });
+    // A Dependency link's ends (two actors) fail an AND-refinement's "must be a Goal or Task".
+    await env.dispatcher.dispatch({
+      kind: 'createEdge',
+      elementTypeId: 'istar.DependencyLink',
+      sourceElementId: 'a',
+      targetElementId: 'b',
+      args: { id: 'dep', linkIds: ['din', 'dout'] },
+    });
+    const [d] = await expectRejected(env, {
+      kind: 'istar.changeLinkKind',
+      linkIds: ['din'],
+      elementTypeId: 'istar.AndRefinementLink',
+    });
+    expect(d).toMatchObject({ code: 'invalid-source' });
+  });
+
+  test('istar.setFileMetamodel sets, replaces and removes the block, as one undo step', async () => {
+    const env = setup();
+    const before = env.store.getModel();
+    expect(toPistar(before)).not.toContain('"metamodel"');
+
+    const block = {
+      name: 'beliefs',
+      elements: [{ kind: 'beliefs.Belief', category: 'node' as const }],
+    };
+    const result = await env.dispatcher.dispatch({ kind: 'istar.setFileMetamodel', block });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    const withBlock = env.store.getModel();
+    expect(JSON.parse(toPistar(withBlock)).metamodel).toEqual(block);
+    const added = await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'beliefs.Belief' as 'istar.Goal',
+      containerId: 'a',
+    });
+    expect(added.ok).toBe(true);
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+    expect(toPistar(env.store.getModel())).not.toContain('"metamodel"');
+
+    await env.dispatcher.dispatch({ kind: 'istar.setFileMetamodel', block });
+    const belief = await env.dispatcher.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'beliefs.Belief' as 'istar.Goal',
+      containerId: 'a',
+      args: { id: 'bel' },
+    });
+    if (!belief.ok) throw new Error('setup failed');
+
+    await expectRejected(env, { kind: 'istar.setFileMetamodel', block: null });
+    await expectRejected(env, {
+      kind: 'istar.setFileMetamodel',
+      block: { name: 'x', elements: [{ kind: 3 as unknown as string, category: 'node' }] },
+    });
+
+    const cleared = await env.dispatcher.dispatch({
+      kind: 'istar.setFileMetamodel',
+      block: { name: 'beliefs' },
+    });
+    expect(cleared.ok).toBe(false);
+    await env.dispatcher.dispatch({ kind: 'deleteElement', elementIds: ['bel'] });
+    const removed = await env.dispatcher.dispatch({ kind: 'istar.setFileMetamodel', block: null });
+    expect(removed).toEqual({ ok: true, createdIds: [] });
+    expect(toPistar(env.store.getModel())).not.toContain('"metamodel"');
+  });
+});
+
+describe('istar.changeLinkKind: piStar parity (#199)', () => {
+  // goal-controller's `setRefinement` (packages/ui/lib/workbench/pistar.ts:222-241) rewrites
+  // every AND/OR-refinement link into a goal by rebuilding the links map in place, same ids and
+  // order, then `inheritSourceLayout`. `istar.changeLinkKind` must write the same bytes.
+  test('converting every AND-refinement link into a target to OR matches a hand-rewritten file', async () => {
+    const fixture = loadFixtures().find((f) => f.name === 'pistar/buyerDrivenECommerce.txt')!;
+    const initial = parsePistar(fixture.text);
+    const target = 'be1aa6fc-66dd-40f8-af03-a652352793e1';
+    const linkIds = [...initial.links.values()]
+      .filter((l) => l.target === target && l.kind === 'istar.AndRefinementLink')
+      .map((l) => l.id);
+    expect(linkIds.length).toBeGreaterThan(1);
+
+    const expectedJson = JSON.parse(fixture.text) as { links: { id: string; type: string }[] };
+    for (const link of expectedJson.links) {
+      if (linkIds.includes(link.id)) link.type = 'istar.OrRefinementLink';
+    }
+
+    const store = createModelStore(initial);
+    const dispatcher = createActionDispatcher(store);
+    const result = await dispatcher.dispatch({
+      kind: 'istar.changeLinkKind',
+      linkIds,
+      elementTypeId: 'istar.OrRefinementLink',
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(JSON.parse(toPistar(store.getModel()))).toEqual(expectedJson);
+  });
+});
+
+describe('istar.setFileMetamodel: piStar parity (#200)', () => {
+  // goal-controller's `writeModelExtension` (packages/ui/lib/workbench/pistar.ts:137-152)
+  // validates the extension against the dialect, then writes (or removes) the file's own
+  // "metamodel" block through `withFileMetamodel`. The saved block must be byte-identical.
+  test('removing and re-setting the block round-trips, byte for byte', async () => {
+    const path = join(import.meta.dirname, '../../../fixtures/extensions/fileMetamodel.txt');
+    const text = readFileSync(path, 'utf8');
+    const initial = parsePistar(text, { fileMetamodel: true });
+    const block = JSON.parse(text).metamodel;
+
+    const store = createModelStore(initial);
+    const dispatcher = createActionDispatcher(store);
+    // The model still uses the block's kinds, so removing it is rejected, untouched.
+    const before = store.getModel();
+    const removed = await dispatcher.dispatch({ kind: 'istar.setFileMetamodel', block: null });
+    expect(removed.ok).toBe(false);
+    expect(store.getModel()).toBe(before);
+
+    // Re-setting the same block it already has writes the same bytes.
+    const reset = await dispatcher.dispatch({ kind: 'istar.setFileMetamodel', block });
+    expect(reset).toEqual({ ok: true, createdIds: [] });
+    expect(toPistar(store.getModel())).toBe(text);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * The istar-specific MCP diagram tools (#129, D2 of the agent epic #126): `set-properties`,
- * `set-link-value` and `check-edge`, loaded into every session's container next to server-mcp's
- * own tools (`src/mcp-tools.ts`).
+ * `set-link-value`, `change-link-kind` (#199) and `check-edge`, loaded into every session's
+ * container next to server-mcp's own tools (`src/mcp-tools.ts`).
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -15,6 +15,12 @@ const ACTOR_1 = 'fcf67803-5e5a-4bae-8690-1f12af4446d6';
 const ACTOR_2 = 'bda083fe-1fb4-41cf-aea9-449c0d4044b5';
 const TASK = 'f9035e8c-0294-44a8-a93e-85a349d2f21a';
 const CONTRIBUTION_LINK = '5c3a554c-5988-48ec-b2c7-293b8e1db746';
+// Every OR-refinement link into '825269c5-...' (welcome.txt).
+const OR_REFINEMENT_LINKS = [
+  '6c57baea-e769-4fa5-a19d-6b12eecdb7cd',
+  '124b5a38-6a0f-4cad-952f-bd95781d5878',
+  '1d75dbfb-4e92-4ed9-a807-f6ebc525eb8b',
+];
 const welcome = fixture('pistar/welcome.txt').text;
 const cleanup: Array<() => unknown> = [];
 
@@ -99,6 +105,46 @@ describe('set-link-value', () => {
   });
 });
 
+describe('change-link-kind', () => {
+  test('changes every listed link’s kind, keeping ids, source and target', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    await mcp.listTools();
+    const result = await mcp.callTool({
+      name: 'change-link-kind',
+      arguments: {
+        sessionId: server.sessionId,
+        linkIds: OR_REFINEMENT_LINKS,
+        elementTypeId: 'istar.AndRefinementLink',
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const model = shared.store.getModel();
+    for (const id of OR_REFINEMENT_LINKS) {
+      expect(model.links.get(id)?.kind).toBe('istar.AndRefinementLink');
+    }
+  });
+
+  test('a canLink refusal (mixed refinements left behind) is a tool error, nothing changed', async () => {
+    const { server, shared } = headless();
+    const mcp = await mcpClient(server.mcp);
+    await mcp.listTools();
+    const before = shared.store.getModel();
+    const result = await mcp.callTool({
+      name: 'change-link-kind',
+      arguments: {
+        sessionId: server.sessionId,
+        // Only two of the three OR-refinement links into the same target: the untouched third
+        // would be left mixing AND with OR into it.
+        linkIds: OR_REFINEMENT_LINKS.slice(0, 2),
+        elementTypeId: 'istar.AndRefinementLink',
+      },
+    });
+    expect(result.isError).toBe(true);
+    expect(shared.store.getModel()).toBe(before);
+  });
+});
+
 describe('check-edge', () => {
   test('a valid candidate edge answers true, without creating anything', async () => {
     const { server, shared } = headless();
@@ -141,7 +187,7 @@ describe('check-edge', () => {
 });
 
 describe('tools/list', () => {
-  test('includes set-properties, set-link-value and check-edge alongside the server-mcp defaults', async () => {
+  test('includes set-properties, set-link-value, change-link-kind and check-edge alongside the server-mcp defaults', async () => {
     const { server } = headless();
     const mcp = await mcpClient(server.mcp);
     const names = (await mcp.listTools()).tools.map((t) => t.name);
@@ -149,6 +195,7 @@ describe('tools/list', () => {
       expect.arrayContaining([
         'set-properties',
         'set-link-value',
+        'change-link-kind',
         'check-edge',
         'create-nodes',
         'create-edges',

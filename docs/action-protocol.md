@@ -35,7 +35,12 @@ a list; if one child is rejected, none is applied).
 patch — colour, the auto-grown height — merged like `ElementPatch.display`), `istar.setLinkValue`
 (an existing link's contribution value, e.g. make/help/hurt/break; `null` clears it),
 `istar.updateLinkDisplay` (a link's `display` patch — its bend points, `vertices` — merged like
-`LinkPatch.display`; GLSP's counterpart is `changeRoutingPoints`).
+`LinkPatch.display`; GLSP's counterpart is `changeRoutingPoints`), `istar.changeLinkKind`
+(changes the kind of a set of links at once, keeping their ids, source, target, order, name,
+value, custom properties and display — e.g. toggling every AND-refinement link into a goal to
+OR), `istar.setFileMetamodel` (sets or removes the model file's own `"metamodel"` block —
+`withFileMetamodel` in `@istar-ts/core` — rejecting a block that collides with the host's kinds
+or drops one still in use).
 
 **Requests/responses** (GLSP): `requestModel`/`setModel` (the model as piStar JSON, via
 `toPistar`), `requestTypeHints`/`setTypeHints` (shape and edge hints derived from the
@@ -128,6 +133,24 @@ const rejected = await dispatcher.dispatch({
 
 A guard is plain data in, plain data out — it never touches the store — so it works identically
 whether the action came from the in-process dispatcher or across the transport.
+
+### Dialect-specific checks on `istar.setFileMetamodel`
+
+`istar.setFileMetamodel` applies the core-level checks (malformed block, a collision with the
+host's kinds, dropping a kind still in use). A host with its own dialect rules for what a file's
+own metamodel may declare (goal-controller's `withModelEntries(DIALECTS[mode], model)`, which
+throws on reject) adds them as a guard on this one operation's kind, the same shape as the worked
+example above:
+
+```ts
+const dialectRules: ActionGuard = (operation) => {
+  if (operation.kind !== 'istar.setFileMetamodel') return;
+  // ...the host's own validation of operation.block, returning error diagnostics on reject...
+};
+```
+
+The guard's diagnostics come back through `ActionResult` like any other rejection; the model is
+untouched either way.
 
 ## Transport
 

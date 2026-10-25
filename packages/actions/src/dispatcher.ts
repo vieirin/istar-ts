@@ -6,6 +6,7 @@
  */
 import {
   DEFAULT_PALETTE,
+  MetamodelError,
   ModelOperationError,
   canLink,
   connectResultToDiagnostic,
@@ -16,6 +17,7 @@ import {
   toPistarObject,
   validateModel,
   validateModelProperties,
+  withFileMetamodel,
 } from '@istar-ts/core';
 import type {
   AnyIstarModel,
@@ -461,6 +463,49 @@ export function createActionDispatcher<
           );
         }
         s.updateLink(linkId, { label: value });
+        return;
+      }
+      case 'istar.changeLinkKind': {
+        const { linkIds, elementTypeId: kind } = operation;
+        if (linkIds.length === 0) return;
+        const ids = new Set(linkIds);
+        const links = [...ids].map(
+          (id) => model.links.get(id) ?? reject(`unknown link "${id}"`, id, 'unknown-element'),
+        );
+        const definition =
+          meta.links.get(kind) ??
+          reject(`unknown link kind "${kind}" in ${meta.name}`, '', 'unknown-kind');
+        const toChange = links.filter((link) => link.kind !== kind);
+        if (toChange.length === 0) return;
+        const remaining = new Map(model.links);
+        for (const id of ids) remaining.delete(id);
+        const without = withLinks(model, remaining);
+        const values = definition.info.possibleLabels;
+        for (const link of toChange) {
+          const check = canLink(without, link.source, link.target, kind);
+          if (!check.ok) rejectCheck(check, { source: link.source, target: link.target });
+          if (link.label != null && values && !values.includes(link.label)) {
+            reject(
+              `"${link.label}" is not a value of a ${definition.label} link (${values.join(', ')})`,
+              link.id,
+              'invalid-value',
+            );
+          }
+        }
+        const next = new Map(model.links);
+        for (const link of toChange) next.set(link.id, { ...link, kind });
+        s.replace(withLinks(model, next));
+        return;
+      }
+      case 'istar.setFileMetamodel': {
+        let next: AnyIstarModel;
+        try {
+          next = withFileMetamodel(model, operation.block);
+        } catch (error) {
+          if (error instanceof MetamodelError) reject(error.message, '', 'invalid-metamodel');
+          throw error;
+        }
+        s.replace(next);
         return;
       }
       default:

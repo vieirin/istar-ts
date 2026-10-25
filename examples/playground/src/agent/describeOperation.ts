@@ -112,5 +112,15 @@ export function describeOperation(
       ];
     case 'istar.updateLinkDisplay':
       return [`reroute ${named(operation.linkId)}`];
+    case 'istar.changeLinkKind':
+      return operation.linkIds.map(
+        (id) => `change the kind of ${named(id)} to ${linkLabel(operation.elementTypeId)}`,
+      );
+    case 'istar.setFileMetamodel':
+      return [
+        operation.block
+          ? `set the file's metamodel to ${quoted(operation.block.name)}`
+          : "clear the file's metamodel",
+      ];
   }
 }
