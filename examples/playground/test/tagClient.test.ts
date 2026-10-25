@@ -22,7 +22,7 @@ describe('tagClient', () => {
     const outcome = await tagged.dispatch(action);
 
     expect(outcome).toBe(result);
-    expect(inner.dispatch).toHaveBeenCalledWith(action);
+    expect(inner.dispatch).toHaveBeenCalledWith(action, { origin: 'Script' });
     const [entry] = log.getEntries();
     expect(entry).toMatchObject({ client: 'Script', action, result });
     expect(typeof entry!.durationMs).toBe('number');
@@ -55,6 +55,17 @@ describe('tagClient', () => {
 
     expect(outcome).toBe(result);
     expect(inner.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  test('tags the dispatch with the client name as origin, by default', async () => {
+    const inner = fakeDispatcher({ ok: true, createdIds: [] });
+    const tagged = tagClient(inner, 'Worker', createLogStore());
+
+    await tagged.dispatch(action);
+    expect(inner.dispatch).toHaveBeenCalledWith(action, { origin: 'Worker' });
+
+    await tagged.dispatch(action, { origin: 'elsewhere' });
+    expect(inner.dispatch).toHaveBeenLastCalledWith(action, { origin: 'Worker' });
   });
 
   test('two wrappers over the same dispatcher log under their own client', async () => {

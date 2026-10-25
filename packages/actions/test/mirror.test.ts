@@ -13,6 +13,7 @@ import type {
   ActionDispatcher,
   ActionDispatcherOptions,
   ActionPostGuard,
+  IstarAction,
   MirrorStore,
 } from '../src';
 import {
@@ -98,6 +99,26 @@ describe.each([
       parent: actor!.id,
     });
     expect(text(mirror.getModel())).toBe(text(store.getModel()));
+  });
+
+  test('origin round-trips through the mirror dispatcher', async () => {
+    const { connect } = serve(parsePistar(SMART_HOME), sendModel);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+    const [actor] = [...mirror.getModel().elements.values()].filter(
+      (e) => e.kind === 'istar.Actor',
+    );
+    const received: IstarAction[] = [];
+    mirror.dispatcher.subscribe((action) => received.push(action));
+    await mirror.dispatcher.dispatch(
+      { kind: 'createNode', elementTypeId: 'istar.Goal', containerId: actor!.id },
+      { origin: 'inspector' },
+    );
+    const changed = received.find(
+      (a): a is Extract<IstarAction, { kind: 'sourceModelChanged' }> =>
+        a.kind === 'sourceModelChanged',
+    );
+    expect(changed?.origin).toBe('inspector');
   });
 
   test.runIf(sendModel)('the plain remote resolves after the mirror shows the change', async () => {

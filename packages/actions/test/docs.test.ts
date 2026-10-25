@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { ISTAR_2_0, createModelStore } from '@istar-ts/core';
 import { createActionDispatcher } from '../src';
-import type { ActionGuard, ActionPostGuard } from '../src';
+import type { ActionGuard, ActionPostGuard, ModelSourceChangedAction } from '../src';
 
 // Mirrors the "worked example" fenced block in docs/action-protocol.md. Keep the two in sync.
 describe('docs: action-protocol.md worked guard example', () => {
@@ -69,5 +69,36 @@ describe('docs: action-protocol.md worked postGuard example', () => {
     });
     expect(store.getModel()).toBe(before);
     expect(store.canUndo()).toBe(undoable);
+  });
+});
+
+// Mirrors the "origin" worked example in docs/action-protocol.md. Keep the two in sync.
+describe('docs: action-protocol.md origin example', () => {
+  test('origin is echoed on sourceModelChanged', async () => {
+    const store = createModelStore(undefined, { metamodel: ISTAR_2_0 });
+    const dispatcher = createActionDispatcher(store);
+    let seen: ModelSourceChangedAction | undefined;
+    dispatcher.subscribe((action) => {
+      if (action.kind === 'sourceModelChanged') seen = action;
+    });
+
+    await dispatcher.dispatch(
+      { kind: 'createNode', elementTypeId: 'istar.Actor' },
+      { origin: 'canvas' },
+    );
+    expect(seen?.origin).toBe('canvas');
+  });
+});
+
+// Mirrors the "local synchronous guarantee" worked example in docs/action-protocol.md.
+describe('docs: action-protocol.md synchronous guarantee example', () => {
+  test('the store already has the result right after a fire-and-forget dispatch', () => {
+    const store = createModelStore(undefined, { metamodel: ISTAR_2_0 });
+    const dispatcher = createActionDispatcher(store);
+
+    void dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Actor' });
+    expect([...store.getModel().elements.values()].some((e) => e.kind === 'istar.Actor')).toBe(
+      true,
+    );
   });
 });

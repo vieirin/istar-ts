@@ -280,8 +280,8 @@ export function createMirrorStore<EK extends string = ElementKind, LK extends st
   };
 
   const dispatcher: ActionDispatcher<string, string> = {
-    async dispatch(action) {
-      const result = await r.dispatch(action);
+    async dispatch(action, options) {
+      const result = await r.dispatch(action, options);
       await tail;
       return result;
     },

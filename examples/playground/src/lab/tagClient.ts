@@ -14,6 +14,7 @@ import type {
   ActionDispatcher,
   ActionListener,
   ActionResult,
+  DispatchOptions,
   IstarAction,
   ResponseFor,
 } from '@istar-ts/actions';
@@ -55,14 +56,16 @@ export function tagClient<EK extends string = ElementKind, LK extends string = L
     setEnabled: (next) => {
       enabled = next;
     },
-    async dispatch<A extends IstarAction<EK, LK>>(action: A) {
+    async dispatch<A extends IstarAction<EK, LK>>(action: A, _options?: DispatchOptions) {
       const startedAt = Date.now();
       if (!enabled) {
         const result = disabledResult(client);
         log.append({ client, action, result, startedAt, durationMs: 0 });
         return result as ActionResult<ResponseFor<A>>;
       }
-      const result = await dispatcher.dispatch(action);
+      // This client's own tag wins: the point of this wrapper is to mark everything it carries
+      // with where it came from.
+      const result = await dispatcher.dispatch(action, { origin: client });
       log.append({ client, action, result, startedAt, durationMs: Date.now() - startedAt });
       return result;
     },

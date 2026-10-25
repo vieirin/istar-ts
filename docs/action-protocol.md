@@ -93,6 +93,60 @@ with validation left to the server's own UI feedback. `ActionResult` is this pac
 to that gap: every operation, in-process or over the transport, gets a typed, synchronous
 verdict.
 
+### `origin`: tagging a dispatch for its listeners
+
+`dispatch(action, { origin? })`'s `origin` is echoed back as `origin` on every
+`sourceModelChanged` and `setDirtyState` the action causes — each change of a `compound`, both
+events of an undo or redo — so a listener can tell which surface or client caused a change
+without tracking it itself (a session-wide "who's editing" variable, say). It's optional: a
+change dispatch didn't cause (a host's direct `store.load`) carries none. It survives a round
+trip through the transport (`createRemoteDispatcher` → `connectDispatcher`) and through a mirror
+(`createMirrorStore`'s own `dispatcher`), so a remote client sees the same `origin` its dispatch
+was given. `@istar-ts/react`'s `dispatcherFor(surface)` passes `origin: surface` (`'canvas'` /
+`'inspector'`); a `tagClient`-style wrapper (`examples/playground/src/lab/tagClient.ts`) passes
+its client tag the same way.
+
+```ts
+import { createModelStore, ISTAR_2_0 } from '@istar-ts/core';
+import { createActionDispatcher } from '@istar-ts/actions';
+import type { ModelSourceChangedAction } from '@istar-ts/actions';
+
+const store = createModelStore(undefined, { metamodel: ISTAR_2_0 });
+const dispatcher = createActionDispatcher(store);
+let seen: ModelSourceChangedAction | undefined;
+dispatcher.subscribe((action) => {
+  if (action.kind === 'sourceModelChanged') seen = action;
+});
+
+await dispatcher.dispatch(
+  { kind: 'createNode', elementTypeId: 'istar.Actor' },
+  { origin: 'canvas' },
+);
+// seen.origin === 'canvas'
+```
+
+### The local synchronous guarantee
+
+For a dispatcher returned by `createActionDispatcher` (a **local** one, over an in-process
+`ModelStore`), dispatching an operation, `glspUndo` or `glspRedo` applies it to the store and
+notifies every listener — `dispatcher.subscribe`, and the store's own subscribers — **before
+`dispatch`'s returned promise is even created to resolve**: guards, postGuards, the operation
+itself (and each operation of a `compound` one) all run synchronously inside the call to
+`dispatch`. Only `saveModel` awaits (it calls the host's `save` callback). So code that calls
+`dispatch(action)` without awaiting it, then immediately reads the store, already sees the
+result:
+
+```ts
+void dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Actor' });
+// store.getModel() already has the new actor — no `await` needed to observe it.
+```
+
+**This does not hold for a remote dispatcher or a mirror**: `createRemoteDispatcher` and
+`createMirrorStore`'s `dispatcher` always need at least one message round trip before a change
+is visible, even for an action that resolves synchronously on the other end. `origin` (above) is
+the portable way to correlate a dispatch with the changes it caused — it works the same whether
+the dispatcher is local, remote, or a mirror's.
+
 `options.guards?: ActionGuard[]` run before each operation (and each operation of a `compound`
 one, against the model as the previous ones left it). A guard returns `GoalDiagnostic[] | void`;
 `severity: 'error'` rejects the operation, other severities are returned alongside a

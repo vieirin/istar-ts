@@ -78,6 +78,27 @@ describe('connectDispatcher / createRemoteDispatcher', () => {
     unsubscribe();
   });
 
+  test('origin round-trips: given to the client, heard on the server-side notification', async () => {
+    const { client } = setup();
+    const received: IstarAction[] = [];
+    const unsubscribe = client.subscribe((action) => received.push(action));
+
+    await client.dispatch(
+      { kind: 'createNode', elementTypeId: 'istar.Quality', containerId: 'a' },
+      { origin: 'canvas' },
+    );
+
+    const changed = await vi.waitFor(() => {
+      const found = received.find(
+        (a): a is ModelSourceChangedAction => a.kind === 'sourceModelChanged',
+      );
+      expect(found).toBeDefined();
+      return found;
+    });
+    expect(changed?.origin).toBe('canvas');
+    unsubscribe();
+  });
+
   test('an unknown method answers a JSON-RPC error, not a hang', async () => {
     const { port2 } = setup();
     const response = await new Promise<{ error?: { code: number } }>((resolve) => {
