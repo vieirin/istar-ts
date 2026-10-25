@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.3
+## 0.15.0-beta.4
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -445,6 +445,19 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
   all or nothing, in `HANDLED_ACTION_KINDS` and `docs/action-protocol.md` (#199, #200).
 - **glsp:** `change-link-kind` MCP tool, next to `set-link-value`.
 - **playground:** `describeOperation` and the script console's templates cover both new kinds.
+- **actions:** `istar.updateModelExtra { set?, remove?, tool? }` sets or removes the model's own
+  top-level keys that core keeps in `model.extra` (e.g. a dialect's `metamodelVersion`), keeping
+  other extra keys and their order, and appending a new key where `toPistar` would place it;
+  `tool` sets or, with `null`, removes the model's own `tool` field in the same undo step. Both
+  `set`/`remove` reject a key core models itself (`actors`, `orphans`, `dependencies`, `links`,
+  `display`, `tool`, `istar`, `saveDate`, `diagram`) or `"metamodel"` (`istar.setFileMetamodel`'s
+  own). `istar.replaceModel { model, fileMetamodel? }` replaces the whole model from a piStar
+  save file as one undo step — ids, order and extra keys come from the given file, so a parse →
+  `toPistar` round trip of the result is byte-identical to it; parsed with `parsePistar` under
+  the dispatcher's own metamodel, with pre-guards and postGuards running against it like any
+  other operation, and a parse error rejecting with a typed diagnostic, model untouched. Both are
+  one undo step, in `HANDLED_ACTION_KINDS` and `docs/action-protocol.md` (#217, #218).
+- **playground:** `describeOperation` and the script console's templates cover both new kinds.
 - **actions:** `ActionDispatcherOptions.postGuards?: ActionPostGuard[]` run after each operation
   is applied (and after each operation of a `compound` one, plus once more on the compound's own
   result), inside the same `store.transaction`, seeing `(operation, modelAfter, modelBefore)`. An
@@ -487,6 +500,7 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
   (237 ids) the derivation takes 0.19 ms instead of 0.03 ms, and a drag or a create re-render is
   unchanged (about 20 ms and 26 ms in jsdom). Docs: `docs/glsp.md` ("One graph for both clients")
   and `docs/action-protocol.md`.
+- **actions:** removing an element's or link's last custom property with `istar.updateProperties` keeps `"customProperties": {}`, as piStar's exports do, instead of dropping the key (#219). An owner that never had the key stays without it.
 - **glsp:** `gmodelBounds` now builds its `modelToGModel` options with the same helper as
   `IstarGModelFactory`, so a contribution's `sizes` override (#154) is applied consistently to
   both; a host that overrides a kind's size no longer gets spurious `display` writes when moving
@@ -531,6 +545,7 @@ Added e2e test: palette refresh without remounting the client.
   the dispatcher sends them: a `createActionDispatcher` with `sendModel: true` now includes
   `canUndo` and `canRedo` fields in each `sourceModelChanged` notification, and a mirror reads
   them instead of counting notifications (#178).
+- **playground:** the start page's cards and the pages' back links are relative, so they work from the GitHub Pages subpath (https://vieirin.github.io/istar-ts/) instead of 404ing.
 - **gmodel:** new package `@istar-ts/gmodel`, a GLSP-free GModel builder (#164, G1 of #143).
   `modelToGModelSchema(model, { types, sizes })` returns plain GModel schema JSON (GLSP's wire
   shape, with its own types: no `@eclipse-glsp/*`, Sprotty, Inversify or React), and
