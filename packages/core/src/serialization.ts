@@ -181,7 +181,8 @@ const LINK_KEYS = new Set(['id', 'type', 'source', 'target', 'name', 'customProp
 const HUB_KEYS = new Set(['id', 'type', 'x', 'y', 'customProperties']);
 const HUB_ENTRY_KEYS = new Set(['hub', 'starts', 'end']);
 const DIAGRAM_KEYS = new Set(['width', 'height', 'name', 'customProperties']);
-const TOP_LEVEL_KEYS = [
+/** The top-level keys core models itself (`IstarModel`'s own fields); every other is `extra`. */
+export const TOP_LEVEL_KEYS = [
   'actors',
   'orphans',
   'dependencies',

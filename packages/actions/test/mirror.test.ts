@@ -101,6 +101,25 @@ describe.each([
     expect(text(mirror.getModel())).toBe(text(store.getModel()));
   });
 
+  test('a mirror follows istar.replaceModel', async () => {
+    const { store, connect } = serve(parsePistar(SMART_HOME), sendModel);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+    const replacement = JSON.parse(text(store.getModel()));
+    replacement.actors = [...replacement.actors].reverse();
+
+    const result = await mirror.dispatcher.dispatch({
+      kind: 'istar.replaceModel',
+      model: replacement,
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    await mirror.synced();
+    expect(text(mirror.getModel())).toBe(text(store.getModel()));
+    expect(JSON.parse(text(store.getModel())).actors.map((a: { id: string }) => a.id)).toEqual(
+      replacement.actors.map((a: { id: string }) => a.id),
+    );
+  });
+
   test('origin round-trips through the mirror dispatcher', async () => {
     const { connect } = serve(parsePistar(SMART_HOME), sendModel);
     const mirror = createMirrorStore(connect());

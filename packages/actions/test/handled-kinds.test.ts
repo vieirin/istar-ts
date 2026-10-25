@@ -105,6 +105,8 @@ describe('HANDLED_ACTION_KINDS', () => {
         elementTypeId: 'istar.ContributionLink',
       },
       'istar.setFileMetamodel': { kind: 'istar.setFileMetamodel', block: null },
+      'istar.updateModelExtra': { kind: 'istar.updateModelExtra', set: { x: 1 } },
+      'istar.replaceModel': { kind: 'istar.replaceModel', model: { actors: [] } },
       requestModel: { kind: 'requestModel', requestId: 'r1' },
       requestTypeHints: { kind: 'requestTypeHints', requestId: 'r2' },
       requestCheckEdge: {

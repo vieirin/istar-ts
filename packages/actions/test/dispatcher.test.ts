@@ -550,6 +550,142 @@ describe('operations', () => {
     expect(removed).toEqual({ ok: true, createdIds: [] });
     expect(toPistar(env.store.getModel())).not.toContain('"metamodel"');
   });
+
+  test('istar.updateModelExtra sets, changes and removes extra keys, keeping order, as one undo step', async () => {
+    const env = setup();
+    const before = env.store.getModel();
+
+    const set = await env.dispatcher.dispatch({
+      kind: 'istar.updateModelExtra',
+      set: { metamodelVersion: '1.0', vendor: 'acme' },
+    });
+    expect(set).toEqual({ ok: true, createdIds: [] });
+    const withExtra = env.store.getModel();
+    expect(withExtra.extra).toEqual({ metamodelVersion: '1.0', vendor: 'acme' });
+    expect(Object.keys(JSON.parse(toPistar(withExtra)))).toContain('metamodelVersion');
+
+    // Changing an existing key keeps its place; a removal is dropped entirely.
+    const change = await env.dispatcher.dispatch({
+      kind: 'istar.updateModelExtra',
+      set: { metamodelVersion: '2.0' },
+      remove: ['vendor'],
+    });
+    expect(change).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().extra).toEqual({ metamodelVersion: '2.0' });
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel().extra).toEqual({ metamodelVersion: '1.0', vendor: 'acme' });
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+  });
+
+  test('istar.updateModelExtra sets and removes the model-level "tool" in the same undo step', async () => {
+    const env = setup();
+    const originalTool = env.store.getModel().tool;
+
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.updateModelExtra',
+      tool: 'dsm3-goals',
+      set: { metamodelVersion: '1.0' },
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel()).toMatchObject({
+      tool: 'dsm3-goals',
+      extra: { metamodelVersion: '1.0' },
+    });
+
+    const removed = await env.dispatcher.dispatch({
+      kind: 'istar.updateModelExtra',
+      tool: null,
+    });
+    expect(removed).toEqual({ ok: true, createdIds: [] });
+    expect(env.store.getModel().tool).toBeUndefined();
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel().tool).toBe('dsm3-goals');
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel().tool).toBe(originalTool);
+  });
+
+  test('istar.updateModelExtra rejects keys core models itself, model untouched', async () => {
+    const env = setup();
+    for (const key of [
+      'actors',
+      'orphans',
+      'dependencies',
+      'links',
+      'display',
+      'istar',
+      'saveDate',
+      'diagram',
+    ]) {
+      const [d] = await expectRejected(env, {
+        kind: 'istar.updateModelExtra',
+        set: { [key]: 'x' },
+      });
+      expect(d).toMatchObject({ code: 'reserved-key' });
+    }
+    const [toolDiagnostic] = await expectRejected(env, {
+      kind: 'istar.updateModelExtra',
+      set: { tool: 'x' },
+    });
+    expect(toolDiagnostic).toMatchObject({
+      code: 'reserved-key',
+      message: expect.stringContaining('tool'),
+    });
+    const [removeDiagnostic] = await expectRejected(env, {
+      kind: 'istar.updateModelExtra',
+      remove: ['saveDate'],
+    });
+    expect(removeDiagnostic).toMatchObject({ code: 'reserved-key' });
+    const [metamodelDiagnostic] = await expectRejected(env, {
+      kind: 'istar.updateModelExtra',
+      set: { metamodel: { name: 'x' } },
+    });
+    expect(metamodelDiagnostic).toMatchObject({
+      code: 'reserved-key',
+      message: expect.stringContaining('setFileMetamodel'),
+    });
+  });
+
+  test('istar.replaceModel replaces the model as one undo step; undo restores it by identity', async () => {
+    const env = setup();
+    const before = env.store.getModel();
+    const replacement = parsePistar(toPistar(before));
+    const result = await env.dispatcher.dispatch({
+      kind: 'istar.replaceModel',
+      model: JSON.parse(toPistar(before)) as PistarFile,
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(toPistar(env.store.getModel())).toBe(toPistar(replacement));
+    expect(env.store.getModel()).not.toBe(before);
+
+    await env.dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(env.store.getModel()).toBe(before);
+  });
+
+  test('istar.replaceModel: a postGuard rejection leaves the model untouched', async () => {
+    const reject: ActionPostGuard = (operation) => {
+      if (operation.kind !== 'istar.replaceModel') return;
+      return [{ elementId: '', severity: 'error', message: 'nope' }];
+    };
+    const env = setup({ postGuards: [reject] });
+    const diagnostics = await expectRejected(env, {
+      kind: 'istar.replaceModel',
+      model: JSON.parse(toPistar(env.store.getModel())) as PistarFile,
+    });
+    expect(diagnostics).toEqual([{ elementId: '', severity: 'error', message: 'nope' }]);
+  });
+
+  test('istar.replaceModel: a parse error rejects with a typed diagnostic, model untouched', async () => {
+    const env = setup();
+    const [d] = await expectRejected(env, {
+      kind: 'istar.replaceModel',
+      model: { actors: [{ id: 'x' }] } as unknown as PistarFile,
+    });
+    expect(d).toMatchObject({ code: 'parse-error' });
+    expect(d?.message.length).toBeGreaterThan(0);
+  });
 });
 
 describe('istar.changeLinkKind: piStar parity (#199)', () => {
@@ -579,6 +715,34 @@ describe('istar.changeLinkKind: piStar parity (#199)', () => {
     });
     expect(result).toEqual({ ok: true, createdIds: [] });
     expect(JSON.parse(toPistar(store.getModel()))).toEqual(expectedJson);
+  });
+});
+
+describe('istar.updateModelExtra: piStar parity (#217)', () => {
+  // goal-controller's M2c (writeOptions) changes the model's `tool` and an extra key like
+  // `metamodelVersion` in one step. The saved file must be byte-identical to a hand-rewritten one.
+  test('changing "tool" and an extra key together matches a hand-rewritten file, undone in one step', async () => {
+    const path = join(import.meta.dirname, '../../../fixtures/dsm3/istar2-welcome.txt');
+    const text = readFileSync(path, 'utf8');
+    const initial = parsePistar(text);
+
+    const expectedJson = JSON.parse(text) as Record<string, unknown>;
+    expectedJson.tool = 'dsm3-goals-v2';
+    expectedJson.metamodelVersion = '2.0';
+
+    const store = createModelStore(initial);
+    const dispatcher = createActionDispatcher(store);
+    const before = store.getModel();
+    const result = await dispatcher.dispatch({
+      kind: 'istar.updateModelExtra',
+      tool: 'dsm3-goals-v2',
+      set: { metamodelVersion: '2.0' },
+    });
+    expect(result).toEqual({ ok: true, createdIds: [] });
+    expect(JSON.parse(toPistar(store.getModel()))).toEqual(expectedJson);
+
+    await dispatcher.dispatch({ kind: 'glspUndo' });
+    expect(store.getModel()).toBe(before);
   });
 });
 

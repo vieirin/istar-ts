@@ -77,5 +77,9 @@ export function templateFor(kind: IstarOperation['kind'], model: AnyIstarModel):
       return { kind, linkIds: [linkId], elementTypeId: 'istar.OrRefinementLink' };
     case 'istar.setFileMetamodel':
       return { kind, block: null };
+    case 'istar.updateModelExtra':
+      return { kind, set: { metamodelVersion: '1.0' } };
+    case 'istar.replaceModel':
+      return { kind, model: { actors: [] } };
   }
 }
