@@ -39,6 +39,35 @@ test.describe('GLSP client: iStar 2.0 shapes', () => {
     await expect(role).toHaveJSProperty('tagName', 'circle');
   });
 
+  test('an actor’s name label is centred on its circle, whatever its length (#120)', async ({
+    page,
+  }) => {
+    await page.goto('/glsp.html');
+
+    // `fixtures/pistar/welcome.txt`'s Agent and Role have names of very different lengths
+    // ("piStar tool v2.1.0" vs "Business Analyst"); both must centre the same way.
+    for (const kind of ['istar.Agent', 'istar.Role']) {
+      const actor = page
+        .locator(`.pg-glsp-diagram [data-svg-metadata-type="node:${kind}"]`)
+        .first();
+      const circle = actor.locator('> .sprotty-node').first();
+      const label = actor.locator('text').first();
+      await expect(circle).toBeVisible();
+      await expect(label).toBeVisible();
+
+      const circleBox = await circle.evaluate((el: SVGGraphicsElement) => {
+        const b = el.getBoundingClientRect();
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      });
+      const labelBox = await label.evaluate((el: SVGGraphicsElement) => {
+        const b = el.getBoundingClientRect();
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      });
+      expect(Math.abs(labelBox.x - circleBox.x)).toBeLessThanOrEqual(2);
+      expect(Math.abs(labelBox.y - circleBox.y)).toBeLessThanOrEqual(2);
+    }
+  });
+
   test('a dependency link draws the "D" marker', async ({ page }) => {
     await page.goto('/glsp.html');
 

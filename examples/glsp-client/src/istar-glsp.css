@@ -88,6 +88,14 @@
   stroke: var(--istar-glsp-node-stroke);
   stroke-width: 1.5px;
 }
+/* An actor's name label (`packages/glsp/src/gmodel.ts`'s `ACTOR_LABEL_CSS_CLASS`) sits at the
+   symbol circle's centre; `.sprotty text` already centres it horizontally
+   (`glsp-sprotty.css`'s `text-anchor: middle`), but `SLabelView` renders a plain `<text>` with
+   no `y`, so the glyphs' alphabetic baseline — not their middle — sits on that point. This
+   centres it vertically too, independent of the text's width or length (#120). */
+.istar-glsp-actor-label {
+  dominant-baseline: middle;
+}
 .istar-glsp-marker {
   fill: none;
   stroke: var(--istar-glsp-link-stroke);
