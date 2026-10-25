@@ -230,6 +230,37 @@ one end of a `MessageChannel` and dispatches `createNode` actions over it with
 `connectDispatcher`, so the nodes the worker asks for land in the real model, each its own undo
 step.
 
+### A model held elsewhere
+
+When the model lives in a worker, behind a GLSP server or on a server, all the page has is a
+remote `ActionDispatcher`. Render it through a mirror store (`createMirrorStore` from
+`@istar-ts/actions`): a read-only `ModelStore` that follows the remote, and give the provider
+the mirror and its dispatcher:
+
+```tsx
+import { createMirrorStore } from '@istar-ts/actions';
+import { connectWorkerDispatcher } from '@istar-ts/glsp/page';
+import { IstarCanvas, IstarInspector } from '@istar-ts/react';
+
+const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+const mirror = createMirrorStore(connectWorkerDispatcher(worker), { metamodel });
+
+export function Remote() {
+  return <IstarCanvas store={mirror} dispatcher={mirror.dispatcher} aside={<IstarInspector />} />;
+}
+```
+
+Everything the canvas and the inspector do is then an action to the remote; the mirror shows
+the remote's model, and every client's edits, in the remote's order. `mirror.dispatcher`
+resolves a `dispatch` only once the mirror shows its change, so selecting a created id, rolling
+back a rejected one and the ids the canvas picks for what it creates work as they do in-process.
+(A remote created with `sendModel`, as `startIstarGlspWorker`'s is, already has that order, so
+the plain remote works too.) Undo/redo are the remote's one stack. The mirror refuses direct
+mutation: a host's own store calls must become actions. See the mirror's section in the
+[`@istar-ts/actions` README](https://github.com/vieirin/istar-ts/tree/main/packages/actions#mirror-store)
+for how updates travel and what they cost. The playground's `/both.html?server=worker` shows it:
+the canvas and the stock GLSP client on one model in a Web Worker.
+
 ## Extensions and the element registry
 
 Out of the box the editor is a plain piStar: `defaultRegistry` knows the iStar 2.0 elements and

@@ -5,4 +5,5 @@ export * from './actions';
 export * from './dispatcher';
 export * from './hints';
 export * from './markers';
+export * from './mirror';
 export * from './transport';

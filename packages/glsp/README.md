@@ -187,6 +187,11 @@ const dispatcher = connectWorkerDispatcher(worker); // posts { kind: 'istar.disp
 await dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'istar.Goal', location });
 ```
 
+Every `sourceModelChanged` on that port carries the new model (the dispatcher's `sendModel`), so
+a React Flow canvas in the page renders it through a mirror store, with no local copy to sync:
+`createMirrorStore(dispatcher)` from `@istar-ts/actions` (see `@istar-ts/react`'s README, "A
+model held elsewhere", and the playground's `/both.html?server=worker`).
+
 Built with Vite (`test/vite-build.test.ts`), the worker chunk is about 534 kB minified (135 kB
 gzip); the page's `@istar-ts/glsp/page` code is under 2 kB.
 
@@ -202,9 +207,10 @@ serveIstarGlsp(port2, { shared: { store, dispatcher } }); // the canvas's own st
 
 One call per GLSP client. **This is the route for a page that shows a React Flow canvas and a
 stock GLSP client side by side** (#85): `<IstarCanvas>` renders from a `ModelStore` in the page,
-so sharing that store with the GLSP server needs no syncing at all. The worker route would leave
-the page with only a remote dispatcher and no store for the canvas to render. The cost is the
-GLSP server on the page's main thread, on that page only.
+so sharing that store with the GLSP server needs no syncing at all. The cost is the GLSP server
+on the page's main thread, on that page only. The worker route moves it off the main thread; the
+canvas then renders a mirror of the worker's model (`createMirrorStore`), at a re-parse per
+change (about 3 ms on the largest fixture).
 
 ### In Node: `@istar-ts/glsp/node`
 

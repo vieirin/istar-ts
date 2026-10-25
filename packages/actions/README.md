@@ -65,3 +65,40 @@ This frames one JSON-RPC method per action kind, not yet GLSP's own five-method 
 (`initialize`/`initializeClientSession`/`process`/`disposeClientSession`/`shutdown`); see
 [`docs/action-protocol.md`](https://github.com/vieirin/istar-ts/blob/main/docs/action-protocol.md)
 for the GLSP mapping, the gap, and [#44](https://github.com/vieirin/istar-ts/issues/44).
+
+## Mirror store
+
+`createMirrorStore(remote)` is a read-only `ModelStore` whose model follows a dispatcher that
+lives elsewhere (a worker, a server, a `createRemoteDispatcher` port), so anything that renders a
+`ModelStore` (`<IstarCanvas>`, the inspector) can show it:
+
+```ts
+import { createActionDispatcher, createMirrorStore } from '@istar-ts/actions';
+
+// Where the model lives: push the model with each change (`sendModel`), then serve it.
+connectDispatcher(port, createActionDispatcher(store, { sendModel: true }));
+
+// In the page:
+const mirror = createMirrorStore(createRemoteDispatcher(otherPort), { metamodel });
+await mirror.ready; // the first `requestModel` answered
+await mirror.dispatcher.dispatch(action); // resolves once the mirror shows the change
+```
+
+- **Updates.** It asks for the model once (`requestModel`), then follows `sourceModelChanged`.
+  With `sendModel`, the notification carries the new model as `newRoot` (piStar JSON) and the
+  mirror applies it as it arrives; without it, the mirror answers each notification with a
+  `requestModel`. The update is the whole file, re-parsed: on the largest fixture (smartHome, 237
+  ids, 48 KB of JSON) a pushed update costs about 3 ms (`toPistarObject` 0.3 ms, the structured
+  clone 0.5 ms, `parsePistar` 2.2 ms), a re-requested one about 7 ms over a `MessageChannel`. An
+  element, link or diagram equal to the one it replaces keeps its old object, and so does the
+  metamodel while the file's `"metamodel"` block is unchanged.
+- **Order.** Changes apply in the order the remote sends them, whoever made them.
+  `mirror.dispatcher` is the remote with one guarantee added: `dispatch` resolves after the mirror
+  shows what the action did, so code that selects a created id, or rolls back a rejected one,
+  sees the model it expects. With a `sendModel` remote the plain remote already has that order (a
+  change's notification arrives before its result). A rejected action changes nothing, mirror
+  included.
+- **Writes.** Every mutation (`addElement` … `replace`, `load`, `transaction`, `clearHistory`)
+  throws a `ModelOperationError`: dispatch to the remote. `undo`/`redo` dispatch `glspUndo` /
+  `glspRedo`, so there is one undo stack, the remote's. `canUndo`/`canRedo` are counted from the
+  notifications heard since the mirror connected; earlier edits aren't counted.
