@@ -48,7 +48,8 @@
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "prepack": "cp ../../LICENSE . && pnpm build"
+    "prepack": "cp ../../LICENSE . && pnpm build",
+    "evaluate": "tsx scripts/evaluate.ts"
   },
   "dependencies": {
     "@istar-ts/actions": "workspace:^",
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@istar-ts/glsp": "workspace:^",
-    "@modelcontextprotocol/sdk": "^1.32.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "tsx": "^4.20.6"
   }
 }

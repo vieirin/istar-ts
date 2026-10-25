@@ -105,3 +105,25 @@ cache hits and reasoning tokens), the cost, and the stop reason. The API key liv
 `createChatClient`'s closure; the `ChatClient` object has no field holding it and the loop records
 only `client.model`, so a transcript cannot contain the key. An API error's body is redacted of
 the key before it reaches `stop.message`.
+
+## Evaluation runner
+
+`scripts/evaluate.ts` (#126 D5, #132) is a headless script, not a vitest suite: it runs the loop
+over `fixtures/` under controlled task families (retrieval, modification, large-model against
+`smartHome.txt`'s 237 ids, conflict) × conditions (Text, Actions with no guards, Actions with
+the shield), 5 fresh runs each, and writes a JSON and markdown report of the level-7 evaluation
+metrics (precision/recall, syntactic/semantic errors, rejections caught, a destroyed model,
+tokens, wall-clock time, cost). It needs a real provider key and is never run in CI:
+
+```sh
+DEEPSEEK_API_KEY=sk-... pnpm --filter @istar-ts/agent evaluate -- --out report.json
+```
+
+`--base-url`, `--model`, `--api-key-env`, `--backend` (`A` or `B`, default `B`) and `--runs`
+(default 5) are configurable (#126 §6's note about re-running a baseline against a different
+model). Backend A's shield condition is reported `pending` rather than run, until #136 (#129, D2)
+lands: a guard's rejection over MCP still throws client-side before the model reads its typed
+diagnostics. `evaluate.ts`'s modules (`eval-tasks.ts`, `eval-conditions.ts`, `eval-metrics.ts`,
+`eval-runner.ts`, `eval-report.ts`) have a vitest suite (`test/evaluate.test.ts`) covering the
+harness plumbing — task definitions, metric aggregation, the Text condition's parse check — with
+a mock chat server, no key.
