@@ -295,7 +295,9 @@ A host plugs in what the agent needs beyond the metamodel (free-text help, a not
 values, an external validator) through two more `mcp` options, the same on every launcher
 (`startIstarGlspServer`, `serveIstarGlsp`, `startIstarGlspWorker`), #175. Both are
 `@istar-ts/actions` types — opaque data plus a handler, nothing dialect-specific — so the same
-values also go to `@istar-ts/agent` (its README, "Host extensions"):
+values also go to `@istar-ts/agent` (its README, "Host extensions"). **Host tools need zod 4.2
+or later** (`z.fromJSONSchema`): the `zod` peer range is `^4.2.0`, and with an older zod
+registering a host tool fails with an error saying so:
 
 ```ts
 import type { HostContextProvider, HostTool } from '@istar-ts/actions';

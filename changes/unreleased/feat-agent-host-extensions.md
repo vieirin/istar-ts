@@ -6,7 +6,8 @@
   worker): host tools become session-scoped diagram tools next to the istar ones, through the
   session's dispatcher (guards, one undo stack; a refusal is the usual typed `rejected` error),
   and context providers session-scoped resources (`glsp://diagrams/{sessionId}/context/<name>`).
-  Resources server-mcp lists as tools are now marked `readOnlyHint: true` (#175).
+  Resources server-mcp lists as tools are now marked `readOnlyHint: true`. Host tools need zod
+  4.2 or later (`z.fromJSONSchema`): the `zod` peer range is now `^4.2.0` (#175).
 - **agent:** `runAgent`'s `context` and `getModel` add the host's providers to the system prompt
   as sections after `system` (`systemPromptWith`); `createActionToolRegistry` and
   `createActionChangeSet` take `hostTools`, and Propose mode replays what a host tool dispatched
