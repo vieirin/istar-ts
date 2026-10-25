@@ -18,6 +18,14 @@ Versions are published from GitHub release tags; see the release notes for full 
   own dispatcher its real `PaletteDescription` (`KAOS_OBSTACLES_PALETTE`, `NFR_PALETTE`) instead
   of one reconstructed from the registry; `paletteDescriptionFromRegistry` is still the fallback
   for an extension (or a bare registry) without one.
+- **playground:** fix `/both.html`'s React canvas pane occasionally rendering at width 0 (#173).
+  `BothApp`'s aside (action log + agent panel) was two unbounded flex items sibling to
+  `.istar-canvas-flow`; once the log's nowrap+ellipsis row (`ActionLog.tsx`) logged a long
+  action, its full un-truncated text became the aside's content-based minimum width, which can
+  grow without bound and squeeze the canvas to 0 in `/both.html`'s half-width layout. Wrapping
+  the aside in one `.pg-both-aside` container with `overflow: auto` and a bounded width — the
+  same pattern `/react.html`'s `.pg-aside` already used — opts back into flexbox's "automatic
+  minimum size is 0" rule, so the aside shrinks instead of the canvas.
 - **playground:** fix the agent drawer's Propose mode over backend A: an `undo`/`redo` MCP tool
   call on the scratch session is now mirrored into the recorded change set (#163). A successful
   `undo` moves the last active step onto a redo list (so it drops out of the review and of what
