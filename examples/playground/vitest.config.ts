@@ -8,6 +8,9 @@ export default defineConfig({
       '@istar-ts/actions': fileURLToPath(
         new URL('../../packages/actions/src/index.ts', import.meta.url),
       ),
+      '@istar-ts/gmodel': fileURLToPath(
+        new URL('../../packages/gmodel/src/index.ts', import.meta.url),
+      ),
       '@istar-ts/react': fileURLToPath(
         new URL('../../packages/react/src/index.ts', import.meta.url),
       ),

@@ -4,6 +4,12 @@ exports[`modelToGModel > a small iStar model 1`] = `
 {
   "children": [
     {
+      "args": {
+        "customProperties": {
+          "Description": "",
+        },
+        "kind": "istar.Actor",
+      },
       "children": [
         {
           "alignment": {
@@ -23,6 +29,12 @@ exports[`modelToGModel > a small iStar model 1`] = `
           "type": "label",
         },
         {
+          "args": {
+            "customProperties": {
+              "Description": "",
+            },
+            "kind": "istar.Goal",
+          },
           "children": [
             {
               "alignment": {
@@ -53,6 +65,12 @@ exports[`modelToGModel > a small iStar model 1`] = `
           "type": "node:istar.Goal",
         },
         {
+          "args": {
+            "customProperties": {
+              "Description": "",
+            },
+            "kind": "istar.Task",
+          },
           "children": [
             {
               "alignment": {
@@ -96,6 +114,9 @@ exports[`modelToGModel > a small iStar model 1`] = `
       "type": "node:istar.Actor",
     },
     {
+      "args": {
+        "kind": "istar.AndRefinementLink",
+      },
       "children": [],
       "cssClasses": [],
       "id": "fc14e533-6237-4d6a-9128-3c56d70852ef",

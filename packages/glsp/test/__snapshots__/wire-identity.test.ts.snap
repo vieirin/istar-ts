@@ -1,0 +1,422 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the GModel on the wire > is unchanged for every fixture, on open and after a move 1`] = `
+{
+  "dsm3/istar2-welcome.txt": {
+    "setModel": "53c92e03128f4fb04c4eb51e1e3b3f606e3fd4c92a05d375614730d52473a389",
+    "updateModel": "498432521f15abd48d32c89e068eecfc02eb7bb37c0f716a385a0c4af32abd81",
+  },
+  "dsm3/kaos-las.txt": {
+    "setModel": "87e48ad4ed35176e02416ec3278a4155a1f8cf482bb690faeec2a9b44bc3d543",
+    "updateModel": "7e7041d5547d5656d26c69666c32fc6a881bbd4cc9d26c780fc9a7443749809a",
+  },
+  "dsm3/kaos-welcome.txt": {
+    "setModel": "edbd789d7e84659b47165478479dd2782c48f654f8f12794652e891b318d35e4",
+    "updateModel": "97feb9d9f4c292621e0e593b90c42d1b6e102177f5467811064d2fce560d44c9",
+  },
+  "dsm3/nfr-welcome.txt": {
+    "setModel": "62ad3f78423f280da215eff58cdd6396017a29a80aa9ae523902388eec9ea632",
+    "updateModel": "06bf00a13f0a9f1b80f46bd3e3f568d5a8a302b2dde00a924bf08bf1142c8543",
+  },
+  "extensions/fileMetamodel.txt": {
+    "setModel": "1f78d6bdf5dd160c5756d9a5c438583986ff70e9c3464d5ac4afc37e9533e05f",
+    "updateModel": "879b8354789de562e3dfa652db711b04a0183fc5986d090ac934ffb02692e310",
+  },
+  "extensions/rationalAgents.txt": {
+    "setModel": "4b6c2f173ce94a7d1016c4b598a4d3d422de37bb01b86a7eb537547ecac81e65",
+    "updateModel": "ef96e7cf094d54ab2508ad314b480b2eae2b95a173ecdc47ce8be6966cda3cc6",
+  },
+  "goal-controller/dissertationExamples/dualGoal.txt": {
+    "setModel": "118a5d9436f4718ad773035270741e4187b5b681e42a4bc096792aef8cb6df9c",
+    "updateModel": "fbcb4b6dde79f72572ddb03a0a2e658aef94931549192ec17a437394d6c3c04f",
+  },
+  "goal-controller/dissertationExamples/dualGoalOr.txt": {
+    "setModel": "9d689416fefbcba8ff87f513c536104550fe51d5c068661cdecb479bf9b15c36",
+    "updateModel": "6b16cb24b139c2e3d6bd97f4ec7c3935eaca86b2ea2b89154b5f90bf5c2543ce",
+  },
+  "goal-controller/dissertationExamples/dualGoalOrAlt.txt": {
+    "setModel": "214248e61b2bf8c95ff9eab2d8ce1c2c7b3fccdba7ad7051242e67a92bec5882",
+    "updateModel": "9cf0108a09862508232f8d222bccefee81ef7c4addd7f8079323dd1c0945814d",
+  },
+  "goal-controller/dissertationExamples/dualGoalOrAlternative.txt": {
+    "setModel": "f0a57e1b9d019fa74c7a8187a9658620cd0db8faa1bbf670568f89080dd23a82",
+    "updateModel": "95f4e4b52d8d601f3c0ee502d35b5c8735ad2b1f93d91f21fa1e2221c10d353e",
+  },
+  "goal-controller/dissertationExamples/dualGoalOrAlternativeRetry.txt": {
+    "setModel": "5df7f8dd93c9dfea43df133004b72985377d8591b6d89bf3e22f71ff988d4bbd",
+    "updateModel": "03159247bbc44d6f38ff49f186e108d594526884157d4a8c1fc2bfa855395633",
+  },
+  "goal-controller/dissertationExamples/dualGoalOrAny.txt": {
+    "setModel": "00e2d927e9052db9f449041869430a86eaa0a3024d072fbf28e18729e9c7cd7c",
+    "updateModel": "5a1632c1590cfcfa7ea559bd43d0ecd137a99479fe75630b5f462ab93bab3a7e",
+  },
+  "goal-controller/dissertationExamples/dualTaskDegradation.txt": {
+    "setModel": "832e4bd3d5e154192bd0080f4ed4cb8d652c187a282db3bd274d0444ce17f013",
+    "updateModel": "91461f3aac6e95369205151cebd6f98d75a26ce69559cb0580eee279a9861651",
+  },
+  "goal-controller/dissertationExamples/goalModel TAS 1.txt": {
+    "setModel": "ad52aa9d88e81b3c3196c985ff7b97cc0c3463991effdd685932a05287d350aa",
+    "updateModel": "dd8c76025f515c15fd56279c210c5a4cb9381dd74f0b68743dc22c8e0cd9ed82",
+  },
+  "goal-controller/dissertationExamples/goalModel TAS 2.txt": {
+    "setModel": "f80533a819d0b6b242d2446dde385067cbb47b915d6246fce61863372a1a2439",
+    "updateModel": "71dfa509dab235a35fd5443c99ecdc669cc79ebe2a1ee44b6a63d2dfd275c7ea",
+  },
+  "goal-controller/dissertationExamples/goalModel(16).txt": {
+    "setModel": "843b13da2badd3944f69eea6cefb1ce77b52a39b443df4ef3635509aa8244d01",
+    "updateModel": "acdb4a83177f6d8ba38aa9d4445ed7b8ba2f8d3636603999118bcc8d17e76ab3",
+  },
+  "goal-controller/dissertationExamples/goalModelTAS_new.txt": {
+    "setModel": "cde4472002d3089e2ee4bf08b4181fac9567681e1860b98fea2ee2f09d04970b",
+    "updateModel": "b9c4ffd998c9600b615f21df50d70b910d27918cd7657be2ddeb61e84dc59be1",
+  },
+  "goal-controller/dissertationExamples/interleaved.txt": {
+    "setModel": "3329bcc16e9f1d9edb1766dc1c055f32392abd3c2ec6986f393c22123ef159eb",
+    "updateModel": "0c6a96ce8b0bb7cc0ec300b2f40789bd201fa415e379bb18d5a2483d9f236bca",
+  },
+  "goal-controller/dissertationExamples/labSamples.txt": {
+    "setModel": "72ab7bacef7ac369ea0b2573ce1a25cb408577a52589ea07be4559b460dc998a",
+    "updateModel": "937730a7df322ab7b143178e98d961896fc7666c429832492c1c91dd8791ab58",
+  },
+  "goal-controller/dissertationExamples/simplemaintain.txt": {
+    "setModel": "991cce814cdcc6d3fdbbbf8dfc5c7b36ef9adaac998b2ad2272cc6e479892780",
+    "updateModel": "95e6a6f1ded46fcd257dc9c9f972c335734cd3d0376ec3a28338e69f4bc5c855",
+  },
+  "goal-controller/dissertationExamples/simplemaintain1.txt": {
+    "setModel": "5246b7c2d49e3a76cd7abe8dd59a4f0636f6ce970bf4e5b75181947ff3ad4e5d",
+    "updateModel": "83c64357656d29144f4faa66f16403908a2a7badb5530c8f4aff43bc55e880a5",
+  },
+  "goal-controller/dissertationExamples/singleGoal.txt": {
+    "setModel": "ca9360abaf8e7fd587cfccf88b82ab7cb805c49ac9f2fb3ddbcb75f94c9330a1",
+    "updateModel": "13cb556c812537c0718791d1a7521370560b3ca78c501d7f68941fed918f9c84",
+  },
+  "goal-controller/examples/edge/anotherSimple.txt": {
+    "setModel": "067b36c18ccbb930ad027c8b23021fc9ecf5c197d82c75272d5eac6702fcdd6c",
+    "updateModel": "c0e85f423c126c13f13fc579092a3f37bd5a946ca449c8bc66bf352668c5004f",
+  },
+  "goal-controller/examples/edge/experiments/1-minimal.txt": {
+    "setModel": "f575c10fdf128620043139941df412658b3929841f27c0134dbf7cde49c8756d",
+    "updateModel": "cb37e800efe3f95addefe6d733dac5892a754091dce92ed82514053411a6c4ea",
+  },
+  "goal-controller/examples/edge/experiments/10-minimalMaintainResource.txt": {
+    "setModel": "dafe6a61b21aa22d1e40726f0bb4b54b48e181aaeb90cd241729e9f2ef38d41a",
+    "updateModel": "ab67c8ecc9c5d4fd670033990a21a3616e96fb0f3a1dbfa74a98f025a02a8922",
+  },
+  "goal-controller/examples/edge/experiments/2-OrVariation.txt": {
+    "setModel": "e962f449c88b9821a93d818d9cb6b4d8a325165b0de06406c7fae1889b4a645e",
+    "updateModel": "cfde84ab7df549bd62072d3cf79eccb875a00f1713b4bbf3a3a0de5d5be2e747",
+  },
+  "goal-controller/examples/edge/experiments/3-interleavedPaltPseq.txt": {
+    "setModel": "22fc39940935e370d194761c5f00c64e500556882da6085060b247f2c94c67d6",
+    "updateModel": "3ff7ff7fe3260ae47920ef003e1a72c73752545aa7116cbe96df5a187321f2c1",
+  },
+  "goal-controller/examples/edge/experiments/4-interleavedChoicePDegradation.txt": {
+    "setModel": "d57340237366680236f6ea3fe71684f0c2d59aa4eddd454565b868091cf983c4",
+    "updateModel": "8fe96391b6df62d1e14c24b17cf713afc5c34835e035e2464e1f41534078d3e3",
+  },
+  "goal-controller/examples/edge/experiments/5-allAnnotations.txt": {
+    "setModel": "d31ecbc2dc9ea8e65af009054c7a800cc6940ba163b6b749ac264d35cded920c",
+    "updateModel": "88f502a729834aeb1ce49e858f2d579032963bf915a4074ef535482977c08deb",
+  },
+  "goal-controller/examples/edge/experiments/6-allnotationsReduced.txt": {
+    "setModel": "742312b76ac5d303d393c0568025d9dc1dbb0828a025a4fbc3bc526ed3232ce1",
+    "updateModel": "fac4a31195c6d35d2fa4206e14a5c30956d9a145b346f33c18e5935b3dc8a27c",
+  },
+  "goal-controller/examples/edge/experiments/7-minimalAll.txt": {
+    "setModel": "a99b316a2233d0cc02b27a9859c6f34fc2973f107b1b0bc09960406352aa9561",
+    "updateModel": "5205492c4027d17ccd99ff878a15783d6e59e11a98b6b3dbe2a23ed80c0d0827",
+  },
+  "goal-controller/examples/edge/experiments/8-minimalMaintain.txt": {
+    "setModel": "99a2656db234b89e4108e7560b94662a262c8275e640129300608d7ff54a5f77",
+    "updateModel": "c49f5a0147531f7fa89a68f67a7d62c73286bce6682aa82de23cdaa62de9c0aa",
+  },
+  "goal-controller/examples/edge/experiments/9-minimalMaintainContext.txt": {
+    "setModel": "99a2656db234b89e4108e7560b94662a262c8275e640129300608d7ff54a5f77",
+    "updateModel": "c49f5a0147531f7fa89a68f67a7d62c73286bce6682aa82de23cdaa62de9c0aa",
+  },
+  "goal-controller/examples/edge/experiments/goalModel_TAS_3.txt": {
+    "setModel": "74f2848b76013a1881d29a7c49f64c10c7ec18b3f0776dbaa6b89d4f3f7d5280",
+    "updateModel": "562323715cf891fcfecb17588cb78ebf1d0637f0fc24aaa9c7eeee55bdead0f0",
+  },
+  "goal-controller/examples/edge/experiments/labSamplesWithSideEffect.txt": {
+    "setModel": "afca4cbc1f6e984d7dc9029790126f88e8400f570fd8072ca84bb2af8d8fb811",
+    "updateModel": "69a903dd5301a290e7f2aebe87b3db0b0d6ab49a12167daa0d573411f47555f8",
+  },
+  "goal-controller/examples/edge/goalModel_TAS_3_.txt": {
+    "setModel": "74f2848b76013a1881d29a7c49f64c10c7ec18b3f0776dbaa6b89d4f3f7d5280",
+    "updateModel": "562323715cf891fcfecb17588cb78ebf1d0637f0fc24aaa9c7eeee55bdead0f0",
+  },
+  "goal-controller/examples/edge/labSamplesWithSideEffect_.txt": {
+    "setModel": "afca4cbc1f6e984d7dc9029790126f88e8400f570fd8072ca84bb2af8d8fb811",
+    "updateModel": "69a903dd5301a290e7f2aebe87b3db0b0d6ab49a12167daa0d573411f47555f8",
+  },
+  "goal-controller/examples/edge/simpleAlternative.txt": {
+    "setModel": "1698fc90f2ca6ff054cacc769c509f1a7be2ba20e8d51c86458fe0ea1c901c6d",
+    "updateModel": "9a320e24a7a83f6c6d462b303c0f9e23998e6b3d2e480ed8a803834e61a5e7a6",
+  },
+  "goal-controller/examples/edge/simpleChoice.txt": {
+    "setModel": "33b3646fb7841c298ece34f860f1df15a202a21a21800cd3f08091354b8cd711",
+    "updateModel": "f1329f07105ac5064886f8afb4382545e6fac6f5477f4f5ec7450ea286f034cc",
+  },
+  "goal-controller/examples/edge/simpleDegradation.txt": {
+    "setModel": "3d056daa127a9a0323d4cf149c2f297c91342324c8f6d044bb47afe4bed576e4",
+    "updateModel": "1913242036bcc98d4b134b6353e5e609101f064d612d358b350733d20d921fa3",
+  },
+  "goal-controller/examples/edge/simpleInterleaved.txt": {
+    "setModel": "44b6f6bc27129fe6068e7219854843d44e42a3aa7ecf471c278f3b21be8481c4",
+    "updateModel": "4950de90c9434cab7964eb200b925888f504cd2070c32ecfaf3a5d24ea1f5e54",
+  },
+  "goal-controller/examples/edge/simpleMaintain.txt": {
+    "setModel": "7d63032e082bafa160a74af89e859ff03f90b544dad527091795062ce864defe",
+    "updateModel": "9eab7088639829f85524e7254766710ffd7a93cdc97d76accff19ffd25254e6f",
+  },
+  "goal-controller/examples/edge/simpleSequential.txt": {
+    "setModel": "e08c16762149a6fad56a2e3692307ca713085c58dbf8232612e8847f90fc55eb",
+    "updateModel": "1ed24bb857606add8c7da9e085a9aab922ff893179c91a091ad1bcd98e6b457b",
+  },
+  "goal-controller/examples/edgeV2/experiments/10-minimalMaintainResource.txt": {
+    "setModel": "c9a15f9467d03d741f4123e0793dbd12ce4fa96ec55819978d9f5f21f4c6d60f",
+    "updateModel": "1b4d0e9647e8a7d2363bb7ce05bc056061e86a65aa15ab406c7d759f1dd8e215",
+  },
+  "goal-controller/examples/edgeV2/experiments/4-interleavedChoicePDegradation.txt": {
+    "setModel": "e66a65ae47495ad4c39ac55edfd9bd82cac92313781f80f4f35b6973b6231723",
+    "updateModel": "9515b1d0632e9103aacf76d44002095d85aae681d899c9f48eee8eb1826be008",
+  },
+  "goal-controller/examples/edgeV2/experiments/5-allAnnotations.txt": {
+    "setModel": "c2eaafb5d3647a44ff8716b4894ad06b795c50bc36f9652b2189817d4acd47f4",
+    "updateModel": "ecff05ff3da5d03166dfcabb5e37c630c927fe2433166395538ec1b8f3495493",
+  },
+  "goal-controller/examples/edgeV2/experiments/6-allnotationsReduced.txt": {
+    "setModel": "49f266f7f0d83137b60fcc2dd076790a36885272374fd3dbf9e00ac96cdfebd1",
+    "updateModel": "14a3382e3fb0c9244d1f0d7568d24587d6060629b8261f9f954778a1eee9f24a",
+  },
+  "goal-controller/examples/edgeV2/experiments/7-minimalAll.txt": {
+    "setModel": "9068b702987f8f2936e557f82793938479634bb4f072c744489e3e5dedbbe331",
+    "updateModel": "e463eb0b0f120d71f51485fc0e1f8e63c3bdfef5325ad4dcc6a884336d69bace",
+  },
+  "goal-controller/examples/edgeV2/experiments/8-minimalMaintain.txt": {
+    "setModel": "258ebccec7e5a4ff42905bb4eff57534603321f9dcf2d6726f21cea4794ca76b",
+    "updateModel": "687e606509d7b35fb35b0df9197ad1f80b7ecc0937d04eb1fea9caad1335a06a",
+  },
+  "goal-controller/examples/edgeV2/experiments/9-minimalMaintainContext.txt": {
+    "setModel": "258ebccec7e5a4ff42905bb4eff57534603321f9dcf2d6726f21cea4794ca76b",
+    "updateModel": "687e606509d7b35fb35b0df9197ad1f80b7ecc0937d04eb1fea9caad1335a06a",
+  },
+  "goal-controller/examples/edgeV2/experiments/goalModel_TAS_3.txt": {
+    "setModel": "c33d02666bd2d03c3d0bb22b5f1745c02dc203e01c889ba1da981298ee4c2111",
+    "updateModel": "d36ad2ba79ad63df9b4a55e4f67ea1fb3583cb245acc68420543cfccbb9acbe2",
+  },
+  "goal-controller/examples/edgeV2/experiments/labSamplesWithSideEffect.txt": {
+    "setModel": "52082a70c4a1443eeaa97e0fb00d997fed9c0a94166e4736b1475b4ebb86b42c",
+    "updateModel": "681086c8dcf97885a525f3db2b9246c5d0355fb684e1d3a06e66dde73a27d320",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_000/goal.txt": {
+    "setModel": "97d57b4fafacff75fb91f1f190755a185fd13a7fa2cadeb1b38fb211c24c0b67",
+    "updateModel": "f6affe6a0c8fee5e396924958521dd38bf02a945112792f860512744b36d6ba8",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_001/goal.txt": {
+    "setModel": "67021c44684e57e40610516b8c1cd004fd43db203bf5a883eb9c076cd9e41a83",
+    "updateModel": "3cc4832507c9d01b57c63139f2903eb11b6338d8db5516467a1fa22d3a2d6c0c",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_002/goal.txt": {
+    "setModel": "dec6e0996e11c72177661d0f51f54b361417962120dfac23911e408136c5f316",
+    "updateModel": "ec4fe8fc1ff72d7f0b57fd9e1866a8fcebcf12475c7b791b73b12dc5a1c07c74",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_003/goal.txt": {
+    "setModel": "7ed73eb935168208a1bc7f8d9095e896e9366e177587822b05c434ea4b1f9526",
+    "updateModel": "f7cc2ea17d789dcfeb3f9aefd0eac660aceda2046771e6a808315478e356d95f",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_004/goal.txt": {
+    "setModel": "4cb89ca6ecd0105373907d896262ec16a8b212ae90c7cae7a283804fd12fe923",
+    "updateModel": "3e430cecf4d812bd9d6932d6b47883013866c36bb81f4f76b7829ac08d303d51",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_005/goal.txt": {
+    "setModel": "6dc828648c0b76761acf77eacd73aba2cdb8fbd361fefe72398a148e6393734c",
+    "updateModel": "bba33fda6689f263a76b3b62677da27a3cf7461e89fdd1c247a4e77de70b0057",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_006/goal.txt": {
+    "setModel": "046b13f60f45173e922969a497247a688adfc18f2b15a4b50e92d0fa6c7e3bfe",
+    "updateModel": "0e72e81380f2e75ad6a3077f2b9cc4f5c1000995f79b0bf87619ce8c9504a6a9",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_007/goal.txt": {
+    "setModel": "c9c04e5901d3afead4d12e578fe7cb83493b27623d97237e8bce308c3ce00083",
+    "updateModel": "28b4f010550b05bec4370e35367e1ea47c8e6dd21659b318d91036884af9bf7e",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_008/goal.txt": {
+    "setModel": "33eae6ef7727a903282d3bc652467c4d4d3687b5d4012c28b68f1cdbaa18916a",
+    "updateModel": "c7afc7f93825d93617565fd60a5cf95497a94f856af14987137f302eba179f49",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_009/goal.txt": {
+    "setModel": "63b9f3ad482f3a03a91464ee5bd353e346f66a458b2674e9fbb8e1245f43bb76",
+    "updateModel": "77cce13ee556f5a9d0e33033d3a3a5318c0154d4b7f5f31e83fb7024d984fbed",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_010/goal.txt": {
+    "setModel": "2f6f8a6b7e1a7a1998b4297f85a92aeee3c936cf382012c2c0b157aa5bf6a47a",
+    "updateModel": "eb9a023f8c9e4059992c325e5f2a426ecf9b4744b1eec3ed4d43bedb46160138",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_011/goal.txt": {
+    "setModel": "96c6201cbfcf3ca5f7cbe3524afc014175a62343b7a54d5538709d8001a91913",
+    "updateModel": "e70420623de73f016a44cd1d6f0b58a72a906234ebeafc728cd5b8f7d04dbd86",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_012/goal.txt": {
+    "setModel": "daf1e20eed594227f4ff355f6274cd132dd9f86a10ea850a8a817a29601366b0",
+    "updateModel": "9204d2f90bccb683b1e6f25a072ced606dadc29cd91b0e367c930e063ec6759d",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_013/goal.txt": {
+    "setModel": "d4a3177b16b208f65ddbdbf511962e9853b0a39e3d4365f43669eb6123f133cf",
+    "updateModel": "e93215f6e8e967a66b03168a1774099e5a0c4f5e32859ab3ba6d6dc5e82d8df4",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_014/goal.txt": {
+    "setModel": "4246676f0a85f5ed224bb5dfeb9f52352f3d3721521aa219ab7d11a186132556",
+    "updateModel": "b25719a7d7ffcb6c5185637209dad03d4f24ba3db3bcfaba1ef982df5d8f2c1b",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_015/goal.txt": {
+    "setModel": "adb4b3dfd835d3f15c07f85296a069accb3f953b0afd5411092b9f931277e596",
+    "updateModel": "1c51aeba07b7192380a450173435ae4e8bd28bbc8f55778b0d5c72d1f9f785d4",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_016/goal.txt": {
+    "setModel": "6446479a79bd9106519f23eb4ba86ad63579c74e9e8da094a8696748b96fc249",
+    "updateModel": "e8ab6d264fc705c7a6e521bc3b116fb807d5f1d7a26aaba4006bb0e215b19073",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_017/goal.txt": {
+    "setModel": "a416452678723241040988bab79cd7739eaa7fbc4e98ba9f54a812ebb488b4b5",
+    "updateModel": "e2ea522253c7785f69cced4b30c3292047f077ad595e617782ee481dac722a42",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_018/goal.txt": {
+    "setModel": "5289a5528733f0218aea44ed8232426319c4b809b4cba8c399932ca3981f7f08",
+    "updateModel": "7f32c0726636706306c9736dcd4b20886503d782f0c670c38b55ff72a604cc51",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_019/goal.txt": {
+    "setModel": "62957919c8b2f86f61bab545697992b574059ff0ca9eed0f0a40897701efaf75",
+    "updateModel": "bb9abaddc6f8dc25405c3d80080aec47ba08ee3de6b1b87f39555c5d4f7de0c8",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_020/goal.txt": {
+    "setModel": "3da0547be2d9f6bd2a247e71276c8eac7b3331dacf44e003cba7680467306d1b",
+    "updateModel": "8beb65f209458564ff07884bf34487e0deb68dd29c8ccb9a222e922d52c4d8d7",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_021/goal.txt": {
+    "setModel": "54b42b1206aa9d809c334d47a7642ee8fa1c7c8d93b7a680c3477452ad76568c",
+    "updateModel": "6f37802c06747ee3b53e3c1c475643919a5b1e9c94460363607e4e448a77a1e9",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_022/goal.txt": {
+    "setModel": "1dff4cabe479f995403e6b59bf71a48b895400df8397e23040fd527c9a6585a5",
+    "updateModel": "38d5a02e1fb317aaa18f9323a9e9d34d0751949f2e748265cf791fef262d2aa0",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_023/goal.txt": {
+    "setModel": "83f3a4f5808d9dcb6d417d09a18d6a018a3a4419e29bce41002339d9c7223b51",
+    "updateModel": "e22e10a64d228d7014fc38bfeede3334e21863958b2cfecd6bfa22f3ebb63a67",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_024/goal.txt": {
+    "setModel": "5027e3fc403972d767fc0f4f7155d0c9e773f7fe8ff41d4218e0713685a99a10",
+    "updateModel": "edeaa502b43e92f75301652b556befc0655b0e156efd083121f44ec29cf3e8fe",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_025/goal.txt": {
+    "setModel": "b4826a256bdc0b187487b3447c63fdfa6c20fdd42fdc0d183f126e7589696e6c",
+    "updateModel": "cf720eb00a6eda399acf1e3a0f000306ef1ee0d98443e80700f9ccd441aed67a",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_026/goal.txt": {
+    "setModel": "4d01475ba63bdb5c04d07a9a4b16996d13c853f30f17dda9b3f4e04bdcb4e8b8",
+    "updateModel": "4f623d7f0daaf3573a6cdea47a97001580faf55980b783f407c674691fcbdd4a",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_027/goal.txt": {
+    "setModel": "85d867dd96f375cf422d74901dd14cae976e5b365aa351bcb08e1382543d57c0",
+    "updateModel": "504caec40610d7afcf80c3eeeca403949b9c6264fee7009ac1eab0de1707bc8e",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_028/goal.txt": {
+    "setModel": "819e91842e2ddc89c2cef6653c4c7ee80a155b267facb4f78eeaa8f7b502a793",
+    "updateModel": "727e94792ae827ba1b004e9af6d26f53c841accf4fee5bd0fa2441dca5394ed5",
+  },
+  "goal-controller/examples/edgeV2/generated/freeform/freeform_029/goal.txt": {
+    "setModel": "4b1c40053d4742534c6f9173b33ff0a668058dd6ed8d46718636fcdbb03dc41a",
+    "updateModel": "b127af540d15269ed41f92dd68df552be45c0086fc6e377f6d271f3fabfaa613",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d2_w2_000/goal.txt": {
+    "setModel": "d40a9d7aa3d71373cd195f7e9dcfd8ae4c84a58c5589c04ee1ef8b9092b56075",
+    "updateModel": "af68171755b022de94c94e3fee4fe4d85afca40fcb2fafdec1c9e6aef39d1cfe",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d2_w2_001/goal.txt": {
+    "setModel": "1b6654434d759cc6eeb7e833dbdadbaa497a211c221f0c89b88f480ae8b02faf",
+    "updateModel": "0a50e21ba9ea513acb1d705d35082d3dcbb89676bdc5f4b80217d30ebe1f5264",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d2_w2_002/goal.txt": {
+    "setModel": "5ba6e81a0085fb545d06bf7f3c30686c3768a5f7259ae275451ad2eaa9cbdc8b",
+    "updateModel": "6bf76933cfc0a43a51ab93289d4c897c14e2cc68c1689605aa688e545f05df4b",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d3_w2_000/goal.txt": {
+    "setModel": "ded61aea6fbd20210df362e92f6c11ea298bf5899b05634dddc981802e4a97ec",
+    "updateModel": "ab7913fe091644ba1d100f73fa7aebd05590816ea3cdea02c7eab2e48b723772",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d3_w2_001/goal.txt": {
+    "setModel": "3803026715acdb72cce4257a422fa1544324f7141e9ca4706cc49285b7e6f78a",
+    "updateModel": "0848951942e065d033ba73d46322d418f61fb54e9fafa5518fb6cfa89b1726a6",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d3_w2_002/goal.txt": {
+    "setModel": "84462eb113ea41a8fef16a973f7eae96b954d758b2b944c7547f65b15cca3c09",
+    "updateModel": "70262762335b76e807ce3fde0f5370dda3ffc70396d47befceff979938b7fcf3",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d4_w2_000/goal.txt": {
+    "setModel": "b56776c92535c4fd4256faa1ccf8b83d24d4541b8360e6a12324c733a22e734c",
+    "updateModel": "707fdc930ca3368e31e847b1512410099ba59a20e59da50a892ad9fa0c0d6800",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d4_w2_001/goal.txt": {
+    "setModel": "0f960e4480271c08227d934d610a56f34d7570d0c9d76a77d522e7e5dbb83ffd",
+    "updateModel": "65d9d01d6aafc8d1c933a55494023ec9d86acec94122098f138f877929e2a440",
+  },
+  "goal-controller/examples/edgeV2/generated/reference/random_N10_d4_w2_002/goal.txt": {
+    "setModel": "3067579b6106bec2084f83fc33fb9bebd0c49b88ae1afabb2c7e69a9eeea023a",
+    "updateModel": "c212afb521cfa7dc2f1d8e5b35af78e3041d1309ec74e10a6bc45f25e3ccb167",
+  },
+  "goal-controller/examples/edgeV2/goalModel_TAS_3_.txt": {
+    "setModel": "c33d02666bd2d03c3d0bb22b5f1745c02dc203e01c889ba1da981298ee4c2111",
+    "updateModel": "d36ad2ba79ad63df9b4a55e4f67ea1fb3583cb245acc68420543cfccbb9acbe2",
+  },
+  "goal-controller/examples/edgeV2/labSamplesWithSideEffect_.txt": {
+    "setModel": "52082a70c4a1443eeaa97e0fb00d997fed9c0a94166e4736b1475b4ebb86b42c",
+    "updateModel": "681086c8dcf97885a525f3db2b9246c5d0355fb684e1d3a06e66dde73a27d320",
+  },
+  "goal-controller/examples/edgeV2/simpleChoice.txt": {
+    "setModel": "a1e5431e175d6dc145ccdbdf0504b38d9886d63562863086dba260763df0c3ba",
+    "updateModel": "c49e5449a5f2976a6e5afb1fb1f6de5bde9a34fcd644f246e3d0dbd62fb394ee",
+  },
+  "goal-controller/examples/edgeV2/simpleChoiceRewards.txt": {
+    "setModel": "a1e5431e175d6dc145ccdbdf0504b38d9886d63562863086dba260763df0c3ba",
+    "updateModel": "c49e5449a5f2976a6e5afb1fb1f6de5bde9a34fcd644f246e3d0dbd62fb394ee",
+  },
+  "goal-controller/examples/sleec/goalModel - 2026-01-23T112755.270.txt": {
+    "setModel": "a3f982e0ae2c863fbc2c9ff6132fa8dbb05699fdf04cfa0b462f6cc4e0dde982",
+    "updateModel": "142e66ef942a68efd030751b44f2d61d5c5a30cb4d1671ba7bcdb3a24d6cca67",
+  },
+  "goal-controller/examples/sleec/goalModel-sleec.txt": {
+    "setModel": "9c2f08b14a6e72bf11348e970dc401bf76f367236dfa820b62fc188fc5661d74",
+    "updateModel": "03bea0fb89639f4d84cf8a816ca9e802d1affd4e6edf78392e39506e6592c6a6",
+  },
+  "goal-controller/examples/sleec/goalModel-sleec2.txt": {
+    "setModel": "0b7d407b5b4621e0ae8a6177cbddb3196bfef29d34bfda472e738b942434359b",
+    "updateModel": "e71b3a733e12e28dedc414c4f2063f219cd978c7c9f18827f9b0ee7b5655551c",
+  },
+  "pistar/buyerDrivenECommerce.txt": {
+    "setModel": "bab8c9bb2b405d93002c19b4ed90c7821c14328a2feca37d730e4bdf8c7b9222",
+    "updateModel": "177b62b2e7f419f2c35fecb91ed18d056d6714ae89e8b824699a0b38a0d6e153",
+  },
+  "pistar/everyElementAndLink.txt": {
+    "setModel": "88018de7d91b458b3b80ca22ea191a2c5d7b7d294f1e50333666bafafd8f2465",
+    "updateModel": "f76df5d8008706a9668d3de62210e233f8154be192be3b962ffe00572c5cd133",
+  },
+  "pistar/goalModel 50 tasks.txt": {
+    "setModel": "fb1dbe24c0350601abf7e2810183d2249d11cf34239a81bd6f7110830e3a7b58",
+    "updateModel": "28ab2246cf67927ca96122ffa5b471926c4ccdcf9a6d8ffc8c9202b74ca2ee46",
+  },
+  "pistar/smartHome.txt": {
+    "setModel": "bcbd738364cfd3038632ced1a7ceee0fa87df9c746e55e012ce7906c9733461d",
+    "updateModel": "5209a55bbce5865300cb81fcdffb25fb89c1d73528dae5270f6c6fe302a201cd",
+  },
+  "pistar/travelReimbursement.txt": {
+    "setModel": "76035a959c76efff3db84614901cb6b8020f429b628bd27a80122f49e9f63dc3",
+    "updateModel": "a5dc3cebd23e2b9d5453a61cc06f32ba1c662cc055cbb2f6fd174dbb71516d8f",
+  },
+  "pistar/welcome.txt": {
+    "setModel": "65473f2a763d1a193bdefc38857cebdddf35d13116aae71d09d2e10fc9758fed",
+    "updateModel": "291f5251c4b115ea322cceb58f1dfbc57ea8f3143ea80a2f6e3dae851f1ada13",
+  },
+}
+`;
