@@ -20,8 +20,8 @@ import type {
   Transcript,
 } from '@istar-ts/agent';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GlspMcpSession, ProposedStep } from './glspMcpBackend';
-import { openGlspMcpSession } from './glspMcpBackend';
+import type { GlspMcpSession, ProposedStep } from '@istar-ts/agent/glsp';
+import { openGlspMcpSession } from '@istar-ts/agent/glsp';
 import { KINDS_SUMMARY } from './hostContext';
 
 /** DeepSeek's current models that take tool calls (`docs/agent/verification.md` §1). */
@@ -112,7 +112,7 @@ export function useAgentSession<EK extends string = string, LK extends string = 
 ): AgentSession {
   const { open } = options;
   const sessionRef = useRef<GlspMcpSession | undefined>(undefined);
-  // Read fresh by `glspMcpBackend.ts` on every Propose-mode run, so guards/schemas toggled after
+  // Read fresh by `@istar-ts/agent/glsp` on every Propose-mode run, so guards/schemas toggled after
   // the drawer's first open (the session itself opens once, below) still reach the next run.
   const optionsRef = useRef(options);
   optionsRef.current = options;

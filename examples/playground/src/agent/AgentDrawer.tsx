@@ -1,6 +1,6 @@
 /**
  * The agent drawer (#126 D4, #131): a BYOK chat panel over `@istar-ts/agent`'s loop and backend
- * A (`glspMcpBackend.ts`). Lazy-loaded from `App.tsx`/`BothApp.tsx` (dynamic `import()`) so
+ * A (`@istar-ts/agent/glsp`, #232). Lazy-loaded from `App.tsx`/`BothApp.tsx` (dynamic `import()`) so
  * `/react.html`'s first load never pays for this file, `@istar-ts/agent`, `@istar-ts/glsp`'s MCP
  * path, `@eclipse-glsp/server-mcp` or the MCP SDK.
  */

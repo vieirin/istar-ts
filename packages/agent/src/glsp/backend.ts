@@ -1,21 +1,22 @@
 /**
- * Backend A (#126 §9's default) for the drawer: `@istar-ts/glsp`'s headless `serveIstarGlsp`
- * over the canvas's own store, reached by an MCP SDK client (`@istar-ts/glsp`'s README, "MCP"
- * section). Loaded only once the drawer opens (#131 item 1: lazy, so `/react.html`'s first load
- * never pays for GLSP, server-mcp or the MCP SDK).
+ * Backend A (#126 §9's default): `@istar-ts/glsp`'s headless `serveIstarGlsp`
+ * over the host's own store, reached by an MCP SDK client (`@istar-ts/glsp`'s README, "MCP"
+ * section). `@istar-ts/glsp` is this subpath's own optional peer, not the package root's
+ * (`../../package.json`): importing `@istar-ts/agent` never pulls in GLSP, only
+ * `@istar-ts/agent/glsp` does (#232).
  *
- * Auto mode uses one live session, opened on first open and kept for the drawer's lifetime, over
- * the host's "Agent"-tagged dispatcher (#131 item 6): every applied tool call is an ordinary
+ * Auto mode uses one live session, opened on first open and kept for the host's session's
+ * lifetime, over the host's own dispatcher (#131 item 6): every applied tool call is an ordinary
  * GLSP operation on that dispatcher, so it lands in the action log like any other client's edit.
  *
  * Propose mode needs a `ChangeSetTarget` with a scratch GLSP session (`@istar-ts/agent`'s README
- * flags this as unbuilt, #130's gap): `openScratch` starts a second headless server over a
+ * flagged this as unbuilt, #130's gap): `openScratch` starts a second headless server over a
  * scratch copy of the live model (`parsePistar(toPistar(model))`, the same metamodel, guards and
  * schemas), and `apply` dispatches the operations the scratch session actually ran (recorded by
  * wrapping its dispatcher, not re-derived from the MCP calls' arguments, each with the ids it
  * created pinned as explicit ids so a later step naming one finds it on the live model too, #155)
- * to the live dispatcher as one `compound`. The scratch server is disposed once the run finishes (`runAgent` calls
- * `ScratchSession.close` itself) or the review is applied/discarded.
+ * to the live dispatcher as one `compound`. The scratch server is disposed once the run finishes
+ * (`runAgent` calls `ScratchSession.close` itself) or the review is applied/discarded.
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -33,26 +34,21 @@ import type { IstarGlspContribution } from '@istar-ts/glsp';
 import { contributionFor, paletteOf } from '@istar-ts/glsp';
 import type { IstarGlspMcpServer } from '@istar-ts/glsp/browser';
 import { serveIstarGlsp } from '@istar-ts/glsp/browser';
-import { createMcpToolRegistry } from '@istar-ts/agent';
-import { describeOperation } from './describeOperation';
-import type {
-  ChangeSetEntry,
-  ChangeSetTarget,
-  ScratchSession,
-  ToolRegistry,
-  ToolResult,
-} from '@istar-ts/agent';
+import { createMcpToolRegistry } from '../mcp';
+import type { ChangeSetEntry, ChangeSetTarget, ScratchSession } from '../change-set';
+import type { ToolRegistry, ToolResult } from '../tools';
+import { describeOperation } from './describe-operation';
 
 export interface GlspMcpBackendOptions {
   readonly store: ModelStore<string, string>;
-  /** The "Agent"-tagged dispatcher every applied edit goes through. */
+  /** The dispatcher every applied edit goes through. */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards?: readonly ActionGuard<string, string>[];
   readonly schemas?: readonly PropertySchema[];
-  /** The active model's own metamodel (`App.tsx`'s `active.metamodel`), whatever its dialect. */
+  /** The active model's own metamodel, whatever its dialect. */
   readonly metamodel: AnyMetamodel;
-  /** The active extension's own palette, if it has one (`App.tsx`'s `active.palette`); default:
-   * a palette derived from `metamodel`'s kinds (`contributionFor`'s own fallback). */
+  /** The active extension's own palette, if it has one; default: a palette derived from
+   * `metamodel`'s kinds (`contributionFor`'s own fallback). */
   readonly palette?: AnyPaletteDescription;
 }
 
@@ -72,13 +68,13 @@ async function connectMcp(
     mcp: true,
     contributions: [contribution],
   });
-  const client = new Client({ name: 'istar-ts-playground-agent', version: '1.0.0' });
+  const client = new Client({ name: 'istar-ts-agent-glsp', version: '1.0.0' });
   await client.connect(
     new StreamableHTTPClientTransport(server.mcp.url, { fetch: server.mcp.fetch }),
   );
   const registry = await createMcpToolRegistry(client, {
     boundArgs: { sessionId: server.sessionId! },
-    // `save-model` hands the save to the host; the demo's own Save button already covers it.
+    // `save-model` hands the save to the host; a host wires its own save path.
     exclude: ['save-model'],
   });
   return { server, client, registry };
@@ -167,9 +163,9 @@ export interface GlspChangeSet extends ChangeSetTarget {
  * would otherwise mint fresh ones, and a later step naming a scratch id would be rejected (#155).
  *
  * `getOptions` is read fresh on every `openScratch`/`apply` (not once at session-open time), so
- * toggling the lab's guards switch after the drawer is already open still reaches the next run.
+ * toggling a host's guards switch after the session is already open still reaches the next run.
  */
-function createGlspChangeSet(
+export function createGlspChangeSet(
   getOptions: () => GlspMcpBackendOptions,
   contribution: IstarGlspContribution,
 ): GlspChangeSet {
@@ -204,7 +200,7 @@ function createGlspChangeSet(
         palette: paletteOf(contribution),
       });
       // `StoreActionDispatcher`-shaped (`isDirty`/`dispose` pass through), as `serveIstarGlsp`'s
-      // shared model requires (`App.tsx`'s/`BothApp.tsx`'s own tagged dispatchers do the same).
+      // shared model requires.
       const recordingDispatcher = {
         async dispatch(action: Parameters<ActionDispatcher<string, string>['dispatch']>[0]) {
           const before = scratchStore.getModel();
@@ -309,7 +305,7 @@ function createGlspChangeSet(
 }
 
 export interface GlspMcpSession {
-  /** Auto mode's tools, over the live model, through the drawer's "Agent"-tagged dispatcher. */
+  /** Auto mode's tools, over the live model, through the host's own dispatcher. */
   readonly liveRegistry: ToolRegistry;
   /** Propose mode's target: a fresh scratch session per run. */
   readonly changeSet: GlspChangeSet;
@@ -318,10 +314,10 @@ export interface GlspMcpSession {
 }
 
 /**
- * Opens the drawer's backend A session: the live MCP server (Auto mode) and the Propose-mode
- * change set, both over the live store/dispatcher. Call once per drawer open; `getOptions` is
- * re-read on every Propose-mode run, so guards/schemas toggled later still apply (the live
- * session's store/dispatcher/metamodel are read once, at open time, and never change).
+ * Opens backend A's session: the live MCP server (Auto mode) and the Propose-mode change set,
+ * both over the live store/dispatcher. Call once per host session; `getOptions` is re-read on
+ * every Propose-mode run, so guards/schemas toggled later still apply (the live session's
+ * store/dispatcher/metamodel are read once, at open time, and never change).
  */
 export async function openGlspMcpSession(
   getOptions: () => GlspMcpBackendOptions,

@@ -1,18 +1,20 @@
 /**
- * The drawer's Propose mode over backend A (#155, #156): a run that creates a node, refines into
- * it, renames it and moves it applies to the live model as one compound, with the scratch run's
- * ids; its read-only calls are not steps.
+ * The host's Propose mode over backend A (#155, #156, #232): a run that creates a node, refines
+ * into it, renames it and moves it applies to the live model as one compound, with the scratch
+ * run's ids; its read-only calls are not steps. A guard's rejection surfaces at preview time, on
+ * the scratch session, before any dry-run step is ever applied to the live model.
  */
 import { afterEach, describe, expect, test } from 'vitest';
 import { createActionDispatcher } from '@istar-ts/actions';
+import type { ActionGuard } from '@istar-ts/actions';
 import { createModelStore, metamodelOf } from '@istar-ts/core';
 import type { AnyMetamodel } from '@istar-ts/core';
 import type { ModelStore } from '@istar-ts/core';
 import { ISTAR_GLSP, paletteOf } from '@istar-ts/glsp';
-import { runAgent } from '@istar-ts/agent';
-import type { ChatClient, ChatMessage, JsonValue } from '@istar-ts/agent';
-import { openGlspMcpSession } from '../src/agent/glspMcpBackend';
-import type { GlspMcpSession } from '../src/agent/glspMcpBackend';
+import { runAgent } from '../src';
+import type { ChatClient, ChatMessage, JsonValue } from '../src';
+import { openGlspMcpSession } from '../src/glsp';
+import type { GlspMcpSession } from '../src/glsp';
 
 const sessions: GlspMcpSession[] = [];
 afterEach(() => {
@@ -59,7 +61,7 @@ function lastResult(messages: readonly ChatMessage[]): { result: Record<string, 
   return JSON.parse(String(tool?.content)) as { result: Record<string, unknown> };
 }
 
-async function setup() {
+async function setup(guards: readonly ActionGuard<string, string>[] = []) {
   const store = createModelStore() as unknown as ModelStore<string, string>;
   const dispatcher = createActionDispatcher(store, { palette: paletteOf(ISTAR_GLSP) });
   const seeded = await dispatcher.dispatch({
@@ -84,6 +86,7 @@ async function setup() {
   const session = await openGlspMcpSession(() => ({
     store,
     dispatcher,
+    guards,
     metamodel: metamodelOf(store.getModel()) as AnyMetamodel,
   }));
   sessions.push(session);
@@ -319,5 +322,47 @@ describe('Propose mode over backend A', () => {
     expect(names).not.toContain('B');
     expect(names).not.toContain('C');
     expect(names).not.toContain('Task');
+  });
+
+  // #232: the guard runs on the scratch session, inside `openScratch`/the dry run, so its
+  // refusal is in the preview (the change set's own entry), before `apply` ever touches the
+  // live model — a host shows it without needing the agent to call `apply` first.
+  test("a guard's rejection surfaces at preview time, on the scratch session", async () => {
+    const refuseTasks: ActionGuard<string, string> = (operation) =>
+      operation.kind === 'createNode' && operation.elementTypeId === 'istar.Task'
+        ? [{ elementId: '', severity: 'error', message: 'no new tasks today', code: 'demo' }]
+        : undefined;
+    const { store, session } = await setup([refuseTasks]);
+    const client = scripted([
+      () => [
+        'create-nodes',
+        {
+          nodes: [
+            {
+              elementTypeId: 'node:istar.Task',
+              position: { x: 0, y: 0 },
+              containerId: 'lab',
+              args: { name: 'A' },
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const before = store.getModel();
+    const run = await runAgent({ client, prompt: 'Add A.', changeSet: session.changeSet });
+    expect(run.changeSet).toHaveLength(1);
+    const [entry] = run.changeSet;
+    expect(entry!.result.ok).toBe(false);
+    expect(entry!.result.ok || entry!.result.diagnostics).toMatchObject([
+      { message: 'no new tasks today', code: 'demo' },
+    ]);
+    // Refused on the scratch session: nothing to apply, and the live model never moved.
+    expect(session.changeSet.step(entry!)).toBeUndefined();
+    expect(store.getModel()).toBe(before);
+
+    const applied = await session.changeSet.apply(run.changeSet);
+    expect(applied).toMatchObject({ ok: true, content: { createdIds: [] } });
+    expect(store.getModel()).toBe(before);
   });
 });
