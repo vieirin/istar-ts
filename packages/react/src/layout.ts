@@ -5,8 +5,15 @@
  * relative to their parent, so each actor's boundary is computed first and inner elements are
  * offset from its top-left corner.
  */
-import type { ElementKind, IstarElement, IstarLink, IstarModel, LinkKind } from '@istar-ts/core';
-import { metamodelOf } from '@istar-ts/core';
+import type {
+  Box,
+  ElementKind,
+  IstarElement,
+  IstarLink,
+  IstarModel,
+  LinkKind,
+} from '@istar-ts/core';
+import { ACTOR_PADDING, actorBounds, metamodelOf } from '@istar-ts/core';
 import type { Edge, Node } from '@xyflow/react';
 import type { Anchor, Point } from './link-geometry';
 import { linkMidpoint } from './link-geometry';
@@ -14,15 +21,8 @@ import type { IstarRegistry } from './registry';
 import { elementSize, registryForMetamodel } from './registry';
 import { ACTOR_RADIUS } from './shapes';
 
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** Space kept between inner elements and the actor boundary (upstream adds 10px). */
-export const ACTOR_PADDING = 10;
+export type { Box };
+export { ACTOR_PADDING };
 
 /** Actor symbol circle: centred at (20, 20) from the boundary's top-left, radius 40. */
 export const ACTOR_SYMBOL_OFFSET = 20;
@@ -69,26 +69,18 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
  *
  * Actor `display.width`/`height` are the last saved expanded size in piStar files — using them
  * as the floor would leave empty space after children move inward.
+ *
+ * A thin wrapper over core's `actorBounds` (the shared geometry with `@istar-ts/glsp`'s
+ * `modelToGModel`), kept under its old name and signature for compatibility; `registry` and
+ * `children` are unused now that the box comes from the model's metamodel directly.
  */
 export function actorBoundary<EK extends string = ElementKind, LK extends string = LinkKind>(
   model: IstarModel<EK, LK>,
-  registry: IstarRegistry<EK, LK>,
+  _registry: IstarRegistry<EK, LK>,
   actor: IstarElement<EK>,
-  children: readonly IstarElement<EK>[],
+  _children: readonly IstarElement<EK>[],
 ): Box {
-  const size = registry.elements[actor.kind].size;
-  let minX = actor.x;
-  let minY = actor.y;
-  let maxX = actor.x + size.width;
-  let maxY = actor.y + size.height;
-  for (const child of children) {
-    const s = elementSize(registry, child);
-    minX = Math.min(minX, child.x - ACTOR_PADDING);
-    minY = Math.min(minY, child.y - ACTOR_PADDING);
-    maxX = Math.max(maxX, child.x + s.width + ACTOR_PADDING);
-    maxY = Math.max(maxY, child.y + s.height + ACTOR_PADDING);
-  }
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  return actorBounds(model, actor.id);
 }
 
 export interface FlowGraph {

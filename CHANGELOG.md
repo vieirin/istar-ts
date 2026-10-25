@@ -4,6 +4,12 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **core, react, glsp:** moved the actor-boundary geometry out of `@istar-ts/react` into core's
+  `actorBounds(model, actorId, metamodel?)` (#95, epic #144 stage 2), so `@istar-ts/react`'s
+  `modelToFlow` and `@istar-ts/glsp`'s `modelToGModel` share one implementation and can't draw
+  an actor's box differently. React's `actorBoundary` is now a thin wrapper kept for
+  compatibility; glsp's own copy is deleted. A new playground test (`geometry-parity.test.ts`)
+  checks every fixture's actors draw the same box in both clients.
 - **playground:** fix the `glsp-edges.spec.ts` self-refinement e2e test flaking under load
   (#124): its two clicks landed on the exact same pixel of the same node, and under load the
   stock client's dangling feedback edge (`EdgeCreationToolMouseListener`,

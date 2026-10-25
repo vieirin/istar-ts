@@ -7,9 +7,9 @@
  * Coordinates. The model's `x`/`y` are absolute, as in the piStar file. Top-level nodes and edge
  * routing points keep them. An actor is a container: its node's position is its boundary's
  * top-left corner, and its elements are its children, positioned relative to that corner
- * (`child.x - boundary.x`, `child.y - boundary.y`), as GLSP nests bounds. The boundary is the
- * React canvas's (`actorBoundary` in `@istar-ts/react`, after piStar's `updateBoundary`): the
- * kind's default size at the actor's `x`/`y`, grown to hold every element plus 10px padding.
+ * (`child.x - boundary.x`, `child.y - boundary.y`), as GLSP nests bounds. The boundary is core's
+ * `actorBounds` (after piStar's `updateBoundary`), shared with the React canvas's `modelToFlow`:
+ * the kind's default size at the actor's `x`/`y`, grown to hold every element plus 10px padding.
  *
  * Sizes come from the element's `display` width/height (a resized element) or its kind's default
  * size in the metamodel, so the client needs no bounds round trip (`needsClientLayout: false`).
@@ -23,15 +23,13 @@ import type {
   Point,
   Size,
 } from '@istar-ts/core';
-import { metamodelOf } from '@istar-ts/core';
+import { actorBounds, metamodelOf } from '@istar-ts/core';
 import { typeHintsFor } from '@istar-ts/actions';
 import { GEdge, GGraph, GLabel, GNode } from '@eclipse-glsp/server';
 import type { GModelElement } from '@eclipse-glsp/server';
 import type { GModelTypeOverrides } from './types';
 import { LINK_ANCHOR_TYPE, gmodelTypes } from './types';
 
-/** Space kept between inner elements and the actor boundary (piStar adds 10px). */
-export const ACTOR_PADDING = 10;
 /** A collapsed actor's box, as the React canvas draws it. */
 export const COLLAPSED_ACTOR_SIZE: Size = { width: 60, height: 60 };
 /** Side of the anchor node on the middle of a link that links may target. */
@@ -154,22 +152,9 @@ export function modelToGModel<EK extends string, LK extends string>(
     if (!isActor(actor)) continue;
     const inner = childrenOf.get(actor.id) ?? [];
     const collapsed = actor.display?.collapsed === true;
-    let box: Box;
-    if (collapsed) {
-      box = { x: actor.x, y: actor.y, ...COLLAPSED_ACTOR_SIZE };
-    } else {
-      const size = metamodel.elements.get(actor.kind)?.size ?? { width: 0, height: 0 };
-      let [minX, minY] = [actor.x, actor.y];
-      let [maxX, maxY] = [actor.x + size.width, actor.y + size.height];
-      for (const child of inner) {
-        const s = sizeOf(child);
-        minX = Math.min(minX, child.x - ACTOR_PADDING);
-        minY = Math.min(minY, child.y - ACTOR_PADDING);
-        maxX = Math.max(maxX, child.x + s.width + ACTOR_PADDING);
-        maxY = Math.max(maxY, child.y + s.height + ACTOR_PADDING);
-      }
-      box = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-    }
+    const box: Box = collapsed
+      ? { x: actor.x, y: actor.y, ...COLLAPSED_ACTOR_SIZE }
+      : actorBounds(model, actor.id, metamodel);
     boxes.set(actor.id, box);
     const builder = GNode.builder()
       .id(actor.id)
