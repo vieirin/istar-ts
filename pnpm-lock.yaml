@@ -119,6 +119,19 @@ importers:
         specifier: workspace:^
         version: link:../core
 
+  packages/agent:
+    dependencies:
+      '@istar-ts/actions':
+        specifier: workspace:^
+        version: link:../actions
+      '@istar-ts/core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.32.2
+        version: 1.32.2(zod@4.6.7)
+
   packages/core: {}
 
   packages/dsm3-kaos:

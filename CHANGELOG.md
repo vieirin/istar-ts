@@ -4,6 +4,17 @@ Versions are published from GitHub release tags; see the release notes for full 
 
 ## Unreleased
 
+- **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
+  loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
+  backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for
+  server-mcp's diagram tools) and the `@istar-ts/actions` dispatcher (`createActionToolRegistry`,
+  one tool per handled action kind). `createChatClient` (base URL, key and model are
+  configuration; `DEEPSEEK` with `deepseek-flash` as the default; buffered or streamed tool
+  calls). `runAgent` runs tool calls sequentially and stops on a final answer, `maxSteps`, a
+  token/cost budget, an `AbortSignal` or 3 refusals in a row; refusals reach the model as typed
+  `GoalDiagnostic`s. Propose mode (the default) dry-runs on a `parsePistar(toPistar(model))`
+  copy and applies the reviewed change set as one `compound`; Auto applies live. The transcript
+  (messages, tool calls, results, usage, latency) never holds the API key.
 - **glsp:** an MCP server in the page (#128, epic #126 D1). `serveIstarGlsp` takes `mcp: true`
   (or `{ route, name }`) and serves server-mcp 2.8.0's `WebMcpServerLauncher` through a
   same-realm `fetch` (`server.mcp.fetch`, for the MCP SDK's `StreamableHTTPClientTransport`). It
