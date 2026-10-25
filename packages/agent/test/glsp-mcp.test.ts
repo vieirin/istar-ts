@@ -133,10 +133,7 @@ describe('backend A over serveIstarGlsp({ mcp: true })', () => {
     expect(toPistar(store.getModel())).toBe(before);
   });
 
-  // #136: the SDK client checks the rejection's `structuredContent` against create-nodes' output
-  // schema once the tools are listed, and throws, so the guard's diagnostics are lost on the way.
-  // Drop `.fails` once #136 is fixed.
-  test.fails("the model reads the guard's typed diagnostics back", async () => {
+  test("the model reads the guard's typed diagnostics back", async () => {
     const { tools } = await setup([refuse]);
     const seen: unknown[] = [];
     const client = await chat((request, i) => {
