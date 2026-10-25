@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@eclipse-glsp/client": "^2.8.0",
+    "@istar-ts/core": "workspace:^",
     "@vscode/codicons": "^0.0.44",
     "inversify": "^6.2.2",
     "reflect-metadata": "^0.2.2",

@@ -32,6 +32,9 @@ importers:
       '@eclipse-glsp/client':
         specifier: ^2.8.0
         version: 2.8.0(inversify@6.2.2(reflect-metadata@0.2.2))(reflect-metadata@0.2.2)
+      '@istar-ts/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@vscode/codicons':
         specifier: ^0.0.44
         version: 0.0.44

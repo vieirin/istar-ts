@@ -79,3 +79,31 @@
   fill: var(--istar-glsp-anchor-fill);
   stroke: var(--istar-glsp-link-stroke);
 }
+
+/* iStar 2.0 views (#84, `istar-views.ts`): an actor's boundary and decoration, and a link's
+   target marker and dependency "D". Colours mirror `@istar-ts/react`'s equivalents
+   (`packages/react/src/styles.css`'s `.istar-actor-boundary`/`.istar-link-marker`/
+   `.istar-link-dependency`), so the two clients read as the same tool. */
+.istar-glsp-actor-boundary {
+  fill: var(--istar-glsp-actor-fill);
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 1.5px;
+  stroke-dasharray: 10 5 4 4;
+}
+.istar-glsp-actor-decorator {
+  stroke: var(--istar-glsp-node-stroke);
+  stroke-width: 1.5px;
+}
+.istar-glsp-marker {
+  fill: none;
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 1.2px;
+}
+.istar-glsp-marker.is-filled {
+  fill: var(--istar-glsp-link-stroke);
+}
+.istar-glsp-dependency {
+  fill: var(--istar-glsp-node-fill);
+  stroke: var(--istar-glsp-link-stroke);
+  stroke-width: 2px;
+}
