@@ -1,7 +1,8 @@
 # Cuts a release by hand: Actions → Tag release → Run workflow.
 #
-# Before running it, merge a "release: X.Y.Z" PR that renames CHANGELOG.md's "## Unreleased"
-# heading to "## X.Y.Z" (main is protected, so this workflow can't commit it). The workflow then
+# Before running it, merge a "release: X.Y.Z" PR (branch release/X.Y.Z) that runs
+# `pnpm changelog:release X.Y.Z`, gathering changes/unreleased/ into a "## X.Y.Z" section of
+# CHANGELOG.md (main is protected, so this workflow can't commit it). The workflow then
 # tags main as vX.Y.Z, creates the GitHub release with that CHANGELOG section as notes, and
 # dispatches release.yml to publish to npm. The dispatch is explicit because a release created
 # with GITHUB_TOKEN does not trigger release.yml's `release: published` event; publishing stays
@@ -41,7 +42,7 @@ jobs:
           VERSION="${EXPLICIT#v}"
           VERSION="${VERSION:-$TOP}"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::'$VERSION' is not a semver version. Merge a 'release: X.Y.Z' PR that renames '## Unreleased' in CHANGELOG.md first."
+            echo "::error::'$VERSION' is not a semver version. Merge a 'release: X.Y.Z' PR that runs 'pnpm changelog:release X.Y.Z' first."
             exit 1
           fi
           if ! grep -qx "## $VERSION" CHANGELOG.md; then

@@ -55,5 +55,7 @@ pnpm e2e:headed   # same, in a visible browser; pnpm e2e:ui for Playwright's UI 
 - Where upstream behaviour is ambiguous, match what the piStar web tool does and leave a
   comment saying so.
 - Commit after each step with build + tests passing.
+- Changelog: add one fragment file `changes/unreleased/<branch-name>.md` per PR; never edit
+  `CHANGELOG.md` outside a `release/X.Y.Z` PR (see `changes/unreleased/README.md`).
 - Never bump `version` in package.json: releases take the version from the GitHub release tag
   (`.github/workflows/release.yml`, secret `NPM_SECRET_KEY`).
