@@ -1,3 +1,4 @@
+import type { IstarOperation } from '@istar-ts/actions';
 import type { NodeProps, NodeTypes, ResizeParams } from '@xyflow/react';
 import { Handle, NodeResizer, Position } from '@xyflow/react';
 import type { ComponentType, MouseEvent as ReactMouseEvent, ReactElement } from 'react';
@@ -67,24 +68,38 @@ export const ElementNode: ComponentType<NodeProps<ElementFlowNode>> = memo(funct
     const from = start.current;
     start.current = null;
     if (!from) return;
-    const { store, registry } = editor;
+    const { store, registry, dispatcherFor, notify } = editor;
     const current = store.getModel().elements.get(element.id);
     if (!current) return;
     const base = registry.elements[current.kind].size;
     const w = Math.round(end.width);
     const h = Math.round(end.height);
-    store.transaction(() => {
-      // Like piStar, only sizes that differ from the kind's default are stored in `display`.
-      store.updateElement(current.id, {
-        display: {
+    const dx = Math.round(end.x - from.x);
+    const dy = Math.round(end.y - from.y);
+    const operationList: IstarOperation[] = [
+      {
+        kind: 'istar.updateDisplay',
+        elementId: current.id,
+        // Like piStar, only sizes that differ from the kind's default are stored in `display`.
+        patch: {
           width: w === base.width ? undefined : w,
           height: h === base.height ? undefined : h,
         },
+      },
+    ];
+    if (dx !== 0 || dy !== 0) {
+      operationList.push({
+        kind: 'changeBounds',
+        newBounds: [
+          { elementId: current.id, newPosition: { x: current.x + dx, y: current.y + dy } },
+        ],
       });
-      const dx = Math.round(end.x - from.x);
-      const dy = Math.round(end.y - from.y);
-      if (dx !== 0 || dy !== 0) store.moveElement(current.id, current.x + dx, current.y + dy);
-    });
+    }
+    void dispatcherFor('canvas')
+      .dispatch({ kind: 'compound', operationList })
+      .then((result) => {
+        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+      });
   };
 
   return (

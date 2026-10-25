@@ -37,6 +37,10 @@ export default defineConfig({
         find: '@istar-ts/actions',
         replacement: path.resolve(rootDir, '../../packages/actions/src/index.ts'),
       },
+      {
+        find: '@istar-ts/agent',
+        replacement: path.resolve(rootDir, '../../packages/agent/src/index.ts'),
+      },
       // The dialects' React-free entry points (as `@istar-ts/glsp/kaos` and `/nfr` import them):
       // matched before the plain `@istar-ts/dsm3-{kaos,nfr}` aliases below, since Vite's alias
       // matching treats a string `find` as a path prefix too.

@@ -6,7 +6,6 @@
  */
 import { createActionDispatcher } from '@istar-ts/actions';
 import type {
-  ActionDispatcher,
   ActionDispatcherOptions,
   ActionGuard,
   ActionListener,
@@ -14,7 +13,7 @@ import type {
 } from '@istar-ts/actions';
 import type { ModelStore } from '@istar-ts/core';
 
-export interface SwitchableGuardDispatcher extends ActionDispatcher {
+export interface SwitchableGuardDispatcher extends StoreActionDispatcher {
   guardEnabled(): boolean;
   setGuardEnabled(enabled: boolean): void;
 }
@@ -44,6 +43,12 @@ export function createSwitchableGuardDispatcher(
     },
     dispatch(action) {
       return current.dispatch(action);
+    },
+    isDirty() {
+      return current.isDirty();
+    },
+    dispose() {
+      current.dispose();
     },
     subscribe(listener) {
       listeners.add(listener);

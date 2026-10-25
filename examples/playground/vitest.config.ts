@@ -18,6 +18,9 @@ export default defineConfig({
       '@istar-ts/dsm3-nfr/metamodel': fileURLToPath(
         new URL('../../packages/dsm3-nfr/src/headless.ts', import.meta.url),
       ),
+      '@istar-ts/agent': fileURLToPath(
+        new URL('../../packages/agent/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {

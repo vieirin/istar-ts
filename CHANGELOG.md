@@ -10,6 +10,11 @@ Versions are published from GitHub release tags; see the release notes for full 
   an actor's box differently. React's `actorBoundary` is now a thin wrapper kept for
   compatibility; glsp's own copy is deleted. A new playground test (`geometry-parity.test.ts`)
   checks every fixture's actors draw the same box in both clients.
+- **react:** node resize (`NodeResizer` in `nodes.tsx`) now dispatches through
+  `dispatcherFor('canvas')` instead of writing the store directly (#141, stage 1 of #144): one
+  `compound` of `istar.updateDisplay` (size) and `changeBounds` (the position delta), so it
+  stays one undo step, gets the shield's guards and shows up in the action log; a rejection
+  snaps the node back, as other canvas edits already do.
 - **playground:** fix the `glsp-edges.spec.ts` self-refinement e2e test flaking under load
   (#124): its two clicks landed on the exact same pixel of the same node, and under load the
   stock client's dangling feedback edge (`EdgeCreationToolMouseListener`,
@@ -30,6 +35,14 @@ Versions are published from GitHub release tags; see the release notes for full 
   (mean, spread) into a JSON and markdown report. Both `@istar-ts/agent` backends (A, the GLSP
   MCP tools; B, the actions dispatcher) run every condition, including the shield, now that
   #136 (D2/#129) lands a guard's typed diagnostics over MCP too.
+- **playground:** an agent drawer on `/react.html` and `/both.html` (#131, epic #126 D4): a
+  BYOK panel (DeepSeek key, in memory by default, opt-in `localStorage`; a model picker) over
+  `@istar-ts/agent`'s loop. Propose (default) reuses the protocol lab's `ChangeSetPanel` for
+  review; Auto applies live. Both run over a headless `serveIstarGlsp({ mcp: true })` on the
+  canvas's own store, through its own "Agent"-tagged dispatcher, so every applied tool call
+  lands in the action log and survives export/replay unmodified. A live token/cost readout and
+  a Stop button (`AbortSignal`). Lazy-loaded (dynamic `import()`): `/react.html`'s first-load JS
+  is unchanged. A CSP `connect-src` entry restricts the page to `https://api.deepseek.com`.
 - **agent:** new package `@istar-ts/agent` (#130, epic #126 D3), a framework-free tool-calling
   loop between an OpenAI-compatible chat model and istar-ts tools. `ToolRegistry` with two
   backends: an MCP client's `tools/list`/`tools/call` (`createMcpToolRegistry`, for
