@@ -209,13 +209,9 @@ export interface LinkLineStyle {
   readonly markerFilled?: boolean;
 }
 
-/** piStar-ext's line kinds, as dash arrays. */
-export const LINE_DASHES: Readonly<Record<'continuous' | 'dashed' | 'dotted', string | undefined>> =
-  {
-    continuous: undefined,
-    dashed: '10,5',
-    dotted: '1,3',
-  };
+/** piStar-ext's line kinds, as dash arrays: model vocabulary, defined in `@istar-ts/core`. */
+export { LINE_DASHES } from '@istar-ts/core';
+export type { LineDashKind } from '@istar-ts/core';
 
 export interface LinkKindConfig<K extends string = LinkKind, DK extends string = NodeKind> {
   readonly kind: K;

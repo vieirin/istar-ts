@@ -55,6 +55,16 @@ export interface KindTextBox {
   readonly bottom: number;
   readonly left: number;
 }
+/** piStar-ext's line kinds. */
+export type LineDashKind = 'continuous' | 'dashed' | 'dotted';
+
+/** piStar-ext's line kinds, as SVG dash arrays (`KindLine.dash`); `continuous` has none. */
+export const LINE_DASHES: Readonly<Record<LineDashKind, string | undefined>> = {
+  continuous: undefined,
+  dashed: '10,5',
+  dotted: '1,3',
+};
+
 export interface KindLine {
   readonly dash?: string;
   readonly marker?: string | false;
