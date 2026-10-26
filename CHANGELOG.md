@@ -5,7 +5,7 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
-## 0.15.0-beta.9
+## 0.15.0
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own
@@ -495,6 +495,7 @@ istar-ts#31, istar-ts#35, istar-ts#57, istar-ts#60.
   (`ToolResult.dispatched`) (#175).
 - **playground:** the agent drawer's system prompt gets a "kinds summary" section from the active
   model's metamodel, as an example host context provider (#175).
+- **core:** `LINE_DASHES` and `LineDashKind` (piStar-ext's continuous, dashed and dotted line kinds as dash arrays) are exported from `@istar-ts/core`, next to `KindLine`, so packages without react can use them (#246). `@istar-ts/react` re-exports them unchanged.
 - **core:** `suggestPosition(model, { kind, containerId?, near? })` returns a free spot for a new
   element, overlapping no existing one and staying inside a container's boundary when given
   (#204).
@@ -612,8 +613,6 @@ Added e2e test: palette refresh without remounting the client.
   wall-clock second and flake a comparison — the recurring cause behind #41, #119, #168 and #228.
   A test that needs the real clock opts out with `useRealDate()` (`test-support/use-real-date.ts`).
   Closes #231.
-
-## 0.15.0-beta.0
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
   Worker, reached from the page through server-mcp 2.8.0's `McpWorkerBridge` over its own

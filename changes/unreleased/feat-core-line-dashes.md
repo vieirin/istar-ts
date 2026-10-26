@@ -1,1 +1,0 @@
-- **core:** `LINE_DASHES` and `LineDashKind` (piStar-ext's continuous, dashed and dotted line kinds as dash arrays) are exported from `@istar-ts/core`, next to `KindLine`, so packages without react can use them (#246). `@istar-ts/react` re-exports them unchanged.
