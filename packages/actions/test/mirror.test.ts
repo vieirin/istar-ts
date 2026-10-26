@@ -4,11 +4,13 @@ import {
   ISTAR_2_0,
   ModelOperationError,
   createModelStore,
+  defineMetamodel,
+  detectFramework,
   metamodelOf,
   parsePistar,
   toPistar,
 } from '@istar-ts/core';
-import type { AnyIstarModel, ModelChangeEvent, ModelStore } from '@istar-ts/core';
+import type { AnyIstarModel, ModelChangeEvent, ModelStore, PistarFile } from '@istar-ts/core';
 import type {
   ActionDispatcher,
   ActionDispatcherOptions,
@@ -27,6 +29,18 @@ const fixture = (path: string): string =>
   readFileSync(new URL(`../../../fixtures/${path}`, import.meta.url), 'utf8');
 
 const SMART_HOME = fixture('pistar/smartHome.txt');
+
+/** A small KAOS-like root, enough to exercise `metamodelFor` resolving a root by `tool`. */
+const KAOS = defineMetamodel({
+  name: 'kaos',
+  prefix: 'kaos',
+  elements: [{ kind: 'kaos.Goal', category: 'node' }],
+  links: [{ kind: 'kaos.Refinement', rules: { sources: ['node'], targets: ['node'] } }],
+  file: { tool: 'dsm3-goals' },
+});
+
+/** Resolves a file's root by `tool` among `[ISTAR_2_0, KAOS]`, iStar 2.0 when undetected. */
+const metamodelFor = (file: PistarFile) => detectFramework(file, [ISTAR_2_0, KAOS]) ?? ISTAR_2_0;
 
 /** A server over `model`, and a client of it on a real `MessageChannel`. */
 function serve(
@@ -450,6 +464,69 @@ describe('createMirrorStore', () => {
     await mirror.dispatcher.dispatch({ kind: 'glspRedo' });
     expect(mirror.canUndo()).toBe(true);
     expect(mirror.canRedo()).toBe(false);
+  });
+
+  test('initial is shown until the remote answers, then replaced if it differs', async () => {
+    const remoteModel = parsePistar(SMART_HOME);
+    const { connect } = serve(remoteModel, true);
+    const initial = parsePistar(SMART_HOME);
+    const mirror = createMirrorStore(connect(), { initial });
+    expect(mirror.getModel()).toBe(initial);
+    await mirror.ready;
+    expect(text(mirror.getModel())).toBe(text(remoteModel));
+  });
+
+  test('initial accepts a piStar file, parsed the same way as a pushed one', async () => {
+    const { connect } = serve(parsePistar(SMART_HOME), true);
+    const file = JSON.parse(SMART_HOME) as PistarFile;
+    const mirror = createMirrorStore(connect(), { initial: file });
+    expect(mirror.getModel().elements.size).toBeGreaterThan(0);
+    await mirror.ready;
+    expect(text(mirror.getModel())).toBe(text(parsePistar(SMART_HOME)));
+  });
+
+  test('initial equal to the remote is kept (no replace event)', async () => {
+    const remoteModel = parsePistar(SMART_HOME);
+    const { connect } = serve(remoteModel, true);
+    const initial = parsePistar(SMART_HOME);
+    const mirror = createMirrorStore(connect(), { initial });
+    const events: ModelChangeEvent[] = [];
+    mirror.subscribe((event) => events.push(event));
+    await mirror.ready;
+    expect(mirror.getModel()).toBe(initial);
+    expect(events).toEqual([]);
+  });
+
+  test('metamodelFor resolves the root per file: an iStar mirror follows a KAOS replace', async () => {
+    const { store, connect } = serve(parsePistar(SMART_HOME), true);
+    const mirror = createMirrorStore(connect(), { metamodelFor });
+    await mirror.ready;
+    expect(metamodelOf(mirror.getModel())).toBe(ISTAR_2_0);
+
+    const kaosFile: PistarFile = {
+      actors: [],
+      orphans: [{ id: 'g1', type: 'kaos.Goal', text: 'Goal', x: 0, y: 0 }],
+      tool: 'dsm3-goals',
+    };
+    const changed = new Promise<void>((resolve) => {
+      const off = mirror.subscribe(() => {
+        off();
+        resolve();
+      });
+    });
+    store.replace(parsePistar(kaosFile, { metamodel: KAOS }));
+    await changed;
+    await mirror.synced();
+
+    expect(metamodelOf(mirror.getModel())).toBe(KAOS);
+    expect(mirror.getModel().elements.get('g1')?.kind).toBe('kaos.Goal');
+  });
+
+  test('metamodelFor default (unset) keeps the fixed metamodel, like before', async () => {
+    const { connect } = serve(parsePistar(SMART_HOME), true);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+    expect(metamodelOf(mirror.getModel())).toBe(ISTAR_2_0);
   });
 
   test('canUndo is false when undoing past history', async () => {

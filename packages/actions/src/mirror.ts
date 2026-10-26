@@ -25,6 +25,7 @@ import type {
   AnyIstarModel,
   AnyMetamodel,
   ElementKind,
+  IstarModel,
   LinkKind,
   Metamodel,
   ModelChange,
@@ -51,6 +52,20 @@ export interface MirrorStoreOptions<EK extends string = ElementKind, LK extends 
   readonly historyLimit?: number;
   /** Hears a failed update (a transport fault, a file that doesn't parse). Default: ignored. */
   readonly onError?: (error: unknown) => void;
+  /**
+   * Shown until the remote's first `requestModel` answers, instead of an empty model (a parsed
+   * model, or a piStar file parsed the same way as a pushed one — see `metamodelFor`). Replaced
+   * once the remote answers, unless its model is equal.
+   */
+  readonly initial?: IstarModel<EK, LK> | PistarFile;
+  /**
+   * The metamodel a pushed or re-requested file is read with, resolved per file (e.g. by its
+   * `tool`, with `detectFramework`) instead of the fixed `metamodel`. Keeps the mirror itself
+   * dialect-agnostic: a host whose remote may switch a mirror's root metamodel (an iStar mirror
+   * shown a KAOS file after `store.replace`) passes this instead of `metamodel`. Default:
+   * every file is read with `metamodel` (today's behaviour).
+   */
+  readonly metamodelFor?: (file: PistarFile) => Metamodel<EK, LK>;
 }
 
 /**
@@ -163,12 +178,31 @@ export function createMirrorStore<EK extends string = ElementKind, LK extends st
 ): MirrorStore<EK, LK> {
   const r = remote as unknown as ActionDispatcher<string, string>;
   const metamodel = options.metamodel as unknown as AnyMetamodel | undefined;
+  const metamodelFor = options.metamodelFor as unknown as
+    | ((file: PistarFile) => AnyMetamodel)
+    | undefined;
   const limit = options.historyLimit ?? 100;
   const onError = options.onError ?? (() => {});
   const listeners = new Set<ModelListener<string, string>>();
-  let model: AnyIstarModel = metamodel
-    ? createEmptyModel(undefined, { metamodel })
-    : (createEmptyModel() as AnyIstarModel);
+  const parseFile = (file: PistarFile): AnyIstarModel => {
+    const base = metamodelFor ? metamodelFor(file) : metamodel;
+    return parseWith(file, {
+      ...(base ? { metamodel: base } : {}),
+      ...(options.fileMetamodel ? { fileMetamodel: true } : {}),
+    });
+  };
+  const initial = options.initial as unknown as AnyIstarModel | PistarFile | undefined;
+  const initialModel: AnyIstarModel | undefined =
+    initial === undefined
+      ? undefined
+      : initial.elements instanceof Map
+        ? (initial as AnyIstarModel)
+        : parseFile(initial as PistarFile);
+  let model: AnyIstarModel =
+    initialModel ??
+    (metamodel
+      ? createEmptyModel(undefined, { metamodel })
+      : (createEmptyModel() as AnyIstarModel));
   /** The last file's `"metamodel"` block, as JSON; `undefined` before the first file. */
   let block: string | undefined;
   let undoDepth = 0;
@@ -181,15 +215,14 @@ export function createMirrorStore<EK extends string = ElementKind, LK extends st
 
   const parse = (file: PistarFile): AnyIstarModel => {
     const nextBlock = JSON.stringify((file as Record<string, unknown>)[FILE_METAMODEL_KEY] ?? null);
-    if (nextBlock === block) {
-      // The same file metamodel: read with the current model's metamodel, so `metamodelOf` keeps
-      // its identity (a registry memoised on it isn't rebuilt on every change).
+    const root = metamodelFor?.(file);
+    if (nextBlock === block && (!metamodelFor || root === metamodelOf(model))) {
+      // The same file metamodel, and (with `metamodelFor`) the same root: read with the current
+      // model's metamodel, so `metamodelOf` keeps its identity (a registry memoised on it isn't
+      // rebuilt on every change).
       return inheritMetamodel(model, parseWith(file, { metamodel: metamodelOf(model) }));
     }
-    const parsed = parseWith(file, {
-      ...(metamodel ? { metamodel } : {}),
-      ...(options.fileMetamodel ? { fileMetamodel: true } : {}),
-    });
+    const parsed = parseFile(file);
     block = nextBlock;
     return parsed;
   };
