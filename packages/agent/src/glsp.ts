@@ -5,3 +5,4 @@
  */
 export * from './glsp/backend';
 export * from './glsp/describe-operation';
+export * from './glsp/transport';

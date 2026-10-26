@@ -108,7 +108,9 @@ Metin & Bork §4.1.4).
   the reverse) is gone for both.
 - **Dirty state** is the dispatcher's `isDirty`. GLSP's `saveModel` saves through the
   dispatcher's `saveModel` (the model state writes the file), so either path marks the model
-  clean.
+  clean. A shared dispatcher without `isDirty` (a `createRemoteDispatcher`) is adapted with
+  `@istar-ts/actions`' `withDirtyState`, which tracks the `setDirtyState` notifications it relays
+  (#249).
 - **Updates.** After an accepted operation, undo or redo the session sends `updateModel` (no
   bounds round trip). Changes by the store's other clients are pushed too: `IstarStoreListener`
   hears the dispatcher and queues an internal `istar.storeChanged` on the session's action queue,

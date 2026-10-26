@@ -56,6 +56,7 @@ import type {
   ActionHandler,
   ClientSessionInitializer,
   ClientSessionListener,
+  ModelValidator,
 } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { liveTypeHints } from './diagram-configuration';
@@ -75,12 +76,30 @@ export const ISTAR_STORE_CHANGED = 'istar.storeChanged';
  * (`DefaultActionDispatcher.dispatch` rejects with "ActionQueue is stopped"), an unhandled
  * rejection — not just a test-teardown race, real clients closing mid-debounce hit this too
  * (#116). `cancelPendingLiveValidation` reaches the (protected, but same-module) timer so a
- * session's dispose can stop it before it fires.
+ * session's dispose can stop it before it fires, or drop what it finds if it already started.
  */
 @injectable()
 export class IstarModelSubmissionHandler extends ModelSubmissionHandler {
+  private cancelled = false;
+
+  /**
+   * Stops the debounced live validation, and one already running: its markers, which would be
+   * dispatched after the validator's own round trip to the model's dispatcher (an async one, a
+   * `createRemoteDispatcher` over a port), are dropped instead (#249).
+   */
   cancelPendingLiveValidation(): void {
+    this.cancelled = true;
     this.debouncedLiveValidation?.cancel();
+  }
+
+  protected override async performLiveValidation(validator: ModelValidator): Promise<void> {
+    if (this.cancelled) return;
+    try {
+      await super.performLiveValidation(validator);
+    } catch (error) {
+      // The session was disposed while the validator waited: its `ActionQueue` is stopped.
+      if (!this.cancelled) throw error;
+    }
   }
 }
 

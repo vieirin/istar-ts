@@ -16,7 +16,7 @@ import 'reflect-metadata';
 
 import type { PistarFile } from '@istar-ts/core';
 import type { MessagePortLike } from '@istar-ts/actions';
-import { connectDispatcher } from '@istar-ts/actions';
+import { connectDispatcher, withDirtyState } from '@istar-ts/actions';
 import type {
   GLSPServer,
   InitializeParameters,
@@ -426,18 +426,18 @@ export async function startIstarGlspWorker(
   const contribution = options.contribution ?? ISTAR_GLSP;
   const sourceUri = options.sourceUri ?? options.url?.split('/').pop() ?? 'model.txt';
   const files = options.files ?? memoryPistarFiles();
-  const shared =
-    options.shared ??
-    createIstarSharedModel(contribution, {
-      model: options.model ?? (options.url ? await (await fetch(options.url)).text() : undefined),
-      sourceModelName: sourceUri,
-      // The page's dispatcher ports are there to mirror the model (`createMirrorStore`): push it
-      // with every change rather than have each mirror ask for it.
-      sendModel: true,
-      save: async (file, action) => {
-        await files.write(action.fileUri ?? sourceUri, JSON.stringify(file, null, 2));
-      },
-    });
+  const shared: IstarSharedModel = options.shared
+    ? { store: options.shared.store, dispatcher: withDirtyState(options.shared.dispatcher) }
+    : createIstarSharedModel(contribution, {
+        model: options.model ?? (options.url ? await (await fetch(options.url)).text() : undefined),
+        sourceModelName: sourceUri,
+        // The page's dispatcher ports are there to mirror the model (`createMirrorStore`): push it
+        // with every change rather than have each mirror ask for it.
+        sendModel: true,
+        save: async (file, action) => {
+          await files.write(action.fileUri ?? sourceUri, JSON.stringify(file, null, 2));
+        },
+      });
 
   serve = (port) => {
     connectDispatcher(port as MessagePortLike, shared.dispatcher);

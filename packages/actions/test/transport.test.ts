@@ -1,7 +1,12 @@
 import { describe, expect, test, vi } from 'vitest';
 import { ISTAR_2_0, createModelStore } from '@istar-ts/core';
 import type { ActionDispatcher, IstarAction, ModelSourceChangedAction } from '../src';
-import { connectDispatcher, createActionDispatcher, createRemoteDispatcher } from '../src';
+import {
+  connectDispatcher,
+  createActionDispatcher,
+  createRemoteDispatcher,
+  withDirtyState,
+} from '../src';
 
 let next = 0;
 const createId = (): string => `id${++next}`;
@@ -118,5 +123,34 @@ describe('connectDispatcher / createRemoteDispatcher', () => {
     store.addElement({ kind: 'istar.Task', id: 'extra', x: 0, y: 0 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(received).toEqual([]);
+  });
+});
+
+describe('withDirtyState (#249)', () => {
+  test("a remote dispatcher's dirty state, tracked from setDirtyState", async () => {
+    const { client, server } = setup();
+    const tracked = withDirtyState(client);
+    expect(tracked.isDirty()).toBe(false);
+    await tracked.dispatch({
+      kind: 'createNode',
+      elementTypeId: 'istar.Quality',
+      containerId: 'a',
+      args: { name: 'Fast' },
+    });
+    // The notification arrives before the result.
+    expect(server.isDirty()).toBe(true);
+    expect(tracked.isDirty()).toBe(true);
+    await tracked.dispatch({ kind: 'glspUndo' });
+    expect(tracked.isDirty()).toBe(false);
+
+    tracked.dispose();
+    await client.dispatch({ kind: 'glspRedo' });
+    expect(server.isDirty()).toBe(true);
+    expect(tracked.isDirty()).toBe(false);
+  });
+
+  test('a dispatcher with isDirty and dispose is returned as is', () => {
+    const { server } = setup();
+    expect(withDirtyState(server)).toBe(server);
   });
 });
