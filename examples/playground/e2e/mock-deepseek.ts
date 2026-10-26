@@ -58,6 +58,27 @@ export function answer(text: string): unknown {
  * ever sent: the fetch itself hangs, as if DeepSeek never answered. */
 export const HANG = Symbol('hang');
 
+/** A completion (`answer(...)`/`toolCalls(...)`) paired with how many characters of streamed
+ * text content must have arrived before the mock pauses the rest of the stream indefinitely —
+ * only the request's `AbortSignal` firing ends it from there (#251). Lets a "Stop mid-stream"
+ * test wait for guaranteed partial text and assert nothing further ever arrives, with no race
+ * against the mock's own chunk pacing. */
+export interface PausedReply {
+  readonly completion: unknown;
+  readonly minChars: number;
+}
+
+/** See `PausedReply`. */
+export function pauseAfterChars(completion: unknown, minChars: number): PausedReply {
+  return { completion, minChars };
+}
+
+function isPausedReply(value: unknown): value is PausedReply {
+  return (
+    typeof value === 'object' && value !== null && 'completion' in value && 'minChars' in value
+  );
+}
+
 interface ScriptedChunk {
   readonly choices: readonly {
     readonly index: 0;
@@ -146,9 +167,15 @@ export async function mockDeepSeek(
     const index = callIndex;
     callIndex += 1;
     const result = reply(body, index);
-    return result === HANG
-      ? { hang: true, chunks: [] }
-      : { hang: false, chunks: toDeltaChunks(result) };
+    if (result === HANG) return { hang: true, chunks: [] };
+    if (isPausedReply(result)) {
+      return {
+        hang: false,
+        chunks: toDeltaChunks(result.completion),
+        minChars: result.minChars,
+      };
+    }
+    return { hang: false, chunks: toDeltaChunks(result) };
   });
   await page.evaluate(() => {
     const realFetch = window.fetch.bind(window);
@@ -158,9 +185,11 @@ export async function mockDeepSeek(
       const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}');
       const script = (await (
         window as unknown as {
-          mockDeepSeekReply: (b: unknown) => Promise<{ hang: boolean; chunks: unknown[] }>;
+          mockDeepSeekReply: (
+            b: unknown,
+          ) => Promise<{ hang: boolean; chunks: ScriptedChunk[]; minChars?: number }>;
         }
-      ).mockDeepSeekReply(body)) as { hang: boolean; chunks: unknown[] };
+      ).mockDeepSeekReply(body)) as { hang: boolean; chunks: ScriptedChunk[]; minChars?: number };
       const signal = init?.signal;
       const encoder = new TextEncoder();
       let aborted = signal?.aborted === true;
@@ -174,9 +203,18 @@ export async function mockDeepSeek(
               /* already closed/errored */
             }
           });
+          let sentChars = 0;
           for (const chunk of script.chunks) {
             if (aborted) return;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+            const content = chunk.choices[0]?.delta.content;
+            if (typeof content === 'string') sentChars += content.length;
+            if (script.minChars !== undefined && sentChars >= script.minChars) {
+              // Paused: only the `abort` listener above (`controller.error`) ever ends this —
+              // no further chunk is sent regardless of real-time pacing or scheduler load (#251).
+              await new Promise<void>(() => {});
+              return;
+            }
             await new Promise((resolve) => setTimeout(resolve, 25));
           }
           if (!script.hang && !aborted) {
