@@ -1,1 +1,0 @@
-- **actions:** removing an element's or link's last custom property with `istar.updateProperties` keeps `"customProperties": {}`, as piStar's exports do, instead of dropping the key (#219). An owner that never had the key stays without it.

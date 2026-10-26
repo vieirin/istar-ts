@@ -1,1 +1,0 @@
-- **playground:** deployed to GitHub Pages on every push to main, at https://vieirin.github.io/istar-ts/ (`.github/workflows/pages.yml`).

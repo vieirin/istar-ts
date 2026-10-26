@@ -1,1 +1,0 @@
-- **playground:** the start page's cards and the pages' back links are relative, so they work from the GitHub Pages subpath (https://vieirin.github.io/istar-ts/) instead of 404ing.
