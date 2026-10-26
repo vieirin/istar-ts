@@ -17,7 +17,7 @@ import {
   switchExtension,
   undoButton,
 } from './helpers';
-import { HANG, answer, mockDeepSeek, toolCalls } from './mock-deepseek';
+import { HANG, answer, mockDeepSeek, pauseAfterChars, toolCalls } from './mock-deepseek';
 import type { RecordedChat } from './mock-deepseek';
 
 const FAKE_KEY = 'sk-test-0123456789abcdefFAKEKEY';
@@ -389,12 +389,15 @@ test.describe('agent drawer', () => {
     page,
   }) => {
     let callCount = 0;
+    const reply =
+      'This is a long streamed reply that Stop should interrupt well before it finishes ' +
+      'streaming in, so the test can see a partial line.';
+    // Paused after "This is a long" streams in: the mock sends no further chunk until this
+    // request's `AbortSignal` fires, so Stop always lands before any more text, deterministically
+    // rather than racing the mock's own chunk pacing under load (#251).
     await mockDeepSeek(page, () => {
       callCount += 1;
-      return answer(
-        'This is a long streamed reply that Stop should interrupt well before it finishes ' +
-          'streaming in, so the test can see a partial line.',
-      );
+      return pauseAfterChars(answer(reply), 'This is a long'.length);
     });
 
     await openDrawer(page);
