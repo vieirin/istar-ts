@@ -5,6 +5,29 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.15.1
+
+- **agent:** `@istar-ts/agent/glsp`'s change set no longer keys steps by `ToolResult` identity: a
+  scratch step's result carries its `stepId` and an `undo`/`redo`'s its `undoDescription`, so
+  `changeSet.step`/`describeUndo`/`apply` work on copies (structured clones, JSON) of the results
+  too. New `serveGlspMcpSession(port, getOptions)` and `connectGlspMcpSession(port)` serve a
+  `GlspMcpSession` over a `MessagePort`-like channel (a worker next to the model, the page running
+  the agent): live calls, Propose → review → apply, and undo/redo mirroring (#248).
+- **agent, glsp:** a session's or `serveIstarGlsp({ shared })`'s dispatcher may be any
+  `ActionDispatcher`: one without `isDirty` (a `createRemoteDispatcher`) is adapted with the new
+  `withDirtyState` from `@istar-ts/actions`, its dirty state tracked from `setDirtyState`
+  notifications. Closing a session while its live validation waits on an async dispatcher no
+  longer raises an unhandled "ActionQueue is stopped" (#249).
+- **actions:** `createMirrorStore`'s `MirrorStoreOptions` gains `initial` (a parsed model, or a
+  piStar file parsed the same way as a pushed one) shown until the remote's first `requestModel`
+  answers, instead of an empty model — replaced once it does, unless the remote's model is equal
+  — and `metamodelFor` (`(file: PistarFile) => Metamodel`), resolving the root a pushed or
+  re-requested file is read with per file (e.g. by its `tool`, with `detectFramework`) instead of
+  a fixed `metamodel`, so a mirror can follow a host-side `store.replace` that switches a model's
+  root metamodel. The mirror itself stays dialect-agnostic: resolving a file's root is left to
+  `metamodelFor`. Default behaviour (a fixed `metamodel`, an empty initial model) is unchanged
+  (#250).
+
 ## 0.15.0
 
 - **glsp:** `startIstarGlspWorker({ mcp: true })` (#134): MCP for the GLSP server in a Web
