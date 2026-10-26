@@ -31,6 +31,7 @@ export type {
 } from './context';
 export {
   LINE_DASHES,
+  type LineDashKind,
   applyExtensions,
   createRegistry,
   metamodelWithExtensions,

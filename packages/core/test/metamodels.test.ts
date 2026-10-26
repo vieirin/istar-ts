@@ -643,3 +643,8 @@ describe('property schemas on extended kinds', () => {
     ]);
   });
 });
+
+test('LINE_DASHES: piStar-ext line kinds as dash arrays (#246)', async () => {
+  const { LINE_DASHES } = await import('../src');
+  expect(LINE_DASHES).toEqual({ continuous: undefined, dashed: '10,5', dotted: '1,3' });
+});
