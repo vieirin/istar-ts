@@ -59,9 +59,22 @@ refusal. Two backends:
   });
   ```
 
-  A guard's rejection through `@istar-ts/glsp` arrives with its own diagnostics (#136). Propose
-  mode over MCP needs a `ChangeSetTarget` with a scratch GLSP session; this package does not
-  ship one yet.
+  A guard's rejection through `@istar-ts/glsp` arrives with its own diagnostics (#136).
+  `@istar-ts/agent/glsp`'s `openGlspMcpSession(getOptions)` sets all of this up over a host's
+  store and dispatcher (any `ActionDispatcher`, a `createRemoteDispatcher` included, #249), with
+  Propose mode's `ChangeSetTarget` on a scratch GLSP session (`changeSet`). A scratch step's
+  result carries its `stepId` and an `undo`/`redo`'s its `undoDescription`, so `changeSet.step`
+  and `describeUndo` work on copies of the results too. Where the model lives in a worker,
+  `serveGlspMcpSession(port, getOptions)` serves the session there and
+  `connectGlspMcpSession(port)` is the same `GlspMcpSession` on the page (#248):
+
+  ```ts
+  // worker, next to the store and dispatcher
+  serveGlspMcpSession(port1, () => ({ store, dispatcher, metamodel }));
+  // page
+  const session = await connectGlspMcpSession(port2);
+  await runAgent({ client, prompt, changeSet: session.changeSet });
+  ```
 
 - **B, actions** — `createActionToolRegistry(dispatcher, { metamodel })`: one tool per
   `HANDLED_ACTION_KINDS` operation and request, plus `glspUndo`/`glspRedo`, named after the kind

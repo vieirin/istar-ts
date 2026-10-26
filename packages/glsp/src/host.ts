@@ -6,7 +6,7 @@
 import type { AnyIstarModel, PistarFile } from '@istar-ts/core';
 import { createModelStore, parsePistar } from '@istar-ts/core';
 import type { SaveModelAction } from '@istar-ts/actions';
-import { createActionDispatcher } from '@istar-ts/actions';
+import { createActionDispatcher, withDirtyState } from '@istar-ts/actions';
 import { ServerModule } from '@eclipse-glsp/server';
 import { ContainerModule } from 'inversify';
 import type { IstarGlspContribution } from './contribution';
@@ -15,6 +15,7 @@ import { configureIstarDiagram } from './diagram-module';
 import { PistarFiles } from './files';
 import type { IstarMcpHostExtensions } from './mcp-host';
 import { IstarSharedModel } from './model-state';
+import type { IstarSharedModelSource } from './model-state';
 
 export type { IstarMcpHostExtensions } from './mcp-host';
 
@@ -25,9 +26,10 @@ export interface IstarGlspHostOptions {
   /**
    * The host's model, shared by every session of `diagramType` (default: the first
    * contribution's): see `IstarSharedModel`. Without it each session has its own store, loaded
-   * from `files` by `requestModel`'s `sourceUri`.
+   * from `files` by `requestModel`'s `sourceUri`. Any `ActionDispatcher` will do (#249): see
+   * `IstarSharedModelSource`.
    */
-  readonly shared?: IstarSharedModel & { readonly diagramType?: string };
+  readonly shared?: IstarSharedModelSource & { readonly diagramType?: string };
   /** Where `requestModel` reads files and a session's own dispatcher saves them. */
   readonly files?: PistarFiles;
   /** Further modules for every diagram's session container (e.g. an MCP diagram module). */
@@ -65,11 +67,15 @@ export function mcpServerConfig(options: IstarMcpBaseOptions): {
   };
 }
 
-/** Binds a host's `IstarSharedModel`, for a diagram's session containers or a whole server. */
-export function bindIstarSharedModel(shared: IstarSharedModel): ContainerModule {
-  const { store, dispatcher } = shared;
+/**
+ * Binds a host's `IstarSharedModel`, for a diagram's session containers or a whole server. A
+ * dispatcher without `isDirty` is adapted (`withDirtyState`) once, here, for every session.
+ */
+export function bindIstarSharedModel(shared: IstarSharedModelSource): ContainerModule {
+  const store = shared.store;
+  const dispatcher = withDirtyState(shared.dispatcher);
   return new ContainerModule((bind) => {
-    bind(IstarSharedModel).toConstantValue({ store, dispatcher });
+    bind(IstarSharedModel).toConstantValue({ store, dispatcher } satisfies IstarSharedModel);
   });
 }
 

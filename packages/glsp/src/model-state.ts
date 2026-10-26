@@ -46,6 +46,17 @@ export interface IstarSharedModel {
 }
 
 /**
+ * A host's model as a launcher's `shared` option takes it (`serveIstarGlsp({ shared })`,
+ * `bindIstarSharedModel`): an `IstarSharedModel` over any `ActionDispatcher`. One without
+ * `isDirty` (a `createRemoteDispatcher` over a port) is adapted with `withDirtyState`, its dirty
+ * state tracked from the `setDirtyState` notifications it relays (#249).
+ */
+export interface IstarSharedModelSource {
+  readonly store: ModelStore<string, string>;
+  readonly dispatcher: ActionDispatcher<string, string>;
+}
+
+/**
  * Service identifier of the host's `IstarSharedModel`. Bound (`bindIstarSharedModel`), sessions
  * share its store and dispatcher, `requestModel` shows its model without reading a file, and the
  * session never disposes it.

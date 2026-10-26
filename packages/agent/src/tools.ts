@@ -56,6 +56,14 @@ export type ToolResult =
       readonly createdIds?: readonly string[];
       /** Non-error diagnostics (warnings from guards) for a call that was applied anyway. */
       readonly diagnostics?: readonly GoalDiagnostic[];
+      /**
+       * A Propose-mode step's key in its change set (`@istar-ts/agent/glsp`'s `GlspChangeSet`),
+       * carried on the result so a copy of it (one that crossed `postMessage`, or a transcript
+       * read back from JSON) still finds its step (#248). Never shown to the model.
+       */
+      readonly stepId?: string;
+      /** For a scratch `undo`/`redo` call, what it undid/redid, in plain words (#163, #248). */
+      readonly undoDescription?: string;
     } & Dispatched)
   | ({ readonly ok: false; readonly diagnostics: readonly GoalDiagnostic[] } & Dispatched);
 

@@ -9,7 +9,13 @@
  * `ActionDispatcher` implementation for the other end. No `vscode-jsonrpc`.
  */
 import type { ElementKind, LinkKind } from '@istar-ts/core';
-import type { ActionDispatcher, ActionListener, ActionResult, DispatchOptions } from './dispatcher';
+import type {
+  ActionDispatcher,
+  ActionListener,
+  ActionResult,
+  DispatchOptions,
+  StoreActionDispatcher,
+} from './dispatcher';
 import type { IstarAction } from './actions';
 
 const JSONRPC_VERSION = '2.0';
@@ -195,6 +201,43 @@ export function createRemoteDispatcher<
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+  };
+}
+
+/**
+ * `dispatcher` as a `StoreActionDispatcher`, for a consumer that asks for its dirty state (a GLSP
+ * session over a host's dispatcher, `@istar-ts/glsp`'s `IstarSharedModel`). A dispatcher that has
+ * `isDirty` is returned as is (with a no-op `dispose` if it has none); one that doesn't (a
+ * `createRemoteDispatcher`, a mirror's) is wrapped, its dirty state tracked from the
+ * `setDirtyState` notifications it relays from then on: clean until the first one, since a remote
+ * dispatcher doesn't publish the state it had before. `dispose` stops tracking and never disposes
+ * the dispatcher itself, which stays its owner's (#249).
+ */
+export function withDirtyState<EK extends string = ElementKind, LK extends string = LinkKind>(
+  dispatcher: ActionDispatcher<EK, LK> & { isDirty?(): boolean; dispose?(): void },
+): StoreActionDispatcher<EK, LK> {
+  const own = dispatcher.isDirty;
+  if (typeof own === 'function') {
+    if (typeof dispatcher.dispose === 'function')
+      return dispatcher as StoreActionDispatcher<EK, LK>;
+    return {
+      dispatch: (action, options) => dispatcher.dispatch(action, options),
+      subscribe: (listener) => dispatcher.subscribe(listener),
+      isDirty: () => own.call(dispatcher),
+      dispose: () => undefined,
+    };
+  }
+  let dirty = false;
+  const unsubscribe = dispatcher.subscribe((action) => {
+    if (action.kind === 'setDirtyState') dirty = action.isDirty;
+  });
+  return {
+    dispatch: (action, options) => dispatcher.dispatch(action, options),
+    subscribe: (listener) => dispatcher.subscribe(listener),
+    isDirty: () => dirty,
+    dispose: () => {
+      unsubscribe();
     },
   };
 }

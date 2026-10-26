@@ -48,7 +48,12 @@ import { describeOperation } from './describe-operation';
 
 export interface GlspMcpBackendOptions {
   readonly store: ModelStore<string, string>;
-  /** The dispatcher every applied edit goes through. */
+  /**
+   * The dispatcher every applied edit goes through: any `ActionDispatcher`, a
+   * `createRemoteDispatcher` over a port included. GLSP asks it for its dirty state; one without
+   * `isDirty` has it tracked from the `setDirtyState` notifications it relays (`withDirtyState`,
+   * #249).
+   */
   readonly dispatcher: ActionDispatcher<string, string>;
   readonly guards?: readonly ActionGuard<string, string>[];
   /** Run after each operation on the scratch dispatcher, inside its transaction (#203): a
@@ -93,7 +98,7 @@ async function connectMcp(
   } = {},
 ): Promise<McpConnection> {
   const server = serveIstarGlsp({
-    shared: { store: store as never, dispatcher: dispatcher as never },
+    shared: { store, dispatcher },
     mcp: {
       hostTools: host.hostTools,
       context: host.context,
@@ -179,18 +184,21 @@ export interface GlspChangeSet extends ChangeSetTarget {
    * `entry`'s step, or `undefined` for a call that isn't one: a read-only call, a refused one,
    * one that changed nothing (e.g. `set-view`), or one every record of which a later `undo` (in
    * the same run) has popped off the scratch session's undo stack (#163). Only steps go into
-   * `apply`'s compound.
+   * `apply`'s compound. Found by the result's `stepId`, so a copy of the scratch call's result
+   * works as well as the result itself (#248).
    */
   step(entry: ChangeSetEntry): ProposedStep | undefined;
   /** For a successful `undo`/`redo` call, what it undid/redid, in plain words (#163); `undefined`
-   * for every other call. The review's context section shows this instead of the tool's name. */
+   * for every other call. The review's context section shows this instead of the tool's name.
+   * The result's own `undoDescription` (#248). */
   describeUndo(result: ToolResult): string | undefined;
 }
 
 /**
  * Propose mode over backend A: a scratch session per run, with its dispatched operations
- * recorded (keyed by the exact `ToolResult` object a call returns, so applying a reviewed,
- * possibly reordered-or-dropped subset of `entries` needs no further bookkeeping) so `apply` can
+ * recorded (keyed by the `stepId` the scratch registry stamps on a step's `ToolResult`, so
+ * applying a reviewed, possibly reordered-or-dropped subset of `entries`, or copies of them that
+ * crossed a transport, needs no further bookkeeping, #248) so `apply` can
  * replay the kept ones on the live dispatcher as one `compound`. Each is recorded with the ids it
  * created injected as explicit ids (`injectCreatedIds`, as the lab's replay does): the live store
  * would otherwise mint fresh ones, and a later step naming a scratch id would be rejected (#155).
@@ -202,10 +210,12 @@ export function createGlspChangeSet(
   getOptions: () => GlspMcpBackendOptions,
   contribution: IstarGlspContribution,
 ): GlspChangeSet {
-  // Each tool call's own records, fixed at call time; a record stops counting once a later
-  // `undo` (anywhere in the same run) pops it off `doneStack` below (#163).
-  const recordsByResult = new WeakMap<ToolResult, readonly OpRecord[]>();
-  const undoDescriptions = new WeakMap<ToolResult, string>();
+  // Each step's records (by `stepId`), fixed at call time; a record stops counting once a later
+  // `undo` (anywhere in the same run) pops it off `doneStack` below (#163). Only the current
+  // run's: a step of an earlier one is never active again anyway.
+  const recordsByStep = new Map<string, readonly OpRecord[]>();
+  let run = 0;
+  let nextStep = 0;
   // The scratch session's own undo/redo stacks, mirrored record-for-record: one per dispatched
   // operation, which is one per mutating tool call (#223 groups a call's operations into one
   // dispatch and one undo step on the scratch session's store).
@@ -213,7 +223,7 @@ export function createGlspChangeSet(
   let redoStack: OpRecord[] = [];
 
   const activeStep = (result: ToolResult): ProposedStep | undefined => {
-    const records = recordsByResult.get(result);
+    const records = result.ok && result.stepId ? recordsByStep.get(result.stepId) : undefined;
     if (!records) return undefined;
     const active = records.filter((r) => doneStack.includes(r));
     return active.length === 0 ? undefined : stepFromRecords(active);
@@ -225,6 +235,9 @@ export function createGlspChangeSet(
       const scratchStore = copyOf(options.store);
       doneStack = [];
       redoStack = [];
+      recordsByStep.clear();
+      run += 1;
+      nextStep = 0;
       let bucket: OpRecord[] | null = null;
       let undoNotes: string[] | null = null;
       const baseDispatcher = createActionDispatcher(scratchStore, {
@@ -301,15 +314,14 @@ export function createGlspChangeSet(
             if (myUndoNotes.length > 0) {
               // `undo`/`redo` are not review steps themselves (#163): the context section shows
               // what they did instead.
-              undoDescriptions.set(result, myUndoNotes.join('; '));
-              return result;
+              return { ...result, undoDescription: myUndoNotes.join('; ') };
             }
             if (readOnlyNames.has(name) || myBucket.length === 0) return result;
             const step = stepFromRecords(myBucket);
+            const stepId = `${run}.${nextStep++}`;
+            recordsByStep.set(stepId, myBucket);
             // The review shows them (`resultText`); the model never reads `createdIds`.
-            const proposed: ToolResult = { ...result, createdIds: step.createdIds };
-            recordsByResult.set(proposed, myBucket);
-            return proposed;
+            return { ...result, createdIds: step.createdIds, stepId };
           } finally {
             bucket = null;
             undoNotes = null;
@@ -339,7 +351,7 @@ export function createGlspChangeSet(
       };
     },
     step: (entry) => activeStep(entry.result),
-    describeUndo: (result) => undoDescriptions.get(result),
+    describeUndo: (result) => (result.ok ? result.undoDescription : undefined),
   };
 }
 
