@@ -128,6 +128,45 @@ describe('runAgent', () => {
     });
   });
 
+  test('attachments are fenced into the prompt and recorded on the transcript user message', async () => {
+    const client = await model(() => answer('Looked at the file.'));
+    const { dispatcher } = liveStore();
+    const attachments = [
+      { name: 'notes.txt', mime: 'text/plain', text: 'a plain note' },
+      { name: 'snippet.md', mime: 'text/markdown', text: 'has a ```fenced``` block' },
+    ];
+    const { transcript } = await runAgent({
+      client,
+      prompt: 'Summarize the attached files.',
+      attachments,
+      approval: 'auto',
+      tools: createActionToolRegistry(dispatcher),
+    });
+
+    const userMessage = transcript.messages.find((m) => m.role === 'user')!;
+    expect(userMessage).toMatchObject({ attachments });
+    expect(userMessage.content).toContain('Summarize the attached files.');
+    expect(userMessage.content).toContain('notes.txt\n```\na plain note\n```');
+    // The file's own ``` run cannot close the fence early: it needs a longer one.
+    expect(userMessage.content).toContain('snippet.md\n````\nhas a ```fenced``` block\n````');
+
+    const sent = mock!.requests[0]!.body.messages.find((m) => m.role === 'user')!;
+    expect((sent as { content: string }).content).toBe(userMessage.content);
+  });
+
+  test('without attachments, the user message carries none', async () => {
+    const client = await model(() => answer('ok'));
+    const { dispatcher } = liveStore();
+    const { transcript } = await runAgent({
+      client,
+      prompt: 'Hello.',
+      approval: 'auto',
+      tools: createActionToolRegistry(dispatcher),
+    });
+    const userMessage = transcript.messages.find((m) => m.role === 'user')!;
+    expect(userMessage).toEqual({ role: 'user', content: 'Hello.' });
+  });
+
   test('a refused call reaches the model as typed diagnostics it can repair against', async () => {
     const client = await model((request, i) => {
       if (i === 0) return toolCalls(['createNode', { elementTypeId: 'istar.Goal' }]);
