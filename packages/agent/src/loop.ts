@@ -7,7 +7,16 @@ import type { HostContextProvider } from '@istar-ts/actions';
 import { contextText, metamodelContextProvider } from '@istar-ts/actions';
 import type { AnyIstarModel } from '@istar-ts/core';
 import type { ChangeSetEntry, ChangeSetTarget } from './change-set';
-import type { AssistantMessage, ChatClient, ChatDelta, ChatMessage, ToolCall, Usage } from './chat';
+import type {
+  AssistantMessage,
+  Attachment,
+  ChatClient,
+  ChatDelta,
+  ChatMessage,
+  ToolCall,
+  Usage,
+} from './chat';
+import { fenceAttachments } from './chat';
 import { errorToToolResult, toOpenAiTools, toolRefusal } from './tools';
 import type { JsonValue, ToolRegistry, ToolResult } from './tools';
 
@@ -110,6 +119,12 @@ interface RunAgentCommon {
   readonly client: ChatClient;
   /** The user's request for this run. */
   readonly prompt: string;
+  /**
+   * Text files attached to this turn (#257): inlined after `prompt` via the client's provider
+   * (`ChatProvider.attach`) or, when the client has no provider, `fenceAttachments`; kept on the
+   * transcript's user message too, for a host to render chips from.
+   */
+  readonly attachments?: readonly Attachment[];
   /** Earlier turns (without the system prompt), to continue a conversation. */
   readonly history?: readonly ChatMessage[];
   /** Default `DEFAULT_SYSTEM_PROMPT`. */
@@ -227,10 +242,20 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
   const readOnly = new Set(specs.filter((s) => s.readOnly).map((s) => s.name));
   const tools = toOpenAiTools(specs);
 
+  const attachments = options.attachments;
+  const userMessage: ChatMessage =
+    attachments && attachments.length > 0
+      ? {
+          role: 'user',
+          content: `${options.prompt}\n\n${(client.provider?.attach ?? fenceAttachments)(attachments)}`,
+          attachments,
+        }
+      : { role: 'user', content: options.prompt };
+
   const messages: ChatMessage[] = [
     { role: 'system', content: system },
     ...(options.history ?? []),
-    { role: 'user', content: options.prompt },
+    userMessage,
   ];
   const steps: TranscriptStep[] = [];
   const changeSet: ChangeSetEntry[] = [];
