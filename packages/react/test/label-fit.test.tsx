@@ -291,3 +291,15 @@ describe('layering', () => {
     expect(css).toMatch(/\.istar-canvas \.react-flow__edgelabel-renderer \{\s*z-index: 1;\s*\}/);
   });
 });
+
+describe('node cursor', () => {
+  test('draggable nodes show a pointer, and the grab hand only while dragging', () => {
+    const css = readFileSync(join(import.meta.dirname, '../src/styles.css'), 'utf8');
+    expect(css).toMatch(
+      /\.istar-canvas \.react-flow__node\.draggable[^{]*\{\s*cursor: pointer;\s*\}/,
+    );
+    expect(css).toMatch(
+      /\.istar-canvas \.react-flow__node\.draggable\.dragging[^{]*\{\s*cursor: grabbing;\s*\}/,
+    );
+  });
+});
