@@ -5,6 +5,13 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.16.2
+
+- **core:** `toPistar`/`toPistarObject` now write an actor's box as the union of its stored
+  position/size (when the loaded file had a `display` size for it) and the tight box enclosing its
+  children, instead of the tight box alone. This corrects 0.16.1 (#260), which shrank a stored
+  actor size that already enclosed its children down to the children's tight bounds.
+
 ## 0.16.1
 
 - **core:** `toPistar`/`toPistarObject` now write an actor's `x`/`y` (and, when the loaded file
