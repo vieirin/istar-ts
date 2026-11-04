@@ -159,6 +159,12 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
    * Passed straight through to React Flow; left undefined, React Flow's own default (1) applies.
    */
   readonly nodeDragThreshold?: number;
+  /**
+   * When true, clicking or starting a drag on an actor's body (outside its symbol) selects the
+   * actor, with the same multi-select and jitter behaviour as clicking its symbol. Default false,
+   * which keeps today's behaviour: only the symbol selects the actor.
+   */
+  readonly selectActorOnBodyClick?: boolean;
 }
 
 /** Options for {@link IstarCanvasHandle.fitView}. */
@@ -342,6 +348,7 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
               panOnShiftScroll={props.panOnShiftScroll ?? true}
               nodeClickDistance={props.nodeClickDistance ?? 3}
               nodeDragThreshold={props.nodeDragThreshold}
+              selectActorOnBodyClick={props.selectActorOnBodyClick ?? false}
             />
             <ToolHint />
             <NoticeBar />
@@ -372,6 +379,7 @@ function Diagram({
   panOnShiftScroll,
   nodeClickDistance,
   nodeDragThreshold,
+  selectActorOnBodyClick,
 }: {
   controls: boolean;
   background: boolean;
@@ -381,6 +389,7 @@ function Diagram({
   panOnShiftScroll: boolean;
   nodeClickDistance: number;
   nodeDragThreshold: number | undefined;
+  selectActorOnBodyClick: boolean;
 }): ReactElement {
   const editor = useIstarEditor();
   const {
@@ -708,19 +717,27 @@ function Diagram({
       if (tool) return;
       const dragged = store.getModel().elements.get(node.id);
       if (!dragged || !isActorKind(dragged.kind)) return;
-      if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
+      const onSymbol = (event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`);
+      if (!onSymbol && !selectActorOnBodyClick) return;
       selectActorSymbol(dragged, false);
     },
-    [isActorKind, selectActorSymbol, store, tool],
+    [isActorKind, selectActorOnBodyClick, selectActorSymbol, store, tool],
   );
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: IstarFlowNode) => {
       const clicked = store.getModel().elements.get(node.id);
       if (!clicked) return;
       // Actors aren't selectable in React Flow (see gmodelToFlow): only their symbol selects
-      // them, and clicks elsewhere on the boundary leave the selection alone.
+      // them by default, and clicks elsewhere on the boundary leave the selection alone — unless
+      // selectActorOnBodyClick opts the body in too.
       if (isActorKind(clicked.kind) && !tool) {
-        if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
+        const onSymbol = (event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`);
+        if (!onSymbol) {
+          if (!selectActorOnBodyClick) return;
+          // Alt+click collapse is defined for the symbol only; a body click just selects.
+          selectActorSymbol(clicked, true);
+          return;
+        }
         // Like piStar: Alt+click on an actor collapses or expands it.
         if (event.altKey) {
           const framed = registry.elements[clicked.kind].boundary !== false;
@@ -764,6 +781,7 @@ function Diagram({
       run,
       readOnly,
       registry,
+      selectActorOnBodyClick,
       selectActorSymbol,
       store,
       tool,

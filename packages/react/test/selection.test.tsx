@@ -54,13 +54,17 @@ function highlightedEdges(container: HTMLElement): string[] {
   );
 }
 
-function setup(store: ModelStore, initial?: (editor: IstarEditor) => void) {
+function setup(
+  store: ModelStore,
+  initial?: (editor: IstarEditor) => void,
+  canvasProps?: { selectActorOnBodyClick?: boolean },
+) {
   const editor: { current?: IstarEditor } = {};
   const view = render(
     <div style={{ width: 800, height: 600 }}>
       <IstarProvider store={store}>
         <Grab onEditor={(e) => (editor.current = e)} />
-        <IstarCanvas fitView={false} />
+        <IstarCanvas fitView={false} {...canvasProps} />
       </IstarProvider>
     </div>,
   );
@@ -279,6 +283,82 @@ describe('a drag beginning on the actor symbol selects it (jitter tolerance)', (
     dragStart(container, g1, container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
     expect(highlighted(container)).toEqual([]);
     expect(editor().selection).toBeNull();
+  });
+});
+
+describe('selectActorOnBodyClick', () => {
+  function actorOf(store: ModelStore): string {
+    return [...store.getModel().elements.values()].find((e) => e.kind === 'istar.Actor')!.id;
+  }
+  function press(target: Element, modifiers: { ctrlKey?: boolean; altKey?: boolean } = {}) {
+    fireEvent.pointerDown(target, modifiers);
+    fireEvent.click(target, modifiers);
+  }
+  const body = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-boundary`)!;
+  function dragStart(container: HTMLElement, nodeId: string, target: Element) {
+    const node = captured!.nodes!.find((n) => n.id === nodeId)!;
+    act(() => {
+      captured!.onNodeDragStart!({ target } as unknown as MouseEvent, node, [node]);
+    });
+  }
+
+  test('off: clicking the body still does not select the actor', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    press(body(container, actor));
+    expect(highlighted(container)).toEqual([]);
+    expect(editor().selection).toBeNull();
+  });
+
+  test('on: clicking the body selects the actor', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(body(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+  });
+
+  test('on: a drag starting on the body selects the actor', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    dragStart(container, actor, body(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+  });
+
+  test('on: Alt+click on the body selects but does not collapse', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(body(container, actor), { altKey: true });
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+    expect(store.getModel().elements.get(actor)?.display?.collapsed).not.toBe(true);
+  });
+
+  test('on: a modifier click on an already-selected actor toggles it off', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(body(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true });
+    press(body(container, actor), { ctrlKey: true });
+    fireEvent.keyUp(document.body, { key: 'Control' });
+    expect(highlighted(container)).toEqual([]);
+    expect(editor().selection).toBeNull();
+  });
+
+  test('on: a click delivered to a child node is not treated as a body click on the actor', () => {
+    const { store, g1 } = twoGoals();
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(editor().selection).toEqual({ type: 'element', id: g1 });
+    expect(highlighted(container)).toEqual([g1]);
   });
 });
 
