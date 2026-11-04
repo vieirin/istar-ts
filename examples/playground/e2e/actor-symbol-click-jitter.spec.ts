@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   canvasPane,
+  deselectAll,
   gotoApp,
   lastCreatedId,
   nodeById,
@@ -26,9 +27,8 @@ test.describe('an actor symbol click with a few px of jitter still selects the a
     const node = nodeById(page, actorId);
     await expect(node).toHaveClass(/selected/);
 
-    // Deselect first: the fresh actor is selected right after creation (addAt). A spot clear of
-    // both the actor and the inspector aside panel.
-    await canvasPane(page).click({ position: { x: 600, y: 50 } });
+    // Deselect first: the fresh actor is selected right after creation (addAt).
+    await deselectAll(page);
     await expect(node).not.toHaveClass(/selected/);
 
     const symbol = node.locator('.istar-actor-symbol');

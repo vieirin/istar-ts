@@ -86,6 +86,35 @@ export function nodeById(page: Page, id: string): Locator {
 }
 
 /**
+ * Clamps a page point's x into the canvas pane's own box, minus a small margin. A node's own
+ * `boundingBox()` can extend past the pane's right edge when the inspector/lab aside renders
+ * wide (`.pg-aside` is `width: max-content`), clipped behind the aside even though the DOM rect
+ * still reports the node's full, unclipped geometry — a fraction-of-the-node point can land on
+ * the aside instead of the node (#274). The clamped x is still on the node whenever the node's
+ * own left edge is inside the pane, which every node created through the palette is.
+ */
+export async function clampXToPane(page: Page, x: number): Promise<number> {
+  const pane = await canvasPane(page).boundingBox();
+  if (!pane) throw new Error('clampXToPane: canvas pane has no bounding box');
+  return Math.min(x, pane.x + pane.width - 20);
+}
+
+/**
+ * Clicks a spot of the canvas pane clear of any node, to deselect whatever is selected. A
+ * fraction of the pane's own rendered box, not a fixed pixel offset: the pane's width shrinks
+ * with how wide the inspector/lab aside renders (`.pg-aside` is `width: max-content`, e.g. a
+ * long action-log row), so a fixed offset like `x: 600` can land past the pane's right edge, on
+ * the aside itself (#274). Near the pane's top-right corner: these specs create nodes near its
+ * top-left.
+ */
+export async function deselectAll(page: Page): Promise<void> {
+  const pane = canvasPane(page);
+  const box = await pane.boundingBox();
+  if (!box) throw new Error('deselectAll: canvas pane has no bounding box');
+  await pane.click({ position: { x: box.width - 20, y: 20 } });
+}
+
+/**
  * Clicks inside `node` at the given fraction of its rendered box (0–1 each axis), not a fixed
  * pixel offset: the canvas's initial zoom shrinks a fresh empty model's nodes, so a fixed offset
  * can land past a node's edge, onto the pane behind it.
@@ -94,6 +123,34 @@ export async function clickInside(node: Locator, fx: number, fy: number): Promis
   const box = await node.boundingBox();
   if (!box) throw new Error('clickInside: node has no bounding box');
   await node.click({ position: { x: box.width * fx, y: box.height * fy } });
+}
+
+/**
+ * `locator`'s bounding box, polled until two consecutive reads match: React Flow measures a
+ * node (and an actor re-measures to contain a just-added child) over one or more renders, so a
+ * box read right after creation can be mid-measurement under worker contention (#274).
+ */
+export async function stableBoundingBox(
+  locator: Locator,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  let previous = await locator.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await locator.page().waitForTimeout(50);
+    const next = await locator.boundingBox();
+    if (
+      previous &&
+      next &&
+      previous.x === next.x &&
+      previous.y === next.y &&
+      previous.width === next.width &&
+      previous.height === next.height
+    ) {
+      return next;
+    }
+    previous = next;
+  }
+  if (!previous) throw new Error('stableBoundingBox: locator has no bounding box');
+  return previous;
 }
 
 /** The id `createNode`/`createEdge` just created, read off the action log's last row. */
@@ -130,7 +187,7 @@ export async function dragNodeBy(
 ): Promise<void> {
   const box = await node.boundingBox();
   if (!box) throw new Error('drag: node has no bounding box');
-  const startX = box.x + box.width * fx;
+  const startX = await clampXToPane(page, box.x + box.width * fx);
   const startY = box.y + box.height * fy;
   await page.mouse.move(startX, startY);
   await page.mouse.down();

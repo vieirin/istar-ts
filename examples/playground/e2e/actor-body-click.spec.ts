@@ -2,7 +2,9 @@ import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import {
   canvasPane,
+  clampXToPane,
   clickInside,
+  deselectAll,
   dragNodeBy,
   gotoApp,
   lastCreatedId,
@@ -12,6 +14,7 @@ import {
   resetToEmptyModel,
   selectActorTool,
   selectTool,
+  stableBoundingBox,
   undoButton,
 } from './helpers';
 
@@ -35,7 +38,7 @@ test.describe('selectActorOnBodyClick', () => {
     const node = nodeById(page, actorId);
     await expect(node).toHaveClass(/selected/);
     // A fresh actor is selected right after creation (addAt); clear a spot first.
-    await canvasPane(page).click({ position: { x: 600, y: 50 } });
+    await deselectAll(page);
     await expect(node).not.toHaveClass(/selected/);
     return node;
   }
@@ -44,7 +47,7 @@ test.describe('selectActorOnBodyClick', () => {
     const body = node.locator('.istar-actor-boundary');
     const box = await body.boundingBox();
     if (!box) throw new Error('actor body has no bounding box');
-    const startX = box.x + box.width / 2;
+    const startX = await clampXToPane(node.page(), box.x + box.width / 2);
     const startY = box.y + box.height / 2;
     await node.page().mouse.move(startX, startY);
     await node.page().mouse.down();
@@ -99,6 +102,15 @@ test.describe('selectActorOnBodyClick', () => {
     // The goal stays selected: dragging the actor's body with something else already selected
     // is exactly the case the fix covers (`IstarCanvas`'s `bodyDrags`).
     const { actor, child } = await createActorWithChild(page);
+    // Every position read below happens on the Guards tab, not Action log: the model position
+    // *is* restored exactly by undo (confirmed by instrumenting the store directly), but
+    // `.pg-aside` is `width: max-content`, and each dispatch here adds a row to the Action log
+    // whose width can nudge that `max-content` by a few px (a longer payload, or a scrollbar
+    // appearing); React Flow reacts to the resulting pane resize by nudging the viewport's pan
+    // to compensate, shifting every node's on-screen position regardless of the model (#274).
+    // Guards' content doesn't grow with dispatches, so it keeps the aside's width constant
+    // across every read here.
+    await openLabTab(page, 'Guards');
     const actorBefore = await actor.boundingBox();
     const childBefore = await child.boundingBox();
     if (!actorBefore || !childBefore) throw new Error('node has no bounding box');
@@ -117,14 +129,15 @@ test.describe('selectActorOnBodyClick', () => {
     expect(childAfter.x - childBefore.x).toBeGreaterThan(100);
     expect(childAfter.y - childBefore.y).toBeGreaterThan(100);
 
-    // One changeBounds for the actor, like a symbol drag, not one per child.
+    // One changeBounds for the actor, like a symbol drag, not one per child. Switch to Action
+    // log just to read it, then back to Guards before the next position read (above).
+    await openLabTab(page, 'Action log');
     const lastMove = lastLogRowOfKind(page, 'changeBounds');
     await expect(lastMove.locator('.pg-lab-log-client')).toHaveText('Canvas');
+    await openLabTab(page, 'Guards');
     await undoButton(page).click();
     const actorUndone = await actor.boundingBox();
     if (!actorUndone) throw new Error('node has no bounding box');
-    // A few px, not an exact match: layout settling after undo can round the box differently
-    // than the one measured before the drag.
     expect(Math.abs(actorUndone.x - actorBefore.x)).toBeLessThan(5);
     expect(Math.abs(actorUndone.y - actorBefore.y)).toBeLessThan(5);
   });
@@ -147,9 +160,9 @@ test.describe('selectActorOnBodyClick', () => {
 
   /** Moves the mouse to the given fraction of `locator`'s box and presses the button down. */
   async function pressAt(page: Page, locator: Locator, fx: number, fy: number): Promise<void> {
-    const box = await locator.boundingBox();
-    if (!box) throw new Error('pressAt: locator has no bounding box');
-    await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+    const box = await stableBoundingBox(locator);
+    const x = await clampXToPane(page, box.x + box.width * fx);
+    await page.mouse.move(x, box.y + box.height * fy);
     await page.mouse.down();
   }
 
