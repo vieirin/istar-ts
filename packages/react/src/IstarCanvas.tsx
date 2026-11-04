@@ -148,6 +148,17 @@ export interface IstarCanvasProps<EK extends string = ElementKind, LK extends st
    * pinch / Ctrl + wheel zoom as usual). Default true.
    */
   readonly panOnShiftScroll?: boolean;
+  /**
+   * How far (px) the pointer may move between mousedown and mouseup on a node and still count
+   * as a click rather than a drag. React Flow's own default is 0, which misses an actor's
+   * symbol click on a few px of ordinary jitter; this default is 3.
+   */
+  readonly nodeClickDistance?: number;
+  /**
+   * How far (px) the pointer must move after a node mousedown before React Flow starts a drag.
+   * Passed straight through to React Flow; left undefined, React Flow's own default (1) applies.
+   */
+  readonly nodeDragThreshold?: number;
 }
 
 /** Options for {@link IstarCanvasHandle.fitView}. */
@@ -329,6 +340,8 @@ function CanvasLayout(props: IstarCanvasProps): ReactElement {
               colorMode={dark ? 'dark' : 'light'}
               minimap={props.minimap ?? false}
               panOnShiftScroll={props.panOnShiftScroll ?? true}
+              nodeClickDistance={props.nodeClickDistance ?? 3}
+              nodeDragThreshold={props.nodeDragThreshold}
             />
             <ToolHint />
             <NoticeBar />
@@ -357,6 +370,8 @@ function Diagram({
   colorMode,
   minimap,
   panOnShiftScroll,
+  nodeClickDistance,
+  nodeDragThreshold,
 }: {
   controls: boolean;
   background: boolean;
@@ -364,6 +379,8 @@ function Diagram({
   colorMode: 'light' | 'dark';
   minimap: boolean;
   panOnShiftScroll: boolean;
+  nodeClickDistance: number;
+  nodeDragThreshold: number | undefined;
 }): ReactElement {
   const editor = useIstarEditor();
   const {
@@ -670,6 +687,32 @@ function Diagram({
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
+  // What React Flow does for selectable nodes, including ⌘ / Ctrl multi-selection. Shared by
+  // onNodeClick and onNodeDragStart (actors aren't selectable in React Flow, see gmodelToFlow,
+  // so both have to select them by hand). `toggleOff` is false for drag start: React Flow
+  // itself never unselects a node just because a drag on it began.
+  const selectActorSymbol = useCallback(
+    (clicked: { id: string }, toggleOff: boolean) => {
+      const { nodeLookup, addSelectedNodes, unselectNodesAndEdges, multiSelectionActive } =
+        flowStore.getState();
+      const internal = nodeLookup.get(clicked.id);
+      if (!internal?.selected) addSelectedNodes([clicked.id]);
+      else if (toggleOff && multiSelectionActive) {
+        unselectNodesAndEdges({ nodes: [internal.internals.userNode], edges: [] });
+      }
+    },
+    [flowStore],
+  );
+  const onNodeDragStart = useCallback(
+    (event: MouseEvent | TouchEvent, node: IstarFlowNode) => {
+      if (tool) return;
+      const dragged = store.getModel().elements.get(node.id);
+      if (!dragged || !isActorKind(dragged.kind)) return;
+      if (!(event.target as Element).closest(`.${ACTOR_SYMBOL_CLASS}`)) return;
+      selectActorSymbol(dragged, false);
+    },
+    [isActorKind, selectActorSymbol, store, tool],
+  );
   const onNodeClick = useCallback(
     (event: ReactMouseEvent, node: IstarFlowNode) => {
       const clicked = store.getModel().elements.get(node.id);
@@ -690,14 +733,7 @@ function Diagram({
           }
           return;
         }
-        // What React Flow does for selectable nodes, including ⌘ / Ctrl multi-selection.
-        const { nodeLookup, addSelectedNodes, unselectNodesAndEdges, multiSelectionActive } =
-          flowStore.getState();
-        const internal = nodeLookup.get(clicked.id);
-        if (!internal?.selected) addSelectedNodes([clicked.id]);
-        else if (multiSelectionActive) {
-          unselectNodesAndEdges({ nodes: [internal.internals.userNode], edges: [] });
-        }
+        selectActorSymbol(clicked, true);
         return;
       }
       if (!tool || tool.type !== 'element') return;
@@ -723,12 +759,12 @@ function Diagram({
       addAt,
       canBeOnPaper,
       editor,
-      flowStore,
       isActorKind,
       isNodeKind,
       run,
       readOnly,
       registry,
+      selectActorSymbol,
       store,
       tool,
     ],
@@ -1024,6 +1060,7 @@ function Diagram({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
+        onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
@@ -1041,6 +1078,8 @@ function Diagram({
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         colorMode={colorMode}
+        nodeClickDistance={nodeClickDistance}
+        nodeDragThreshold={nodeDragThreshold}
         proOptions={{ hideAttribution: true }}
       >
         {background && <Background gap={20} size={1} />}

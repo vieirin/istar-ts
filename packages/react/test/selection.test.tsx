@@ -1,10 +1,27 @@
 import type { ModelStore } from '@istar-ts/core';
 import { createModelStore } from '@istar-ts/core';
+import type * as XyflowReact from '@xyflow/react';
+import type { ReactFlowProps } from '@xyflow/react';
 import { act, fireEvent, render } from '@testing-library/react';
 import { useEffect } from 'react';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import type { IstarEditor } from '../src';
 import { defaultRegistry, IstarCanvas, IstarProvider, modelToFlow, useIstarEditor } from '../src';
+
+// A drag start fires on a real pointer drag React Flow measures, which jsdom can't do: capture
+// the prop the canvas hands `<ReactFlow>` and call it directly, like `mirror.test.tsx` does for
+// `onNodeDragStop`.
+let captured: ReactFlowProps | undefined;
+vi.mock('@xyflow/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof XyflowReact>();
+  return {
+    ...actual,
+    ReactFlow(props: ReactFlowProps) {
+      captured = props;
+      return <actual.ReactFlow {...props} />;
+    },
+  };
+});
 
 function Grab({ onEditor }: { onEditor: (editor: IstarEditor) => void }): null {
   const editor = useIstarEditor();
@@ -220,5 +237,66 @@ describe('actors are selected only through their symbol', () => {
     expect(store.getModel().elements.get(actor)?.display?.collapsed).not.toBe(true);
     press(symbol(container, actor), { altKey: true });
     expect(store.getModel().elements.get(actor)?.display?.collapsed).toBe(true);
+  });
+});
+
+describe('a drag beginning on the actor symbol selects it (jitter tolerance)', () => {
+  function actorOf(store: ModelStore): string {
+    return [...store.getModel().elements.values()].find((e) => e.kind === 'istar.Actor')!.id;
+  }
+  const body = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-boundary`)!;
+  const symbol = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-symbol`)!;
+  function dragStart(container: HTMLElement, nodeId: string, target: Element) {
+    const node = captured!.nodes!.find((n) => n.id === nodeId)!;
+    act(() => {
+      captured!.onNodeDragStart!({ target } as unknown as MouseEvent, node, [node]);
+    });
+  }
+
+  test('a drag starting on the symbol selects the actor', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    dragStart(container, actor, symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+  });
+
+  test('a drag starting on the body does not select the actor', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    dragStart(container, actor, body(container, actor));
+    expect(highlighted(container)).toEqual([]);
+    expect(editor().selection).toBeNull();
+  });
+
+  test('a non-actor node is unaffected', () => {
+    const { store, g1 } = twoGoals();
+    const { container, editor } = setup(store);
+    dragStart(container, g1, container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(highlighted(container)).toEqual([]);
+    expect(editor().selection).toBeNull();
+  });
+});
+
+describe('nodeClickDistance', () => {
+  test('defaults to 3', () => {
+    setup(createModelStore());
+    expect(captured!.nodeClickDistance).toBe(3);
+  });
+
+  test('passes through the given value', () => {
+    const store = createModelStore();
+    render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarProvider store={store}>
+          <IstarCanvas fitView={false} nodeClickDistance={10} />
+        </IstarProvider>
+      </div>,
+    );
+    expect(captured!.nodeClickDistance).toBe(10);
   });
 });
