@@ -696,18 +696,30 @@ function Diagram({
   );
 
   const flowStore = useStoreApi<IstarFlowNode, IstarFlowEdge>();
+  // Set by onPointerDownCapture right before it selects an actor, so selectActorSymbol's later
+  // onNodeClick/onNodeDragStart call (same gesture) can tell "already selected when this gesture
+  // began" from "selected because the pointer down just selected it" — the two need different
+  // answers to the ⌘/Ctrl toggle-off check below. Cleared on every pointer down that isn't on a
+  // selectable actor target, so a call with no matching pointer down (direct test calls, or a
+  // non-actor press in between) falls back to the live selection state.
+  const actorPressRef = useRef<{ id: string; wasSelectedBeforePress: boolean } | null>(null);
   // What React Flow does for selectable nodes, including ⌘ / Ctrl multi-selection. Shared by
-  // onNodeClick and onNodeDragStart (actors aren't selectable in React Flow, see gmodelToFlow,
-  // so both have to select them by hand). `toggleOff` is false for drag start: React Flow
-  // itself never unselects a node just because a drag on it began.
+  // onPointerDownCapture, onNodeClick and onNodeDragStart (actors aren't selectable in React
+  // Flow, see gmodelToFlow, so all three have to select them by hand). `toggleOff` is false for
+  // pointer down and drag start: a press beginning (or a drag starting) never unselects a node by
+  // itself, only an actual click does.
   const selectActorSymbol = useCallback(
     (clicked: { id: string }, toggleOff: boolean) => {
       const { nodeLookup, addSelectedNodes, unselectNodesAndEdges, multiSelectionActive } =
         flowStore.getState();
       const internal = nodeLookup.get(clicked.id);
-      if (!internal?.selected) addSelectedNodes([clicked.id]);
-      else if (toggleOff && multiSelectionActive) {
-        unselectNodesAndEdges({ nodes: [internal.internals.userNode], edges: [] });
+      const press = actorPressRef.current;
+      const selectedBeforePress =
+        press?.id === clicked.id ? press.wasSelectedBeforePress : internal?.selected;
+      if (!selectedBeforePress) {
+        if (!internal?.selected) addSelectedNodes([clicked.id]);
+      } else if (toggleOff && multiSelectionActive) {
+        unselectNodesAndEdges({ nodes: [internal!.internals.userNode], edges: [] });
       }
     },
     [flowStore],
@@ -952,14 +964,39 @@ function Diagram({
   // If the keyup never arrives (e.g. a system shortcut such as ⌘⇧5 takes the keyboard), every
   // later plain click adds to the selection. Each click's own modifiers are authoritative instead;
   // this runs in the capture phase, before React Flow handles the pointer.
+  //
+  // Also where an actor gets selected on pointer down rather than on click/drag-start: a non-actor
+  // node switches selection as soon as it's pressed (React Flow's own pointerdown handling), but
+  // actors aren't selectable in React Flow (see gmodelToFlow), so onNodeClick/onNodeDragStart did
+  // it instead — only on release, or once a drag crossed its threshold. That left a visible gap
+  // where another node stayed highlighted while the actor was already being dragged. Selecting
+  // here closes it, with `toggleOff: false` (like onNodeDragStart, for the same reason: a press
+  // beginning shouldn't undo a selection by itself) — the ⌘/Ctrl click-to-remove toggle still
+  // finishes on the later click, so a modifier press+release on an already-selected actor stays
+  // idempotent instead of selecting here and immediately toggling off there.
   const onPointerDownCapture = useCallback(
     (event: ReactPointerEvent) => {
       const multi = isMacOs() ? event.metaKey : event.ctrlKey;
       if (flowStore.getState().multiSelectionActive !== multi) {
         flowStore.setState({ multiSelectionActive: multi });
       }
+      actorPressRef.current = null;
+      if (tool || event.button !== 0) return;
+      const target = event.target as Element;
+      if (target.closest('.react-flow__handle')) return;
+      const nodeId = target.closest('.react-flow__node')?.getAttribute('data-id');
+      if (!nodeId) return;
+      const pressed = store.getModel().elements.get(nodeId);
+      if (!pressed || !isActorKind(pressed.kind)) return;
+      const onSymbol = target.closest(`.${ACTOR_SYMBOL_CLASS}`);
+      if (!onSymbol && !selectActorOnBodyClick) return;
+      actorPressRef.current = {
+        id: pressed.id,
+        wasSelectedBeforePress: flowStore.getState().nodeLookup.get(pressed.id)?.selected ?? false,
+      };
+      selectActorSymbol(pressed, false);
     },
-    [flowStore],
+    [flowStore, isActorKind, selectActorOnBodyClick, selectActorSymbol, store, tool],
   );
 
   // Shift + wheel pans sideways. React attaches wheel listeners as passive, so this is a native
@@ -1051,16 +1088,22 @@ function Diagram({
   }, [flow]);
 
   // With nothing selected, an actor also drags by its body, not just by its symbol (still never
-  // selected by a body click: actors aren't selectable, see gmodelToFlow).
+  // selected by a body click: actors aren't selectable, see gmodelToFlow). With
+  // selectActorOnBodyClick on, the body always drags the actor too, even with something else
+  // already selected: a body press there is an explicit select-and-drag action (onNodeDragStart
+  // selects it), unlike the default body click, which leaves an existing selection alone and so
+  // is only let through when nothing is selected (e.g. to not steal a drag meant for whatever is
+  // already selected).
   const nothingSelected = editor.selection === null;
+  const bodyDrags = nothingSelected || selectActorOnBodyClick;
   const flowNodes = useMemo(
     () =>
-      nothingSelected
+      bodyDrags
         ? nodes.map((n) =>
             n.type === 'istarActor' && n.dragHandle ? { ...n, dragHandle: undefined } : n,
           )
         : nodes,
-    [nodes, nothingSelected],
+    [nodes, bodyDrags],
   );
 
   return (
