@@ -279,6 +279,19 @@
   background: transparent;
   box-shadow: none;
 }
+/*
+ * React Flow's base stylesheet gives draggable nodes a grab/grabbing hand; piStar and other
+ * goal-modelling tools show a plain pointer over an element and only the hand while it's
+ * actually moving, so override both the node and the actor symbol (its drag handle).
+ */
+.istar-canvas .react-flow__node.draggable,
+.istar-canvas .react-flow__node.draggable .istar-actor-symbol {
+  cursor: pointer;
+}
+.istar-canvas .react-flow__node.draggable.dragging,
+.istar-canvas .react-flow__node.draggable.dragging .istar-actor-symbol {
+  cursor: grabbing;
+}
 .istar-element,
 .istar-actor {
   position: relative;
