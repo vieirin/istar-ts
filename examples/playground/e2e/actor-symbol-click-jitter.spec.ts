@@ -11,7 +11,7 @@ import {
 /**
  * React Flow classifies a mousedown/mouseup with a few px of movement between them as a drag,
  * not a click, so a plain `onNodeClick` handler misses it. The actor stays unselected even
- * though the gesture is ordinary jitter from the user's point of view (#aclick).
+ * though the gesture is ordinary jitter from the user's point of view (#267).
  */
 test.describe('an actor symbol click with a few px of jitter still selects the actor', () => {
   test.beforeEach(async ({ page }) => {
