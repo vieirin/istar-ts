@@ -5,6 +5,17 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.16.3
+
+- **react:** an actor is now selected on a drag that starts on its symbol, not just a click, so a
+  few px of pointer jitter between mousedown and mouseup no longer leaves it unselected. Raised
+  React Flow's `nodeClickDistance` default to 3 for the same reason, and exposed it and
+  `nodeDragThreshold` on `IstarCanvasProps`.
+- **react:** a dropped node no longer snaps back to its pre-drag position while its
+  `changeBounds` dispatch is still pending (e.g. a mirror store waiting on a remote's echo);
+  it holds the dropped position until the store's model agrees, or reverts if the dispatch is
+  rejected (#266).
+
 ## 0.16.2
 
 - **core:** `toPistar`/`toPistarObject` now write an actor's box as the union of its stored
