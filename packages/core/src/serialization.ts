@@ -606,6 +606,7 @@ export function toPistarObject<EK extends string, LK extends string>(
   // children (expanded for collapsed actors too, since piStar expands before saving), not the
   // raw element position; `actorBounds` reproduces that box. Kept by id for the `display` pass.
   const actorBoxes = new Map<string, Box>();
+  const actorSizes = new Map<string, { width: number; height: number }>();
   const orphans: PistarElementJson[] = [];
   const dependencies: PistarDependencyJson[] = [];
   const children = new Map<string, PistarElementJson[]>();
@@ -630,8 +631,25 @@ export function toPistarObject<EK extends string, LK extends string>(
       // padding 0: piStar's `_updateActorBoundary` (istarcore/istarFunctions.js:150-204) sets
       // the actor's saved position/size from the raw child bounding box, with no padding; the
       // default `ACTOR_PADDING` there (istarFunctions.js:206-213) only resizes the decorative
-      // `.boundary` rect's rendering attributes, which never reach the save file.
+      // `.boundary` rect's rendering attributes, which never reach the save file. On load, piStar
+      // resizes the actor to a stored `display.width`/`height` (fileManager.js:429-443) and that
+      // becomes the floor of the box (istarFunctions.js:150-204): the written box is the union of
+      // the tight child box and the stored box, so a stored size already enclosing the children is
+      // kept rather than shrunk.
       const box = actorBounds(model, element.id, metamodel, undefined, 0);
+      const storedWidth = element.display?.width;
+      const storedHeight = element.display?.height;
+      if (storedWidth !== undefined || storedHeight !== undefined) {
+        const right = Math.max(
+          box.x + box.width,
+          storedWidth !== undefined ? element.x + storedWidth : -Infinity,
+        );
+        const bottom = Math.max(
+          box.y + box.height,
+          storedHeight !== undefined ? element.y + storedHeight : -Infinity,
+        );
+        actorSizes.set(element.id, { width: right - box.x, height: bottom - box.y });
+      }
       actorBoxes.set(element.id, box);
       actors.push(
         sourceOrder(element.id, {
@@ -745,12 +763,13 @@ export function toPistarObject<EK extends string, LK extends string>(
     if (!(id in display)) display[id] = entry as Record<string, unknown>;
   }
   // piStar never writes width/height for actors (only for their children); when a loaded file's
-  // actor display did have them, keep writing a size, but the derived box's, not the stale one.
-  for (const [id, box] of actorBoxes) {
+  // actor display did have them, keep writing a size: the union of the stored and tight boxes
+  // (see the comment above `actorBounds`'s call), not the stale stored one.
+  for (const [id, size] of actorSizes) {
     const entry = display[id];
     if (entry && ('width' in entry || 'height' in entry)) {
-      entry.width = box.width;
-      entry.height = box.height;
+      entry.width = size.width;
+      entry.height = size.height;
     }
   }
 

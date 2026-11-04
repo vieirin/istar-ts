@@ -54,14 +54,25 @@ describe('fixture round trip', () => {
       const metamodel = metamodelOf(model);
       const json = toPistarObject(model);
       for (const actor of json.actors ?? []) {
+        const element = model.elements.get(actor.id)!;
         const box = actorBounds(model, actor.id, metamodel, undefined, 0);
         expect([actor.x, actor.y]).toEqual([box.x, box.y]);
         const display = json.display?.[actor.id];
         const hasSize = display && ('width' in display || 'height' in display);
-        expect(hasSize ? [display.width, display.height] : [box.width, box.height]).toEqual([
-          box.width,
-          box.height,
-        ]);
+        const storedWidth = element.display?.width;
+        const storedHeight = element.display?.height;
+        const right = Math.max(
+          box.x + box.width,
+          storedWidth !== undefined ? element.x + storedWidth : -Infinity,
+        );
+        const bottom = Math.max(
+          box.y + box.height,
+          storedHeight !== undefined ? element.y + storedHeight : -Infinity,
+        );
+        const expected = hasSize ? [right - box.x, bottom - box.y] : [box.width, box.height];
+        expect(hasSize ? [display.width, display.height] : [box.width, box.height]).toEqual(
+          expected,
+        );
       }
     },
   );
@@ -138,6 +149,79 @@ describe('toPistarObject: actor box follows its children', () => {
     const json = toPistarObject(withStaleSize);
     const box = actorBounds(withStaleSize, 'a1', metamodelOf(withStaleSize), undefined, 0);
     expect(json.display?.a1).toEqual({ width: box.width, height: box.height });
+  });
+
+  test('a stored size that already encloses the children is kept, not shrunk', () => {
+    const model = parsePistar(baseFile);
+    const withStoredSize = {
+      ...model,
+      elements: new Map(model.elements)
+        .set('a1', {
+          ...model.elements.get('a1')!,
+          x: 80,
+          y: 20,
+          display: { width: 820, height: 520 },
+        })
+        .set('g1', { ...model.elements.get('g1')!, x: 100, y: 40 }),
+    };
+    const json = toPistarObject(withStoredSize);
+    const actor = json.actors[0]!;
+    expect([actor.x, actor.y]).toEqual([80, 20]);
+    expect(json.display?.a1).toEqual({ width: 820, height: 520 });
+  });
+
+  test('a goal-controller-like actor with a slack box is kept exactly', () => {
+    const file = {
+      ...baseFile,
+      actors: [
+        {
+          id: 'a1',
+          text: 'Robot',
+          type: 'istar.Actor',
+          x: 80,
+          y: 20,
+          nodes: [{ id: 'g1', text: 'G1', type: 'istar.Goal', x: 100, y: 40 }],
+        },
+      ],
+      display: { a1: { width: 820, height: 520 } },
+    };
+    const model = parsePistar(file);
+    const box = actorBounds(model, 'a1', metamodelOf(model), undefined, 0);
+    expect(box.width).toBeLessThan(820);
+    expect(box.height).toBeLessThan(520);
+
+    const json = toPistarObject(model);
+    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([80, 20]);
+    expect(json.display?.a1).toEqual({ width: 820, height: 520 });
+
+    const reparsed = parsePistar(toPistar(model));
+    expect(reparsed.elements.get('a1')?.display).toEqual({ width: 820, height: 520 });
+  });
+
+  test('grow then shrink returns to the stored size, not the tight one', () => {
+    const model = parsePistar(baseFile);
+    const withStoredSize = {
+      ...model,
+      elements: new Map(model.elements)
+        .set('a1', { ...model.elements.get('a1')!, display: { width: 820, height: 520 } })
+        .set('g1', { ...model.elements.get('g1')!, x: 3050, y: 3050 }),
+    };
+    const grown = toPistarObject(withStoredSize);
+    const box = actorBounds(withStoredSize, 'a1', metamodelOf(withStoredSize), undefined, 0);
+    expect(grown.display?.a1).toEqual({ width: box.width, height: box.height });
+    expect(box.width).toBeGreaterThan(820);
+
+    const shrunkBack = {
+      ...withStoredSize,
+      elements: new Map(withStoredSize.elements).set('g1', {
+        ...withStoredSize.elements.get('g1')!,
+        x: 50,
+        y: 50,
+      }),
+    };
+    const shrunk = toPistarObject(shrunkBack);
+    expect([shrunk.actors[0]!.x, shrunk.actors[0]!.y]).toEqual([0, 0]);
+    expect(shrunk.display?.a1).toEqual({ width: 820, height: 520 });
   });
 
   test('extraDisplay entries (ids not in the model) are untouched', () => {
