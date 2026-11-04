@@ -269,6 +269,9 @@ export default function App(): ReactElement {
   const [bar, setBar] = useState<'left' | 'top' | 'bottom'>('left');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [links, setLinks] = useState<'straight' | 'curved'>('straight');
+  // e2e-only switch for selectActorOnBodyClick (no UI control exists for it): ?selectActorOnBodyClick=true.
+  const selectActorOnBodyClick =
+    new URLSearchParams(window.location.search).get('selectActorOnBodyClick') === 'true';
 
   /**
    * Switching extensions keeps the current model, under the new metamodel, unless it uses
@@ -529,6 +532,7 @@ export default function App(): ReactElement {
           palette={bar}
           colorMode={theme}
           linkShape={links}
+          selectActorOnBodyClick={selectActorOnBodyClick}
           diagnostics={extensionId === 'mutrose' ? demoDiagnosticsFor(model) : undefined}
           aside={
             <Sidebar

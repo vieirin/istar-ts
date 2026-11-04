@@ -23,8 +23,8 @@ export type LabTab =
   | 'Replay';
 
 /** Loads the React playground and waits for the canvas to render. */
-export async function gotoApp(page: Page): Promise<void> {
-  await page.goto('/react.html');
+export async function gotoApp(page: Page, query = ''): Promise<void> {
+  await page.goto(`/react.html${query}`);
   await expect(page.locator('.react-flow__pane')).toBeVisible();
 }
 
