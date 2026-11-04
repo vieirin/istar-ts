@@ -395,6 +395,13 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
  * whose registry overrides a kind's size independently of the metamodel (`@istar-ts/react`'s
  * `IstarRegistry`) must pass one that reads its own sizes, or its boundary would stop matching
  * what it actually draws.
+ *
+ * `padding` defaults to `ACTOR_PADDING`, matching every current caller (this grows the box past
+ * its children, as piStar's decorative `.boundary` rect does). `@istar-ts/core`'s own
+ * `toPistarObject` passes 0: piStar's `_updateActorBoundary`
+ * (`istarcore/istarFunctions.js:150`) sets the actor's saved `position`/`size` from the raw
+ * child bounding box with no padding — the +10 there only resizes that decorative rect's
+ * attributes, which never reach the save file.
  */
 export function actorBounds<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
@@ -402,6 +409,7 @@ export function actorBounds<EK extends string, LK extends string>(
   metamodel: Metamodel<EK, LK> = metamodelOf(model),
   defaultSizeOf: (kind: EK) => Size = (kind) =>
     metamodelSizeOf(metamodel as unknown as AnyMetamodel, kind),
+  padding: number = ACTOR_PADDING,
 ): Box {
   const actor = model.elements.get(actorId);
   if (!actor) throw new Error(`no element "${actorId}" in the model`);
@@ -417,10 +425,10 @@ export function actorBounds<EK extends string, LK extends string>(
     const base = defaultSizeOf(child.kind);
     const width = child.display?.width ?? base.width;
     const height = child.display?.height ?? base.height;
-    minX = Math.min(minX, child.x - ACTOR_PADDING);
-    minY = Math.min(minY, child.y - ACTOR_PADDING);
-    maxX = Math.max(maxX, child.x + width + ACTOR_PADDING);
-    maxY = Math.max(maxY, child.y + height + ACTOR_PADDING);
+    minX = Math.min(minX, child.x - padding);
+    minY = Math.min(minY, child.y - padding);
+    maxX = Math.max(maxX, child.x + width + padding);
+    maxY = Math.max(maxY, child.y + height + padding);
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }

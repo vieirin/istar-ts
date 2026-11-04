@@ -1,13 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
-import type { AnyPaletteDescription, GoalDiagnostic, ModelStore, PistarFile } from '@istar-ts/core';
+import type {
+  AnyPaletteDescription,
+  Box,
+  GoalDiagnostic,
+  ModelStore,
+  PistarFile,
+} from '@istar-ts/core';
 import {
   DEFAULT_PALETTE,
   ISTAR_2_0,
+  actorBounds,
   createModelStore,
   defineProperties,
   extendMetamodel,
+  metamodelOf,
   parsePistar,
   prop,
   toPistar,
@@ -1507,5 +1515,37 @@ describe('an extended metamodel', () => {
     expect(ok.ok).toBe(true);
     // @ts-expect-error: not a kind of the metamodel
     await dispatcher.dispatch({ kind: 'createNode', elementTypeId: 'y.Step', containerId: 'a' });
+  });
+});
+
+describe('toPistar after changeBounds: the saved actor box follows its children', () => {
+  test('a child moved far outside the actor grows the saved box; moving it back shrinks it', async () => {
+    const env = setup();
+    const boxOf = (): Box => {
+      const model = env.store.getModel();
+      return actorBounds(model, 'a', metamodelOf(model), undefined, 0);
+    };
+    const originalBox = boxOf();
+
+    await env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'g1', newPosition: { x: 3010, y: 3010 } }],
+    });
+    const grownBox = boxOf();
+    expect(grownBox.width).toBeGreaterThan(originalBox.width);
+    expect(grownBox.height).toBeGreaterThan(originalBox.height);
+    const grownFile = parsePistar(toPistar(env.store.getModel()));
+    const grownActor = grownFile.elements.get('a')!;
+    expect([grownActor.x, grownActor.y]).toEqual([grownBox.x, grownBox.y]);
+
+    await env.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'g1', newPosition: { x: 10, y: 10 } }],
+    });
+    // Back to the original layout: the box shrinks back to what it was before g1 moved.
+    expect(boxOf()).toEqual(originalBox);
+    const shrunkFile = parsePistar(toPistar(env.store.getModel()));
+    const shrunkActor = shrunkFile.elements.get('a')!;
+    expect([shrunkActor.x, shrunkActor.y]).toEqual([originalBox.x, originalBox.y]);
   });
 });

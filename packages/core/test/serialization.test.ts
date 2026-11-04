@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   PistarParseError,
+  actorBounds,
   childrenOf,
   createEmptyModel,
   inheritSourceLayout,
+  metamodelOf,
   parsePistar,
   toPistar,
   toPistarObject,
@@ -44,6 +46,106 @@ describe('fixture round trip', () => {
       }
     },
   );
+
+  test.each(fixtures.map((f) => [f.name, f] as const))(
+    'actor box geometry parity: %s',
+    (_name, fixture) => {
+      const model = parsePistar(fixture.text);
+      const metamodel = metamodelOf(model);
+      const json = toPistarObject(model);
+      for (const actor of json.actors ?? []) {
+        const box = actorBounds(model, actor.id, metamodel, undefined, 0);
+        expect([actor.x, actor.y]).toEqual([box.x, box.y]);
+        const display = json.display?.[actor.id];
+        const hasSize = display && ('width' in display || 'height' in display);
+        expect(hasSize ? [display.width, display.height] : [box.width, box.height]).toEqual([
+          box.width,
+          box.height,
+        ]);
+      }
+    },
+  );
+});
+
+describe('toPistarObject: actor box follows its children', () => {
+  const baseFile = {
+    actors: [
+      {
+        id: 'a1',
+        text: 'Robot',
+        type: 'istar.Actor',
+        x: 0,
+        y: 0,
+        nodes: [{ id: 'g1', text: 'G1', type: 'istar.Goal', x: 50, y: 50 }],
+      },
+    ],
+    orphans: [],
+    dependencies: [],
+    links: [],
+    display: {},
+    tool: 'pistar.2.1.0',
+    istar: '2.0',
+  };
+
+  function moveChild(x: number, y: number) {
+    const model = parsePistar(baseFile);
+    const child = model.elements.get('g1')!;
+    return {
+      ...model,
+      elements: new Map(model.elements).set('g1', { ...child, x, y }),
+    };
+  }
+
+  test('grows to enclose a child moved outside it, then shrinks back', () => {
+    const grown = toPistarObject(moveChild(3050, 3050));
+    const actor = grown.actors[0]!;
+    const box = actorBounds(
+      moveChild(3050, 3050),
+      'a1',
+      metamodelOf(moveChild(3050, 3050)),
+      undefined,
+      0,
+    );
+    expect([actor.x, actor.y]).toEqual([box.x, box.y]);
+    expect(box.width).toBeGreaterThan(3050);
+    expect(box.height).toBeGreaterThan(3050);
+
+    const reparsed = parsePistar(toPistar(moveChild(3050, 3050)));
+    const reparsedBox = actorBounds(reparsed, 'a1', metamodelOf(reparsed), undefined, 0);
+    expect([reparsedBox.x, reparsedBox.y, reparsedBox.width, reparsedBox.height]).toEqual([
+      box.x,
+      box.y,
+      box.width,
+      box.height,
+    ]);
+
+    const shrunk = toPistarObject(moveChild(50, 50));
+    expect([shrunk.actors[0]!.x, shrunk.actors[0]!.y]).toEqual([0, 0]);
+  });
+
+  test('display width/height: overwritten when present, not added when absent', () => {
+    const noSize = toPistarObject(moveChild(3050, 3050));
+    expect(noSize.display?.a1).toBeUndefined();
+
+    const model = moveChild(3050, 3050);
+    const withStaleSize = {
+      ...model,
+      elements: new Map(model.elements).set('a1', {
+        ...model.elements.get('a1')!,
+        display: { width: 10, height: 10 },
+      }),
+    };
+    const json = toPistarObject(withStaleSize);
+    const box = actorBounds(withStaleSize, 'a1', metamodelOf(withStaleSize), undefined, 0);
+    expect(json.display?.a1).toEqual({ width: box.width, height: box.height });
+  });
+
+  test('extraDisplay entries (ids not in the model) are untouched', () => {
+    const model = moveChild(3050, 3050);
+    const withExtra = { ...model, extraDisplay: { ghost: { backgroundColor: 'red' } } };
+    const json = toPistarObject(withExtra);
+    expect(json.display?.ghost).toEqual({ backgroundColor: 'red' });
+  });
 });
 
 describe('parsePistar', () => {
@@ -53,8 +155,8 @@ describe('parsePistar', () => {
         id: 'a1',
         text: 'Robot',
         type: 'istar.Actor',
-        x: 10,
-        y: 20,
+        x: 0,
+        y: 0,
         customProperties: { Description: '' },
         nodes: [
           {
@@ -232,8 +334,8 @@ describe('source key order (per object) and an absent saveDate', () => {
           }
         }
       ],
-      "x": 40,
-      "y": 40
+      "x": 10,
+      "y": 20
     }
   ],
   "links": [
