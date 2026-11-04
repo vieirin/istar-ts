@@ -244,6 +244,75 @@ describe('actors are selected only through their symbol', () => {
   });
 });
 
+describe('an actor is selected on pointer down, before release', () => {
+  function actorOf(store: ModelStore): string {
+    return [...store.getModel().elements.values()].find((e) => e.kind === 'istar.Actor')!.id;
+  }
+  function press(target: Element, modifiers: { ctrlKey?: boolean } = {}) {
+    fireEvent.pointerDown(target, modifiers);
+    fireEvent.click(target, modifiers);
+  }
+  const body = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-boundary`)!;
+  const symbol = (container: HTMLElement, id: string) =>
+    container.querySelector(`.react-flow__node[data-id="${id}"] .istar-actor-symbol`)!;
+
+  test('pressing the symbol selects the actor and deselects whatever was selected, before mouseup', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store);
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(highlighted(container)).toEqual([g1]);
+
+    fireEvent.pointerDown(symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+  });
+
+  test('flag off: pressing the body does not select the actor on pointer down either', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    fireEvent.pointerDown(body(container, actor));
+    expect(highlighted(container)).toEqual([g1]);
+  });
+
+  test('flag on: pressing the body selects the actor and deselects whatever was selected, before mouseup', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container, editor } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(highlighted(container)).toEqual([g1]);
+
+    fireEvent.pointerDown(body(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    expect(editor().selection).toEqual({ type: 'element', id: actor });
+  });
+
+  test('a plain press+release on an already-selected actor leaves it selected', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    press(symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    press(symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+  });
+
+  test('a Ctrl press+release on an already-selected actor toggles it off exactly once', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    press(symbol(container, actor));
+    expect(highlighted(container)).toEqual([actor]);
+    fireEvent.keyDown(document.body, { key: 'Control', ctrlKey: true });
+    press(symbol(container, actor), { ctrlKey: true });
+    fireEvent.keyUp(document.body, { key: 'Control' });
+    expect(highlighted(container)).toEqual([]);
+  });
+});
+
 describe('a drag beginning on the actor symbol selects it (jitter tolerance)', () => {
   function actorOf(store: ModelStore): string {
     return [...store.getModel().elements.values()].find((e) => e.kind === 'istar.Actor')!.id;
@@ -359,6 +428,36 @@ describe('selectActorOnBodyClick', () => {
     press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
     expect(editor().selection).toEqual({ type: 'element', id: g1 });
     expect(highlighted(container)).toEqual([g1]);
+  });
+
+  test('on: the actor has no dragHandle (body drags it) even with another element selected', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store, undefined, { selectActorOnBodyClick: true });
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(captured!.nodes!.find((n) => n.id === actor)).toMatchObject({ dragHandle: undefined });
+  });
+
+  test('off: with an element selected, the actor keeps the symbol as its dragHandle', () => {
+    const { store, g1 } = twoGoals();
+    const actor = actorOf(store);
+    const { container } = setup(store);
+    press(container.querySelector(`.react-flow__node[data-id="${g1}"]`)!);
+    expect(captured!.nodes!.find((n) => n.id === actor)).toMatchObject({
+      dragHandle: '.istar-actor-symbol',
+    });
+  });
+
+  test('with nothing selected, the actor has no dragHandle whether the flag is on or off', () => {
+    const { store } = twoGoals();
+    const actor = actorOf(store);
+    setup(store);
+    expect(captured!.nodes!.find((n) => n.id === actor)).toMatchObject({ dragHandle: undefined });
+
+    const { store: store2 } = twoGoals();
+    const actor2 = actorOf(store2);
+    setup(store2, undefined, { selectActorOnBodyClick: true });
+    expect(captured!.nodes!.find((n) => n.id === actor2)).toMatchObject({ dragHandle: undefined });
   });
 });
 
