@@ -4,7 +4,13 @@ import {
   createMirrorStore,
   createRemoteDispatcher,
 } from '@istar-ts/actions';
-import type { ActionDispatcher, ActionResult, IstarAction, ResponseFor } from '@istar-ts/actions';
+import type {
+  ActionDispatcher,
+  ActionResult,
+  ChangeBoundsOperation,
+  IstarAction,
+  ResponseFor,
+} from '@istar-ts/actions';
 import type { IstarElement } from '@istar-ts/core';
 import { ISTAR_2_0, createModelStore } from '@istar-ts/core';
 import type * as XyflowReact from '@xyflow/react';
@@ -59,11 +65,13 @@ function nodePosition(node: HTMLElement): { x: number; y: number } {
  * that its `apply` (the model update) happens on a notification the dispatch's promise merely
  * awaits (see `mirror.ts`), not synchronously inside the dispatch call. `rejectNext` makes the
  * next `release()` settle with a rejection instead of forwarding, as a remote that refused the
- * edit would.
+ * edit would. `adjust` rewrites the action before forwarding it (default: unchanged), as a
+ * remote applying its own guard — a snap to grid, a clamp — would.
  */
 function delayingDispatcher(
   dispatcher: ActionDispatcher,
   kind: string,
+  adjust: (action: IstarAction) => IstarAction = (action) => action,
 ): { dispatcher: ActionDispatcher; release(): void; rejectNext(): void } {
   let settle: (() => void) | undefined;
   let forceReject = false;
@@ -80,7 +88,9 @@ function delayingDispatcher(
                 diagnostics: [{ elementId: '', severity: 'error', message: `${kind} refused` }],
               });
             } else {
-              resolve(dispatcher.dispatch(action) as Promise<ActionResult<ResponseFor<A>>>);
+              resolve(
+                dispatcher.dispatch(adjust(action) as A) as Promise<ActionResult<ResponseFor<A>>>,
+              );
             }
           };
         });
@@ -245,5 +255,53 @@ describe('IstarCanvas, a dropped node, and a dispatch that resolves late (#266)'
     release();
     await waitFor(() => expect(nodePosition(actorNode())).toEqual({ x: actor.x, y: actor.y }));
     expect(store.getModel().elements.get(actor.id)?.x).toBe(actor.x);
+  });
+
+  test('shows the store’s position, not the dropped one, once an accepted dispatch resolves', async () => {
+    const store = createModelStore(undefined, { metamodel: ISTAR_2_0 });
+    const actor = store.addElement({
+      id: 'actor',
+      kind: 'istar.Actor',
+      name: 'Actor',
+      x: 100,
+      y: 100,
+    });
+    // A remote that moves the element somewhere other than asked (snap to grid, a clamp, a
+    // guard) before accepting the edit.
+    const { dispatcher, release } = delayingDispatcher(
+      createActionDispatcher(store),
+      'changeBounds',
+      (action) => ({
+        ...action,
+        newBounds: (action as ChangeBoundsOperation).newBounds.map((bounds) => ({
+          ...bounds,
+          newPosition: { x: 500, y: 500 },
+        })),
+      }),
+    );
+    const { container } = render(
+      <div style={{ width: 800, height: 600 }}>
+        <IstarCanvas store={store} dispatcher={dispatcher} />
+      </div>,
+    );
+    const actorNode = () =>
+      container.querySelector(`.react-flow__node[data-id="${actor.id}"]`) as HTMLElement;
+    await waitFor(() => expect(actorNode()).not.toBeNull());
+
+    const flowNode = captured!.nodes!.find((n) => n.id === actor.id)!;
+    act(() => {
+      captured!.onNodeDragStop!(new MouseEvent('mouseup') as never, flowNode, [
+        { ...flowNode, position: { x: flowNode.position.x + 40, y: flowNode.position.y } },
+      ]);
+    });
+    // The dropped position holds while the dispatch is pending.
+    expect(nodePosition(actorNode())).toEqual({ x: actor.x + 40, y: actor.y });
+
+    release();
+    await waitFor(() => expect(store.getModel().elements.get(actor.id)?.x).toBe(500));
+    // Not the dropped position: the store's, once the (accepted) dispatch resolved it. The
+    // store updates synchronously inside the dispatch call, ahead of the promise chain
+    // `onNodeDragStop`'s `.then` clears `pendingMoves` through, so this needs its own `waitFor`.
+    await waitFor(() => expect(nodePosition(actorNode())).toEqual({ x: 500, y: 500 }));
   });
 });

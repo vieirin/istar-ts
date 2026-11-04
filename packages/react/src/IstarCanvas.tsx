@@ -571,15 +571,18 @@ function Diagram({
       });
       // One `changeBounds` for every moved node: one undo step, as `store.transaction` gave.
       void dispatcher.dispatch({ kind: 'changeBounds', newBounds }).then((result) => {
-        if (!result.ok) {
-          notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
-          // The store's model never moved: drop the optimism, so it reverts to what it shows.
-          setPendingMoves((prev) => {
-            const next = new Map(prev);
-            for (const bounds of newBounds) next.delete(bounds.elementId);
-            return next;
-          });
-        }
+        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+        // Either way, the store's model is now the truth: a mirror's dispatcher resolves only
+        // after its echo is applied, and an in-process one only after the store applied (see
+        // `run`'s doc comment) — rejected, it never moved; accepted, it may have adjusted the
+        // position (snap to grid, a clamp, a guard), not just matched it. Drop the optimism so
+        // the store's position (right already, or about to show once `model` updates) wins,
+        // instead of leaving the dropped one pinned forever.
+        setPendingMoves((prev) => {
+          const next = new Map(prev);
+          for (const bounds of newBounds) next.delete(bounds.elementId);
+          return next;
+        });
       });
     },
     [dispatcher, graph, notify, store],
