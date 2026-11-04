@@ -5,6 +5,14 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.17.0
+
+- **react:** `IstarCanvasProps` gained `selectActorOnBodyClick` (default `false`). When `true`, a
+  click or drag start on an actor's body (not just its symbol) selects the actor, with the same
+  multi-select and jitter behaviour the symbol has.
+- **react:** draggable nodes (elements and actors) show the pointer cursor on hover and the grab
+  hand only while actually being dragged, instead of React Flow's default grab hand on hover.
+
 ## 0.16.3
 
 - **react:** an actor is now selected on a drag that starts on its symbol, not just a click, so a
