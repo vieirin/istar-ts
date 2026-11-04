@@ -5,6 +5,15 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.17.1
+
+- **react:** `selectActorOnBodyClick` actors now drag by their body too, even with another
+  element already selected, instead of only right after creation.
+- **react:** an actor (symbol, or body with `selectActorOnBodyClick`) is now selected on pointer
+  down, like any other node, instead of on click or once a drag crosses its threshold — closing a
+  gap where a previously-selected node stayed highlighted while the actor was already being
+  dragged.
+
 ## 0.17.0
 
 - **react:** `IstarCanvasProps` gained `selectActorOnBodyClick` (default `false`). When `true`, a
