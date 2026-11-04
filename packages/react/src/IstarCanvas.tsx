@@ -1,5 +1,5 @@
 import type { ActionDispatcher, IstarAction } from '@istar-ts/actions';
-import { defaultIdGenerator, targetsLinks } from '@istar-ts/core';
+import { defaultIdGenerator, moveElement, targetsLinks } from '@istar-ts/core';
 import { modelToGModelSchema } from '@istar-ts/gmodel';
 import type {
   AnyMetamodel,
@@ -399,11 +399,49 @@ function Diagram({
     [isNodeKind, metamodel],
   );
   const flow = useReactFlow();
+  /**
+   * Dropped positions still waiting for the store's model to reflect them (an actor also holds
+   * its children's positions, which move with it). While a move is pending, it overlays the
+   * model that `schema`/`graph` are built from, so a `graph` rebuilt for an unrelated reason
+   * (e.g. the host passing a new `extensions` array) before a slow dispatch resolves (a mirror
+   * store two postMessage hops away, #266) doesn't snap the node back to its pre-drag position.
+   * Cleared once the store's model shows the move (below) or the dispatch rejects it (undoing
+   * the optimism; `onNodeDragStop`).
+   */
+  const [pendingMoves, setPendingMoves] = useState<ReadonlyMap<string, { x: number; y: number }>>(
+    () => new Map(),
+  );
+  // Adjust state while rendering (as `nodes`/`edges` below do): a pending move whose dropped
+  // position the store's model now shows (the common, synchronous-store case: already true by
+  // the render right after `onNodeDragStop`, so the overlay below never visibly applies) no
+  // longer needs holding.
+  if (pendingMoves.size > 0) {
+    let settled: Map<string, { x: number; y: number }> | undefined;
+    for (const [elementId, position] of pendingMoves) {
+      const element = model.elements.get(elementId);
+      if (element && element.x === position.x && element.y === position.y) {
+        settled ??= new Map(pendingMoves);
+        settled.delete(elementId);
+      }
+    }
+    if (settled) setPendingMoves(settled);
+  }
+  const effectiveModel = useMemo(() => {
+    if (pendingMoves.size === 0) return model;
+    let next = model;
+    for (const [elementId, position] of pendingMoves) {
+      if (next.elements.has(elementId)) next = moveElement(next, elementId, position.x, position.y);
+    }
+    return next;
+  }, [model, pendingMoves]);
   // The canvas draws the GModel (`@istar-ts/gmodel`), the graph a GLSP server sends for the
   // same model, laid out at the registry's sizes. Recomputed only when the model changes: a
   // mirror store (#99) keeps the model object while nothing changed.
   const sizes = useMemo(() => registrySizes(registry), [registry]);
-  const schema = useMemo(() => modelToGModelSchema(model, { sizes }), [model, sizes]);
+  const schema = useMemo(
+    () => modelToGModelSchema(effectiveModel, { sizes }),
+    [effectiveModel, sizes],
+  );
   const graph = useMemo(
     () => gmodelToFlow(schema, metamodel, registry),
     [schema, metamodel, registry],
@@ -523,10 +561,31 @@ function Diagram({
           });
         }
       }
+      if (newBounds.length === 0) return;
+      // Held optimistically (see `pendingMoves`) until the store's model agrees or the dispatch
+      // is rejected, below.
+      setPendingMoves((prev) => {
+        const next = new Map(prev);
+        for (const bounds of newBounds) next.set(bounds.elementId, bounds.newPosition);
+        return next;
+      });
       // One `changeBounds` for every moved node: one undo step, as `store.transaction` gave.
-      run({ kind: 'changeBounds', newBounds });
+      void dispatcher.dispatch({ kind: 'changeBounds', newBounds }).then((result) => {
+        if (!result.ok) notify(result.diagnostics[0]?.message ?? 'the edit was rejected');
+        // Either way, the store's model is now the truth: a mirror's dispatcher resolves only
+        // after its echo is applied, and an in-process one only after the store applied (see
+        // `run`'s doc comment) — rejected, it never moved; accepted, it may have adjusted the
+        // position (snap to grid, a clamp, a guard), not just matched it. Drop the optimism so
+        // the store's position (right already, or about to show once `model` updates) wins,
+        // instead of leaving the dropped one pinned forever.
+        setPendingMoves((prev) => {
+          const next = new Map(prev);
+          for (const bounds of newBounds) next.delete(bounds.elementId);
+          return next;
+        });
+      });
     },
-    [graph, run, store],
+    [dispatcher, graph, notify, store],
   );
 
   const addAt = useCallback(
