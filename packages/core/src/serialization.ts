@@ -16,7 +16,6 @@ import {
   validateFileMetamodel,
 } from './file-metamodel';
 import type {
-  Box,
   CustomProperties,
   Diagram,
   ElementDisplay,
@@ -27,7 +26,6 @@ import type {
   LinkDisplay,
 } from './model';
 import {
-  actorBounds,
   dependencyLinksOf,
   hostMetamodelOf,
   metamodelOf,
@@ -589,7 +587,17 @@ function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): Pi
   };
 }
 
-/** Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`. */
+/**
+ * Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`.
+ *
+ * An actor's written `x`/`y`/`display.width`/`display.height` are a pure projection of the
+ * model's own fields — no `actorBounds` call here, and no derivation from children. Any `f`
+ * combining a stored size with a tight box around the children that ever grows the stored size
+ * would ratchet it upward forever once the result is re-parsed and re-saved (a mirror store,
+ * `@istar-ts/actions`' `connectDispatcher({ sendModel: true })`, does exactly that after every
+ * edit), so this never grows it: the saved box is the user's box, which may be smaller than its
+ * children. A consumer that needs the box enclosing them calls `actorBounds`.
+ */
 export function toPistarObject<EK extends string, LK extends string>(
   input: IstarModel<EK, LK>,
   options: ToPistarOptions = {},
@@ -602,11 +610,6 @@ export function toPistarObject<EK extends string, LK extends string>(
   const isHub = (element: IstarElement<string>): boolean =>
     metamodel.elements.get(element.kind)?.role === 'hub';
   const actors: PistarActorJson[] = [];
-  // piStar's `_updateActorBoundary` writes an actor's position/size as the box enclosing its
-  // children (expanded for collapsed actors too, since piStar expands before saving), not the
-  // raw element position; `actorBounds` reproduces that box. Kept by id for the `display` pass.
-  const actorBoxes = new Map<string, Box>();
-  const actorSizes = new Map<string, { width: number; height: number }>();
   const orphans: PistarElementJson[] = [];
   const dependencies: PistarDependencyJson[] = [];
   const children = new Map<string, PistarElementJson[]>();
@@ -626,36 +629,13 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
-      // `actorBounds` uses metamodel sizes, not a host registry's (e.g. @istar-ts/react's)
-      // overrides: the file is the metamodel's view, hosts reconcile their own on load.
-      // padding 0: piStar's `_updateActorBoundary` (istarcore/istarFunctions.js:150-204) sets
-      // the actor's saved position/size from the raw child bounding box, with no padding; the
-      // default `ACTOR_PADDING` there (istarFunctions.js:206-213) only resizes the decorative
-      // `.boundary` rect's rendering attributes, which never reach the save file. On load, piStar
-      // resizes the actor to a stored `display.width`/`height` (fileManager.js:429-443) and that
-      // becomes the floor of the box (istarFunctions.js:150-204): the written box is the union of
-      // the tight child box and the stored box, so a stored size already enclosing the children is
-      // kept rather than shrunk.
-      const box = actorBounds(model, element.id, metamodel, undefined, 0);
-      const storedWidth = element.display?.width;
-      const storedHeight = element.display?.height;
-      if (storedWidth !== undefined || storedHeight !== undefined) {
-        const right = Math.max(
-          box.x + box.width,
-          storedWidth !== undefined ? element.x + storedWidth : -Infinity,
-        );
-        const bottom = Math.max(
-          box.y + box.height,
-          storedHeight !== undefined ? element.y + storedHeight : -Infinity,
-        );
-        actorSizes.set(element.id, { width: right - box.x, height: bottom - box.y });
-      }
-      actorBoxes.set(element.id, box);
+      // The actor's own x/y and display size are the user's box: unlike piStar's
+      // `_updateActorBoundary` (istarcore/istarFunctions.js:150-204), this never derives it from
+      // children. Children may lie outside this box; a consumer that needs the box enclosing
+      // them uses `actorBounds`, which floors on this stored size and grows for children.
       actors.push(
         sourceOrder(element.id, {
           ...elementJson(element, metamodel),
-          x: box.x,
-          y: box.y,
           nodes: children.get(element.id) ?? [],
           ...element.extra,
         }),
@@ -762,17 +742,6 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const [id, entry] of Object.entries(model.extraDisplay ?? {})) {
     if (!(id in display)) display[id] = entry as Record<string, unknown>;
   }
-  // piStar never writes width/height for actors (only for their children); when a loaded file's
-  // actor display did have them, keep writing a size: the union of the stored and tight boxes
-  // (see the comment above `actorBounds`'s call), not the stale stored one.
-  for (const [id, size] of actorSizes) {
-    const entry = display[id];
-    if (entry && ('width' in entry || 'height' in entry)) {
-      entry.width = size.width;
-      entry.height = size.height;
-    }
-  }
-
   // A file that had no saveDate keeps none until a save passes one (an edit, as piStar does).
   let saveDate: string | undefined;
   if (options.saveDate instanceof Date) saveDate = formatDate(options.saveDate);

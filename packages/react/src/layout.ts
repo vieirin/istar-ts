@@ -123,11 +123,10 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
 }
 
 /**
- * The actor's boundary: the kind's default-size rectangle grown to include all inner elements,
- * like piStar's `updateBoundary` (which floors on `originalSize`, not the last expanded size).
- *
- * Actor `display.width`/`height` are the last saved expanded size in piStar files — using them
- * as the floor would leave empty space after children move inward.
+ * The actor's boundary: a rectangle floored on the actor's stored `display.width`/`height` (or
+ * the kind's default size, absent one), grown to include all inner elements. The stored size is
+ * a permanent floor, not just the last expanded size (see `actorBounds`'s doc comment for why,
+ * and how this differs from piStar's `updateBoundary`).
  *
  * A thin wrapper over core's `actorBounds` (the geometry `@istar-ts/gmodel` lays actors out
  * with), kept under its old name and signature for compatibility. `children` is unused:

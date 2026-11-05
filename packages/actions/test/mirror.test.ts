@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   ISTAR_2_0,
   ModelOperationError,
+  actorBounds,
   createModelStore,
   defineMetamodel,
   detectFramework,
@@ -309,6 +310,48 @@ describe.each([
     await mirror.synced();
     expect(mirror.getModel()).toBe(before);
     expect(events).toEqual([]);
+  });
+
+  test('moving a child out then back through the mirror never grows the actor box', async () => {
+    const file = {
+      actors: [
+        {
+          id: 'a1',
+          text: 'Robot',
+          type: 'istar.Actor',
+          x: 10,
+          y: 10,
+          nodes: [{ id: 'g1', text: 'G1', type: 'istar.Goal', x: 100, y: 100 }],
+        },
+      ],
+      orphans: [],
+      dependencies: [],
+      links: [],
+      display: { a1: { width: 500, height: 400 } },
+      tool: 'pistar.2.1.0',
+      istar: '2.0',
+    };
+    const { store, connect } = serve(parsePistar(file), sendModel);
+    const mirror = createMirrorStore(connect());
+    await mirror.ready;
+
+    await mirror.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'g1', newPosition: { x: 3100, y: 3100 } }],
+    });
+    await mirror.dispatcher.dispatch({
+      kind: 'changeBounds',
+      newBounds: [{ elementId: 'g1', newPosition: { x: 100, y: 100 } }],
+    });
+    await mirror.synced();
+
+    expect(mirror.getModel().elements.get('a1')?.display).toEqual(
+      store.getModel().elements.get('a1')?.display,
+    );
+    expect(mirror.getModel().elements.get('a1')?.display).toEqual({ width: 500, height: 400 });
+    expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
+      actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
+    );
   });
 });
 
