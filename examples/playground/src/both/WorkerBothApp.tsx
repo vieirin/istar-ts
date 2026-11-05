@@ -10,6 +10,7 @@
  */
 import type { ActionDispatcher } from '@istar-ts/actions';
 import { createMirrorStore } from '@istar-ts/actions';
+import type { ElementKind, LinkKind } from '@istar-ts/core';
 import type { AnyIstarRegistry } from '@istar-ts/react';
 import {
   IstarCanvas,
@@ -31,7 +32,10 @@ const SOURCE_URI = 'welcome.txt';
  * can reproduce a mirror store whose echoes lag the optimistic hold (`IstarCanvas`'s
  * `pendingMoves`/#266) without a real network. Dev-only knob, this page only.
  */
-function delayed(dispatcher: ActionDispatcher, ms: number): ActionDispatcher {
+function delayed<EK extends string = ElementKind, LK extends string = LinkKind>(
+  dispatcher: ActionDispatcher<EK, LK>,
+  ms: number,
+): ActionDispatcher<EK, LK> {
   return {
     dispatch: (action, options) =>
       new Promise((resolve) => {
@@ -55,8 +59,7 @@ const registry = registryForMetamodel(
   ISTAR_GLSP.metamodel,
   defaultRegistry,
 ) as unknown as AnyIstarRegistry;
-const canvasDispatcher =
-  latencyMs > 0 ? delayed(mirror.dispatcher, latencyMs) : mirror.dispatcher;
+const canvasDispatcher = latencyMs > 0 ? delayed(mirror.dispatcher, latencyMs) : mirror.dispatcher;
 
 let glspClient: MountedGlspClient | undefined;
 

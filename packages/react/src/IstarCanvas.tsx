@@ -625,7 +625,7 @@ function Diagram({
         });
       });
     },
-    [dispatcher, effectiveModel, graph, notify, store],
+    [dispatcher, effectiveModel, graph, notify],
   );
 
   const addAt = useCallback(

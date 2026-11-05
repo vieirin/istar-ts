@@ -1,10 +1,5 @@
 import { createActionDispatcher } from '@istar-ts/actions';
-import type {
-  ActionDispatcher,
-  ActionResult,
-  IstarAction,
-  ResponseFor,
-} from '@istar-ts/actions';
+import type { ActionDispatcher, ActionResult, IstarAction, ResponseFor } from '@istar-ts/actions';
 import { ISTAR_2_0, actorBounds, createModelStore } from '@istar-ts/core';
 import type * as XyflowReact from '@xyflow/react';
 import type { ReactFlowProps } from '@xyflow/react';
@@ -118,7 +113,10 @@ describe('IstarCanvas, dragging a child past an actor’s left edge, over a stor
     // Held, optimistic box: goal1 moved before the store (and so the model) has.
     expect(store.getModel().elements.get(goal1.id)?.x).toBe(goal1.x);
     const expectedBox = actorBounds(
-      { ...store.getModel(), elements: new Map(store.getModel().elements).set(goal1.id, { ...goal1, x: goal1.x - 150 }) },
+      {
+        ...store.getModel(),
+        elements: new Map(store.getModel().elements).set(goal1.id, { ...goal1, x: goal1.x - 150 }),
+      },
       actor.id,
       ISTAR_2_0,
     );
@@ -213,7 +211,9 @@ describe('IstarCanvas, dragging a child past an actor’s left edge, over a stor
 
     // The second dispatch's echo arrives: now the hold settles for real.
     release();
-    await waitFor(() => expect(store.getModel().elements.get(goal1.id)?.x).toBe(goal1.x - 150 + 30));
+    await waitFor(() =>
+      expect(store.getModel().elements.get(goal1.id)?.x).toBe(goal1.x - 150 + 30),
+    );
     expect(nodePosition(actorNode())).toEqual(heldAfterSecondDrag);
   });
 });
