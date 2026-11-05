@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
   PistarParseError,
-  actorBounds,
   childrenOf,
   createEmptyModel,
   inheritSourceLayout,
-  metamodelOf,
   parsePistar,
   toPistar,
   toPistarObject,
@@ -48,37 +46,24 @@ describe('fixture round trip', () => {
   );
 
   test.each(fixtures.map((f) => [f.name, f] as const))(
-    'actor box geometry parity: %s',
+    'actor box is a pure projection of the element: %s',
     (_name, fixture) => {
       const model = parsePistar(fixture.text);
-      const metamodel = metamodelOf(model);
       const json = toPistarObject(model);
       for (const actor of json.actors ?? []) {
         const element = model.elements.get(actor.id)!;
-        const box = actorBounds(model, actor.id, metamodel, undefined, 0);
-        expect([actor.x, actor.y]).toEqual([box.x, box.y]);
+        expect([actor.x, actor.y]).toEqual([element.x, element.y]);
         const display = json.display?.[actor.id];
-        const hasSize = display && ('width' in display || 'height' in display);
-        const storedWidth = element.display?.width;
-        const storedHeight = element.display?.height;
-        const right = Math.max(
-          box.x + box.width,
-          storedWidth !== undefined ? element.x + storedWidth : -Infinity,
-        );
-        const bottom = Math.max(
-          box.y + box.height,
-          storedHeight !== undefined ? element.y + storedHeight : -Infinity,
-        );
-        const expected = hasSize ? [right - box.x, bottom - box.y] : [box.width, box.height];
-        expect(hasSize ? [display.width, display.height] : [box.width, box.height]).toEqual(
-          expected,
-        );
+        expect([display?.width, display?.height]).toEqual([
+          element.display?.width,
+          element.display?.height,
+        ]);
       }
     },
   );
 });
 
-describe('toPistarObject: actor box follows its children', () => {
+describe('toPistarObject: actor box is a pure projection, never derived from children', () => {
   const baseFile = {
     actors: [
       {
@@ -107,51 +92,31 @@ describe('toPistarObject: actor box follows its children', () => {
     };
   }
 
-  test('grows to enclose a child moved outside it, then shrinks back', () => {
+  test('actor x/y never move to enclose a child moved outside it', () => {
     const grown = toPistarObject(moveChild(3050, 3050));
-    const actor = grown.actors[0]!;
-    const box = actorBounds(
-      moveChild(3050, 3050),
-      'a1',
-      metamodelOf(moveChild(3050, 3050)),
-      undefined,
-      0,
-    );
-    expect([actor.x, actor.y]).toEqual([box.x, box.y]);
-    expect(box.width).toBeGreaterThan(3050);
-    expect(box.height).toBeGreaterThan(3050);
+    expect([grown.actors[0]!.x, grown.actors[0]!.y]).toEqual([0, 0]);
 
     const reparsed = parsePistar(toPistar(moveChild(3050, 3050)));
-    const reparsedBox = actorBounds(reparsed, 'a1', metamodelOf(reparsed), undefined, 0);
-    expect([reparsedBox.x, reparsedBox.y, reparsedBox.width, reparsedBox.height]).toEqual([
-      box.x,
-      box.y,
-      box.width,
-      box.height,
-    ]);
-
-    const shrunk = toPistarObject(moveChild(50, 50));
-    expect([shrunk.actors[0]!.x, shrunk.actors[0]!.y]).toEqual([0, 0]);
+    expect([reparsed.elements.get('a1')!.x, reparsed.elements.get('a1')!.y]).toEqual([0, 0]);
   });
 
-  test('display width/height: overwritten when present, not added when absent', () => {
+  test('display width/height: never added when absent, never changed by a child moving', () => {
     const noSize = toPistarObject(moveChild(3050, 3050));
     expect(noSize.display?.a1).toBeUndefined();
 
     const model = moveChild(3050, 3050);
-    const withStaleSize = {
+    const withSize = {
       ...model,
       elements: new Map(model.elements).set('a1', {
         ...model.elements.get('a1')!,
         display: { width: 10, height: 10 },
       }),
     };
-    const json = toPistarObject(withStaleSize);
-    const box = actorBounds(withStaleSize, 'a1', metamodelOf(withStaleSize), undefined, 0);
-    expect(json.display?.a1).toEqual({ width: box.width, height: box.height });
+    const json = toPistarObject(withSize);
+    expect(json.display?.a1).toEqual({ width: 10, height: 10 });
   });
 
-  test('a stored size that already encloses the children is kept, not shrunk', () => {
+  test('a stored size is written exactly, regardless of whether children fit inside it', () => {
     const model = parsePistar(baseFile);
     const withStoredSize = {
       ...model,
@@ -186,9 +151,6 @@ describe('toPistarObject: actor box follows its children', () => {
       display: { a1: { width: 820, height: 520 } },
     };
     const model = parsePistar(file);
-    const box = actorBounds(model, 'a1', metamodelOf(model), undefined, 0);
-    expect(box.width).toBeLessThan(820);
-    expect(box.height).toBeLessThan(520);
 
     const json = toPistarObject(model);
     expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([80, 20]);
@@ -198,7 +160,7 @@ describe('toPistarObject: actor box follows its children', () => {
     expect(reparsed.elements.get('a1')?.display).toEqual({ width: 820, height: 520 });
   });
 
-  test('grow then shrink returns to the stored size, not the tight one', () => {
+  test('a child moved out and back never ratchets the stored size up', () => {
     const model = parsePistar(baseFile);
     const withStoredSize = {
       ...model,
@@ -207,9 +169,7 @@ describe('toPistarObject: actor box follows its children', () => {
         .set('g1', { ...model.elements.get('g1')!, x: 3050, y: 3050 }),
     };
     const grown = toPistarObject(withStoredSize);
-    const box = actorBounds(withStoredSize, 'a1', metamodelOf(withStoredSize), undefined, 0);
-    expect(grown.display?.a1).toEqual({ width: box.width, height: box.height });
-    expect(box.width).toBeGreaterThan(820);
+    expect(grown.display?.a1).toEqual({ width: 820, height: 520 });
 
     const shrunkBack = {
       ...withStoredSize,
@@ -229,6 +189,71 @@ describe('toPistarObject: actor box follows its children', () => {
     const withExtra = { ...model, extraDisplay: { ghost: { backgroundColor: 'red' } } };
     const json = toPistarObject(withExtra);
     expect(json.display?.ghost).toEqual({ backgroundColor: 'red' });
+  });
+});
+
+describe('ratchet regression: round trip never grows the stored actor box', () => {
+  function fileWith(actorDisplay: { width: number; height: number }, goalX: number, goalY: number) {
+    return {
+      actors: [
+        {
+          id: 'a1',
+          text: 'Robot',
+          type: 'istar.Actor',
+          x: 10,
+          y: 10,
+          nodes: [{ id: 'g1', text: 'G1', type: 'istar.Goal', x: goalX, y: goalY }],
+        },
+      ],
+      orphans: [],
+      dependencies: [],
+      links: [],
+      display: { a1: actorDisplay },
+      tool: 'pistar.2.1.0',
+      istar: '2.0',
+    };
+  }
+
+  test('move a goal out then back across a re-parse: the actor box returns to its original', () => {
+    const originalDisplay = { width: 3604, height: 1207 };
+    const originalGoal = { x: 100, y: 100 };
+    const file = fileWith(originalDisplay, originalGoal.x, originalGoal.y);
+
+    const m = parsePistar(file);
+    const moved = {
+      ...m,
+      elements: new Map(m.elements).set('g1', {
+        ...m.elements.get('g1')!,
+        x: originalGoal.x + 3000,
+      }),
+    };
+
+    const m2 = parsePistar(toPistar(moved));
+    const movedBack = {
+      ...m2,
+      elements: new Map(m2.elements).set('g1', {
+        ...m2.elements.get('g1')!,
+        x: originalGoal.x,
+        y: originalGoal.y,
+      }),
+    };
+
+    const json = toPistarObject(movedBack);
+    expect(json.display?.a1).toEqual(originalDisplay);
+    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([10, 10]);
+  });
+
+  test('toPistar is idempotent for the moved-out state', () => {
+    const file = fileWith({ width: 3604, height: 1207 }, 100, 100);
+    const m = parsePistar(file);
+    const moved = {
+      ...m,
+      elements: new Map(m.elements).set('g1', { ...m.elements.get('g1')!, x: 3100 }),
+    };
+
+    const once = toPistar(moved);
+    const twice = toPistar(parsePistar(once));
+    expect(twice).toBe(once);
   });
 });
 

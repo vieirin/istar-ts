@@ -384,10 +384,19 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
 }
 
 /**
- * An actor's boundary: the kind's default-size rectangle at the actor's position, grown to
- * include every inner element (each padded by `ACTOR_PADDING`), like piStar's `updateBoundary`
- * (which floors on the kind's default size, not the actor's last expanded `display` size; an
- * inner element's own `display` size does override, same as its rendered size elsewhere).
+ * An actor's boundary: a rectangle at the actor's position, floored on the actor's stored
+ * `display.width`/`height` if present (falling back to the kind's default size otherwise), then
+ * grown to include every inner element (each padded by `ACTOR_PADDING`). This is the *drawn* box;
+ * `toPistarObject` writes the *stored* box verbatim instead (no call to `actorBounds`), since
+ * floor-then-grow is one-way and would ratchet the saved size upward across repeated
+ * serialize→parse round trips (see `toPistarObject`'s doc comment).
+ *
+ * piStar's own `_updateActorBoundary` (`istarcore/istarFunctions.js:150-204`) floors on the
+ * kind's default size (`originalSize`, `istarFunctions.js:353`), not a loaded `display` size: a
+ * loaded size is applied once via `resize` (`fileManager.js:429-443`) but is only transient,
+ * discarded the moment a child moves. We deliberately differ here and keep the loaded size as a
+ * permanent floor — that is the one intentional difference from piStar's behaviour.
+ *
  * Shared by `@istar-ts/react`'s node layout and `@istar-ts/glsp`'s GModel, so an actor draws the
  * same box in both: children are looked up by category (`metamodelOf`), not `istar.*` names.
  *
@@ -397,11 +406,7 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
  * what it actually draws.
  *
  * `padding` defaults to `ACTOR_PADDING`, matching every current caller (this grows the box past
- * its children, as piStar's decorative `.boundary` rect does). `@istar-ts/core`'s own
- * `toPistarObject` passes 0: piStar's `_updateActorBoundary`
- * (`istarcore/istarFunctions.js:150`) sets the actor's saved `position`/`size` from the raw
- * child bounding box with no padding — the +10 there only resizes that decorative rect's
- * attributes, which never reach the save file.
+ * its children, as piStar's decorative `.boundary` rect does).
  */
 export function actorBounds<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
@@ -414,7 +419,11 @@ export function actorBounds<EK extends string, LK extends string>(
   const actor = model.elements.get(actorId);
   if (!actor) throw new Error(`no element "${actorId}" in the model`);
   const meta = metamodel as unknown as AnyMetamodel;
-  const ownSize = defaultSizeOf(actor.kind);
+  const defaultSize = defaultSizeOf(actor.kind);
+  const ownSize = {
+    width: actor.display?.width ?? defaultSize.width,
+    height: actor.display?.height ?? defaultSize.height,
+  };
   let minX = actor.x;
   let minY = actor.y;
   let maxX = actor.x + ownSize.width;

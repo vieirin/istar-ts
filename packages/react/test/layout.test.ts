@@ -130,9 +130,11 @@ describe('modelToFlow', () => {
     expect([shrunk.width, shrunk.height]).toEqual([resting.width, resting.height]);
   });
 
-  test('saved actor display width/height do not keep the boundary expanded', () => {
-    // piStar persists the last expanded size in display; updateBoundary still floors on the
-    // default (originalSize), so moving children inward must shrink past that saved size.
+  test('saved actor display width/height are a floor the boundary shrinks back to', () => {
+    // Unlike piStar's `updateBoundary`, which floors on the kind default (originalSize) and
+    // drops a loaded display size on the first child move, we keep a stored display size as a
+    // permanent floor (see `actorBounds`'s doc comment in @istar-ts/core) so moving children
+    // inward never shrinks the boundary past the size the user (or a saved file) set.
     const store = createModelStore();
     const actor = store.addElement({
       kind: 'istar.Actor',
@@ -147,8 +149,8 @@ describe('modelToFlow', () => {
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    expect(box.width).toBe(200);
-    expect(box.height).toBe(120);
+    expect(box.width).toBe(800);
+    expect(box.height).toBe(600);
   });
 });
 
