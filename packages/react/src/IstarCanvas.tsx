@@ -574,7 +574,13 @@ function Diagram({
       for (const node of dragged) {
         if (node.type === 'istarLinkAnchor') continue;
         const before = graph.nodes.find((n) => n.id === node.id);
-        const element = store.getModel().elements.get(node.id);
+        // The element's held position (see `pendingMoves`/`effectiveModel`), not the store's
+        // raw one: a second drag before the first's dispatch resolves must add its delta to
+        // where the node is actually shown (an actor's origin-shift case, e.g. a child grown
+        // past its actor's left edge, moves every sibling's rendered position with it), or the
+        // computed absolute position drifts by however far the still-pending move hasn't
+        // settled yet.
+        const element = effectiveModel.elements.get(node.id);
         if (!before || !element) continue;
         const dx = node.position.x - before.position.x;
         const dy = node.position.y - before.position.y;
@@ -603,15 +609,23 @@ function Diagram({
         // `run`'s doc comment) — rejected, it never moved; accepted, it may have adjusted the
         // position (snap to grid, a clamp, a guard), not just matched it. Drop the optimism so
         // the store's position (right already, or about to show once `model` updates) wins,
-        // instead of leaving the dropped one pinned forever.
+        // instead of leaving the dropped one pinned forever. Only if the held entry still
+        // holds *this* dispatch's position, though: a second drag on the same node before
+        // this one resolved has since overwritten it with a newer hold, which must stay until
+        // its own dispatch resolves, not be cleared early by this older one settling first.
         setPendingMoves((prev) => {
           const next = new Map(prev);
-          for (const bounds of newBounds) next.delete(bounds.elementId);
+          for (const bounds of newBounds) {
+            const held = next.get(bounds.elementId);
+            if (held && held.x === bounds.newPosition.x && held.y === bounds.newPosition.y) {
+              next.delete(bounds.elementId);
+            }
+          }
           return next;
         });
       });
     },
-    [dispatcher, graph, notify, store],
+    [dispatcher, effectiveModel, graph, notify, store],
   );
 
   const addAt = useCallback(

@@ -8,6 +8,7 @@
  * The worker, its dispatcher port and the mirror are made once per page load, outside React, so
  * StrictMode's double mount doesn't start a second worker or a second GLSP connection.
  */
+import type { ActionDispatcher } from '@istar-ts/actions';
 import { createMirrorStore } from '@istar-ts/actions';
 import type { AnyIstarRegistry } from '@istar-ts/react';
 import {
@@ -25,6 +26,23 @@ import { useEffect, useRef, useState } from 'react';
 
 const SOURCE_URI = 'welcome.txt';
 
+/**
+ * `?latency=NNN`: delays every dispatch by `NNN`ms before it reaches the worker, so an e2e spec
+ * can reproduce a mirror store whose echoes lag the optimistic hold (`IstarCanvas`'s
+ * `pendingMoves`/#266) without a real network. Dev-only knob, this page only.
+ */
+function delayed(dispatcher: ActionDispatcher, ms: number): ActionDispatcher {
+  return {
+    dispatch: (action, options) =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve(dispatcher.dispatch(action, options)), ms);
+      }),
+    subscribe: (listener) => dispatcher.subscribe(listener),
+  };
+}
+
+const latencyMs = Number(new URLSearchParams(location.search).get('latency'));
+
 const worker = new Worker(new URL('../glsp/worker.ts', import.meta.url), { type: 'module' });
 const remote = connectWorkerDispatcher(worker);
 // The worker reads its file with the contribution's metamodel and the file's own block.
@@ -37,6 +55,8 @@ const registry = registryForMetamodel(
   ISTAR_GLSP.metamodel,
   defaultRegistry,
 ) as unknown as AnyIstarRegistry;
+const canvasDispatcher =
+  latencyMs > 0 ? delayed(mirror.dispatcher, latencyMs) : mirror.dispatcher;
 
 let glspClient: MountedGlspClient | undefined;
 
@@ -120,7 +140,7 @@ export function WorkerBothApp(): ReactElement {
           {ready && (
             <IstarCanvas
               store={mirror}
-              dispatcher={mirror.dispatcher}
+              dispatcher={canvasDispatcher}
               registry={registry}
               palette="left"
               aside={<IstarInspector />}
