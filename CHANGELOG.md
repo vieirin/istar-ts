@@ -5,6 +5,23 @@ Versions are published from GitHub release tags; see the release notes for full 
 Changes not yet released are kept one file per change in [`changes/unreleased/`](changes/unreleased/),
 and the release PR gathers them into a version section here (`pnpm changelog:release X.Y.Z`).
 
+## 0.17.2
+
+- **react:** fix `IstarCanvas` flickering an actor's boundary when a child is dragged past its
+  left (or top) edge over a store with latency (a mirror store, e.g. `#266`). `onNodeDragStop`
+  now computes a drag's new position from the held, optimistic model (`pendingMoves`), not the
+  store's possibly-stale one, and a resolved dispatch no longer clears a newer, still-pending
+  hold on the same element that a later drag placed on top of it.
+- **core:** fix `toPistar` ratcheting an actor's saved box upward forever across repeated
+  serialize→parse round trips (e.g. through a mirror store, or opening and resaving a file).
+  `toPistar`/`toPistarObject` now write an actor's `x`/`y`/`display.width`/`display.height` as a
+  pure projection of the model, never derived from its children.
+- **core:** `actorBounds` (the box actually drawn) now floors on the actor's stored
+  `display.width`/`display.height` when present, falling back to the kind's default size, then
+  grows to enclose its children — so the drawn box still expands and shrinks around children as
+  before, but a stored size is never lost. `@istar-ts/react`'s canvas and `@istar-ts/gmodel`'s
+  GModel (and so GLSP) go through `actorBounds`, so they stay consistent with each other.
+
 ## 0.17.1
 
 - **react:** `selectActorOnBodyClick` actors now drag by their body too, even with another
