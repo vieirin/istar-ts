@@ -64,7 +64,7 @@ describe('fixture round trip', () => {
   );
 });
 
-describe('toPistarObject: actor display is a verbatim projection, x/y encloses it', () => {
+describe('toPistarObject: an actor’s x/y/display are a verbatim projection', () => {
   const baseFile = {
     actors: [
       {
@@ -93,25 +93,22 @@ describe('toPistarObject: actor display is a verbatim projection, x/y encloses i
     };
   }
 
-  // These tests mutate the raw model (bypassing `moveElement`/`updateElement`, which keep a
-  // stored display size in sync via `refreshActorBoxes`), to pin down `toPistarObject` itself:
-  // display width/height are always a verbatim copy of the model's, and x/y only ever come from
-  // `actorBounds`, which can shift them left/up but never changes a stored display size.
+  // These tests mutate the raw model (bypassing `moveElement`/`updateElement`, which keep an
+  // actor's `x`/`y`/stored size in sync with its children via `operations.ts`'s
+  // `refreshActorBoxes`), to pin down `toPistarObject` itself: it writes an actor's `x`/`y` and
+  // `display` exactly as the model holds them, never deriving or adjusting either — keeping the
+  // children in sync is the operations layer's job (see `store.test.ts`'s "refreshing an
+  // actor’s box" describe), not serialization's.
 
-  test('a child moved right/down does not shift x/y (it is already enclosed)', () => {
-    const grown = toPistarObject(moveChild(3050, 3050));
-    expect([grown.actors[0]!.x, grown.actors[0]!.y]).toEqual([0, 0]);
+  test('a child moved anywhere does not change the actor’s x/y', () => {
+    const movedOut = toPistarObject(moveChild(3050, 3050));
+    expect([movedOut.actors[0]!.x, movedOut.actors[0]!.y]).toEqual([0, 0]);
+
+    const movedLeftUp = toPistarObject(moveChild(-200, -300));
+    expect([movedLeftUp.actors[0]!.x, movedLeftUp.actors[0]!.y]).toEqual([0, 0]);
 
     const reparsed = parsePistar(toPistar(moveChild(3050, 3050)));
     expect([reparsed.elements.get('a1')!.x, reparsed.elements.get('a1')!.y]).toEqual([0, 0]);
-  });
-
-  test('a child moved left/up shifts x/y to stay enclosed, with no stored display size', () => {
-    const json = toPistarObject(moveChild(-200, -300));
-    const actor = json.actors[0]!;
-    expect(actor.x).toBeLessThanOrEqual(-200);
-    expect(actor.y).toBeLessThanOrEqual(-300);
-    expect(json.display?.a1).toBeUndefined();
   });
 
   test('display width/height: never added when absent, always verbatim when present', () => {
@@ -130,7 +127,7 @@ describe('toPistarObject: actor display is a verbatim projection, x/y encloses i
     expect(json.display?.a1).toEqual({ width: 10, height: 10 });
   });
 
-  test('a stored size smaller than the content still shifts x/y to enclose it', () => {
+  test('a stored size smaller than the content is still copied verbatim', () => {
     const model = parsePistar(baseFile);
     const withStoredSize = {
       ...model,
@@ -204,42 +201,61 @@ describe('ratchet regression: moving a child out and back never grows the saved 
     };
   }
 
-  // Smaller than the box the goal needs once moved +3000 (unlike the default actor size, which
-  // alone would already enclose it), so the move genuinely grows the saved box past what was
-  // stored, and moving back genuinely shrinks it to the (default-floored) content box.
   const originalDisplay = { width: 300, height: 200 };
   const originalGoal = { x: 50, y: 50 };
 
-  test('move +3000 in x: the saved box grows to enclose the goal', () => {
-    const store = createModelStore(
-      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
-    );
+  // A second, stationary child pins the box's other corner (here, the top-left) while `g1`
+  // moves, so moving `g1` far away genuinely grows the saved box past both the original stored
+  // size and the kind default — unlike a lone child, whose box can never exceed its own size.
+  function fileWithTwoGoals(actorDisplay: { width: number; height: number }) {
+    return {
+      actors: [
+        {
+          id: 'a1',
+          text: 'Robot',
+          type: 'istar.Actor',
+          x: 10,
+          y: 10,
+          nodes: [
+            { id: 'g1', text: 'G1', type: 'istar.Goal', x: originalGoal.x, y: originalGoal.y },
+            { id: 'g2', text: 'G2', type: 'istar.Goal', x: 50, y: 150 },
+          ],
+        },
+      ],
+      orphans: [],
+      dependencies: [],
+      links: [],
+      display: { a1: actorDisplay },
+      tool: 'pistar.2.1.0',
+      istar: '2.0',
+    };
+  }
+
+  test('move +3000 in x: the saved box grows to enclose both goals, anchored on the stationary one', () => {
+    const store = createModelStore(parsePistar(fileWithTwoGoals(originalDisplay)));
     store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
 
     const json = toPistarObject(store.getModel());
     const actor = json.actors[0]!;
-    const goal = json.actors[0]!.nodes[0]!;
-    expect(actor.x).toBeLessThanOrEqual(goal.x);
-    expect(actor.y).toBeLessThanOrEqual(goal.y);
+    const g1 = actor.nodes.find((node) => node.id === 'g1')!;
+    expect(actor.x).toBe(50);
+    expect(actor.y).toBe(50);
     const displayWidth = json.display!.a1!.width as number;
-    const displayHeight = json.display!.a1!.height as number;
-    expect(actor.x + displayWidth).toBeGreaterThanOrEqual(goal.x + 90); // istar.Goal default width
-    expect(actor.y + displayHeight).toBeGreaterThanOrEqual(goal.y + 35); // istar.Goal default height
+    expect(actor.x + displayWidth).toBeGreaterThanOrEqual(g1.x + 90); // istar.Goal default width
     expect(displayWidth).toBeGreaterThan(originalDisplay.width);
   });
 
   test('move out, re-parse, move back: the saved box is the (default-floored) content box, not the original', () => {
-    let store = createModelStore(
-      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
-    );
+    let store = createModelStore(parsePistar(fileWithTwoGoals(originalDisplay)));
     store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
     store = createModelStore(parsePistar(toPistar(store.getModel())));
     store.moveElement('g1', originalGoal.x, originalGoal.y);
 
     const json = toPistarObject(store.getModel());
-    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([10, 10]);
-    // Default-floored, not the original 300x200 (that stored value was replaced, not consulted).
-    expect(json.display?.a1).toEqual({ width: 200, height: 120 });
+    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([50, 50]);
+    // Width floors to the kind default (200); height still reflects g2's own extent (135), which
+    // was never the original 300x200 stored value (replaced outright, not consulted).
+    expect(json.display?.a1).toEqual({ width: 200, height: 135 });
   });
 
   test('repeating move out / move back gives the identical saved box every time (no ratchet)', () => {

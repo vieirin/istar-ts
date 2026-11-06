@@ -384,6 +384,45 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
 }
 
 /**
+ * The tight box enclosing an actor's non-actor children: each child's box is its `x`/`y` and its
+ * stored `display` size or the kind's default size (`defaultSizeOf`), unioned with no padding
+ * and, unlike `actorContentBox`, no floor on the actor's own position or size — it only ever
+ * reads children, never the actor being anchored. `undefined` when the actor has no such
+ * children.
+ *
+ * `operations.ts`'s `refreshActorBoxes` uses this to anchor an actor's `x`/`y` to its children
+ * after every operation that can change what it contains: because the result depends only on
+ * live children, never on the actor's previous `x`/`y` or stored size, moving a child out and
+ * back gives back the exact same box — no drift, no ratchet.
+ */
+export function childrenBox<EK extends string, LK extends string>(
+  model: IstarModel<EK, LK>,
+  actorId: string,
+  metamodel: Metamodel<EK, LK> = metamodelOf(model),
+  defaultSizeOf: (kind: EK) => Size = (kind) =>
+    metamodelSizeOf(metamodel as unknown as AnyMetamodel, kind),
+): Box | undefined {
+  const meta = metamodel as unknown as AnyMetamodel;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const child of model.elements.values()) {
+    if (child.parent !== actorId) continue;
+    if (meta.elements.get(child.kind)?.category === 'actor') continue;
+    const base = defaultSizeOf(child.kind);
+    const width = child.display?.width ?? base.width;
+    const height = child.display?.height ?? base.height;
+    minX = Math.min(minX, child.x);
+    minY = Math.min(minY, child.y);
+    maxX = Math.max(maxX, child.x + width);
+    maxY = Math.max(maxY, child.y + height);
+  }
+  if (minX === Infinity) return undefined;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/**
  * An actor's content box: a rectangle at the actor's position (`actor.x`/`y`), floored on the
  * *kind's default size* (never the actor's own stored `display` size), then grown to include
  * every inner element (each padded by `padding`). This is what piStar's own
@@ -393,12 +432,10 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
  *
  * Because the floor is always the kind default and the loop only ever reads live children (never
  * the actor's previous stored size), calling this twice in a row with the same model gives the
- * same box: no previous output feeds back in as a new floor, so repeated calls (e.g. across a
- * save → parse → save round trip, once `refreshActorBoxes` in `operations.ts` has copied the
- * result into `display`) can't ratchet the size upward. `actorBounds` below is the *drawn* box,
- * which additionally floors on a stored `display` size when present; this is the one the model's
- * operations use to refresh that stored size after a child changes (see `operations.ts`'s
- * `refreshActorBoxes`) and the one `toPistarObject` uses for an actor's written `x`/`y`.
+ * same box. This is the box `actorBounds` below unions with a stored `display` size; it is not
+ * itself what anchors an actor's `x`/`y` after a child changes — see `childrenBox` above and
+ * `operations.ts`'s `refreshActorBoxes`, which use the actor's *children* alone (no floor on the
+ * actor's own position) so the anchor can't ratchet either.
  *
  * `defaultSizeOf` resolves a kind's default size; see `actorBounds`' doc comment. `padding`
  * defaults to 0 (unlike `actorBounds`), matching the file format, which stores no padding.
@@ -440,13 +477,12 @@ export function actorContentBox<EK extends string, LK extends string>(
  * happens to be smaller right now, so the canvas/GModel/GLSP still grow and shrink around
  * children, but the actor never visibly shrinks past a size a consumer previously saved.
  *
- * `toPistarObject` does *not* call this for an actor's `display.width`/`height` (only for its
- * `x`/`y`, the enclosing origin) — those are copied verbatim from the model, which
- * `operations.ts`'s `refreshActorBoxes` already keeps equal to the content box after every
- * operation that changes the actor's content. Unioning with the *stored* size at save time, as
- * pre-#276 code did, is what ratcheted the saved size upward forever: each save's result became
- * next save's floor. Keeping the floor only in this *drawn* box (recomputed fresh from the model
- * every time, never itself stored) breaks that feedback loop.
+ * `toPistarObject` does *not* call this: an actor's written `x`/`y`/`display` are copied
+ * verbatim from the model, which `operations.ts`'s `refreshActorBoxes` already keeps consistent
+ * (see `childrenBox`'s doc comment) after every operation that changes the actor's content.
+ * Deriving a saved value from this *drawn* box instead — as an earlier version of this code did
+ * — let a round trip through a mirror store disagree with the host about an actor's position;
+ * the model is now the only source of truth for what gets saved.
  *
  * Shared by `@istar-ts/react`'s node layout and `@istar-ts/glsp`'s GModel, so an actor draws the
  * same box in both: children are looked up by category (`metamodelOf`), not `istar.*` names.

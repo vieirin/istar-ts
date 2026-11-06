@@ -31,7 +31,7 @@ import type {
   LinkDisplay,
 } from './model';
 import {
-  actorContentBox,
+  childrenBox,
   defaultHubPosition,
   dependencyLinksOf,
   hubLinkOf,
@@ -97,15 +97,25 @@ function isActorIn(model: AnyIstarModel, kind: string): boolean {
 }
 
 /**
- * Keeps each actor's stored `display.width`/`height` equal to its content box
- * (`actorContentBox`), for every actor in `actorIds` that has a stored size. An actor with no
- * stored size is left untouched (piStar never writes one; see `toPistarObject`'s doc comment).
+ * Keeps each actor in `actorIds` enclosing its children: `actor.x`/`y` becomes the tight box
+ * around its non-actor children (`childrenBox` — padding 0, each child's own size or the kind
+ * default), and, when the actor has a stored `display.width`/`height`, that size becomes the
+ * kind's default-size box at the new `x`/`y` grown to enclose the children (so it never shrinks
+ * past the kind default). An actor with no non-actor children is left untouched — there is
+ * nothing to enclose, so it keeps its existing `x`/`y` and size.
  *
  * Every operation that can change what an actor contains — a child moving, resizing, or
  * (un)nesting; an actor's own move, which takes its children with it — calls this on the
- * actor(s) whose content changed. Each call *replaces* the stored size outright: it never reads
- * the size being replaced, so no save's output can feed back in as next save's floor (the
- * ratchet #276 fixed). `actor.x`/`y` are never touched here; they stay the user's anchor.
+ * actor(s) whose content changed. Because the result depends only on the actor's *current*
+ * children, never on its previous `x`/`y` or stored size, the box is a pure function of the
+ * children: moving a child out and back restores the exact same box, with no drift and no
+ * ratchet. A loaded file's slack (a box larger than, or offset from, its children — piStar keeps
+ * the left/top edge through `originalPosition`) survives a no-op round trip, since nothing here
+ * runs without a content change, but is dropped by the first operation that does touch the
+ * actor's content: that operation's refresh snaps `x`/`y` to the tight origin and any stored
+ * size down to the content size. This trades piStar's saved-slack fidelity for an invariant
+ * piStar itself doesn't keep across a reload: here, the model (and so every store derived from
+ * it, including a mirror's) always agrees with what `actorBounds` draws.
  */
 function refreshActorBoxes(model: AnyIstarModel, actorIds: Iterable<string>): AnyIstarModel {
   let elements: Map<string, AnyElement> | undefined;
@@ -115,15 +125,21 @@ function refreshActorBoxes(model: AnyIstarModel, actorIds: Iterable<string>): An
     seen.add(actorId);
     const actor = model.elements.get(actorId);
     if (!actor || !isActorIn(model, actor.kind)) continue;
+    const box = childrenBox(model, actorId);
+    if (!box) continue;
     const { width, height } = actor.display ?? {};
-    if (width === undefined || height === undefined) continue;
-    const box = actorContentBox(model, actorId);
-    if (box.width === width && box.height === height) continue;
+    let display = actor.display;
+    if (width !== undefined && height !== undefined) {
+      const defaultSize = metaOf(model).elements.get(actor.kind)?.size ?? { width: 0, height: 0 };
+      const newWidth = Math.max(defaultSize.width, box.width);
+      const newHeight = Math.max(defaultSize.height, box.height);
+      if (newWidth !== width || newHeight !== height) {
+        display = { ...actor.display, width: newWidth, height: newHeight };
+      }
+    }
+    if (actor.x === box.x && actor.y === box.y && display === actor.display) continue;
     elements ??= new Map(model.elements);
-    elements.set(actorId, {
-      ...actor,
-      display: { ...actor.display, width: box.width, height: box.height },
-    });
+    elements.set(actorId, { ...actor, x: box.x, y: box.y, display });
   }
   return elements ? derive(model, { elements }) : model;
 }

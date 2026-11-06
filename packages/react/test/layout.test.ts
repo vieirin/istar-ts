@@ -100,22 +100,25 @@ describe('modelToFlow', () => {
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    // 20 (goal.x) + 300 (overridden width) + 10 (padding) = 330, vs. 200 at the default size.
-    expect(box.width).toBe(330);
+    // Adding the goal already re-anchored the actor on it (20, 60), so the padded box is
+    // 10 (padding) + 300 (overridden width) + 10 (padding) = 320, not 200 at the default size.
+    expect(box.width).toBe(320);
   });
 
-  test('actor boundary grows with children and shrinks back toward the default size', () => {
+  test('actor boundary grows with children and shrinks back toward the anchored size', () => {
     const store = createModelStore();
     const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
     const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    // Adding the goal already re-anchored the actor on it (20, 60): the padded default-size
+    // floor and the padded child box both start from there, giving 210x130, not 200x120.
     const resting = actorBoundary(
       store.getModel(),
       defaultRegistry,
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    expect(resting.width).toBe(200);
-    expect(resting.height).toBe(120);
+    expect(resting.width).toBe(210);
+    expect(resting.height).toBe(130);
 
     store.moveElement(goal.id, 300, 60);
     const grown = modelToFlow(store.getModel(), defaultRegistry).nodes.find(
@@ -141,6 +144,9 @@ describe('modelToFlow', () => {
     // Set after the goal exists: `@istar-ts/core`'s operations keep a stored size in sync with
     // the content box on every change to an actor's content, so setting it at creation (before
     // any child) would otherwise be replaced by the first `addElement` with this actor as parent.
+    // Adding the goal already re-anchored the actor at (20, 60), so the stored box's bottom-right
+    // corner is at (20 + 800, 60 + 600) = (820, 660); unioned with the (10, 50)-(220, 180) padded
+    // content box, that's (10, 50)-(820, 660) — 810x610, not 800x600.
     store.updateElement(actor.id, { display: { width: 800, height: 600 } });
     const box = actorBoundary(
       store.getModel(),
@@ -148,8 +154,8 @@ describe('modelToFlow', () => {
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    expect(box.width).toBe(800);
-    expect(box.height).toBe(600);
+    expect(box.width).toBe(810);
+    expect(box.height).toBe(610);
   });
 });
 

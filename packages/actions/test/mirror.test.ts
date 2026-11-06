@@ -335,17 +335,25 @@ describe.each([
     const mirror = createMirrorStore(connect());
     await mirror.ready;
 
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+
     await mirror.dispatcher.dispatch({
       kind: 'changeBounds',
       newBounds: [{ elementId: 'g1', newPosition: { x: 3100, y: 3100 } }],
     });
     await mirror.synced();
 
-    // Moved out: the stored size grew to enclose the goal, same on both sides.
-    const grown = mirror.getModel().elements.get('a1')?.display;
-    expect(grown).toEqual(store.getModel().elements.get('a1')?.display);
-    expect(grown!.width!).toBeGreaterThan(500);
-    expect(grown!.height!).toBeGreaterThan(400);
+    // Moved out: `a1` re-anchors on its lone child and its stored size floors to the kind
+    // default (90x35 is smaller than 200x120 wherever the child sits) — not the original
+    // 500x400, which was replaced outright, never consulted. Host and mirror agree exactly.
+    const moved = mirror.getModel().elements.get('a1');
+    expect(moved).toMatchObject({ x: 3100, y: 3100 });
+    expect(moved?.display).toEqual(defaultSize);
+    expect(moved).toMatchObject({
+      x: store.getModel().elements.get('a1')!.x,
+      y: store.getModel().elements.get('a1')!.y,
+    });
+    expect(moved?.display).toEqual(store.getModel().elements.get('a1')?.display);
     expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
       actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
     );
@@ -356,11 +364,11 @@ describe.each([
     });
     await mirror.synced();
 
-    // Moved back: the stored size shrank to the (default-floored) content box, not back to the
-    // original 500x400 — that value was replaced outright, never consulted, on either move.
-    const shrunk = mirror.getModel().elements.get('a1')?.display;
-    expect(shrunk).toEqual(store.getModel().elements.get('a1')?.display);
-    expect(shrunk).not.toEqual({ width: 500, height: 400 });
+    // Moved back: the exact same box as before the move (no ratchet), still agreeing exactly.
+    const back = mirror.getModel().elements.get('a1');
+    expect(back).toMatchObject({ x: 100, y: 100 });
+    expect(back?.display).toEqual(defaultSize);
+    expect(back?.display).toEqual(store.getModel().elements.get('a1')?.display);
     expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
       actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
     );

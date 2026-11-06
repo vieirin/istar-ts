@@ -76,11 +76,13 @@ describe('operations', () => {
       args: { name: 'Fast' },
     });
     expect(node).toEqual({ ok: true, createdIds: ['id1'] });
+    // `setup()`'s children already anchored actor `a` at their tight box origin (10, 10), not
+    // at the (0, 0) it was created with.
     expect(env.store.getModel().elements.get('id1')).toMatchObject({
       name: 'Fast',
       parent: 'a',
-      x: 0,
-      y: 0,
+      x: 10,
+      y: 10,
     });
 
     const dependency = await env.dispatcher.dispatch({

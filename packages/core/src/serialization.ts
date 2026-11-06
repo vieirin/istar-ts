@@ -26,7 +26,6 @@ import type {
   LinkDisplay,
 } from './model';
 import {
-  actorBounds,
   dependencyLinksOf,
   hostMetamodelOf,
   metamodelOf,
@@ -591,20 +590,17 @@ function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): Pi
 /**
  * Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`.
  *
- * An actor's written `display.width`/`display.height` are copied verbatim from the model: every
- * operation that can change what an actor contains already keeps them equal to the actor's
- * content box (`operations.ts`'s `refreshActorBoxes`, built on `actorContentBox`), so there is
- * nothing left to derive here, and a model that hasn't changed round-trips byte for byte. An
- * actor's written `x`/`y` come from `actorBounds(model, id, metamodel, undefined, 0)` instead of
- * the raw `actor.x`/`y`: `actor.x`/`y` is a fixed anchor that operations never move, but a child
- * left of or above it still needs to shift the saved origin left/up to stay enclosed (as 0.16.1
- * did), which `actorBounds`' union with the content box gives for free.
- *
- * This can't ratchet: `refreshActorBoxes` replaces the stored size outright (it never reads the
- * size it's replacing), so no save's output ever becomes next save's floor — unlike unioning a
- * *stored* size with a tight box around the children at save time (what pre-#276 code did, and
- * what ratcheted the size upward forever once a mirror store, `@istar-ts/actions`'
- * `connectDispatcher({ sendModel: true })`, re-parsed and re-saved every edit).
+ * An actor's written `x`/`y`/`display.width`/`display.height` are copied verbatim from the
+ * model: `operations.ts`'s `refreshActorBoxes` already keeps `actor.x`/`y` equal to the tight
+ * origin of its children (and a stored `display` size equal to the content box there) after
+ * every operation that can change what the actor contains, so there is nothing left to derive
+ * here, and a model that hasn't changed round-trips byte for byte. This is a pure projection —
+ * no `actorBounds` call, no union with anything — on purpose: deriving a saved value from
+ * anything other than the model itself is what let a round trip through a mirror store
+ * (`@istar-ts/actions`' `createActionDispatcher({ sendModel: true })`, which re-parses and
+ * re-saves every edit) disagree with the host about an actor's position (#279's original bug).
+ * Keeping the model the single source of truth — the file holds exactly the numbers the model
+ * holds — makes host and mirror agree and makes repeated saves idempotent.
  */
 export function toPistarObject<EK extends string, LK extends string>(
   input: IstarModel<EK, LK>,
@@ -637,14 +633,10 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
-      // x/y: the enclosing origin (actor.x/y shifted left/up for a child outside it); see this
-      // function's doc comment. display.width/height: verbatim, already the enclosing size.
-      const bounds = actorBounds(model, element.id, metamodel, undefined, 0);
+      // Verbatim: see this function's doc comment.
       actors.push(
         sourceOrder(element.id, {
           ...elementJson(element, metamodel),
-          x: bounds.x,
-          y: bounds.y,
           nodes: children.get(element.id) ?? [],
           ...element.extra,
         }),
