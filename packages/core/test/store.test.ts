@@ -66,19 +66,25 @@ describe('Elements', () => {
 describe('editing', () => {
   test('moving an actor moves its children', () => {
     const { store, actor, goal, task } = setup();
-    // `setup()`'s `addElement` calls already anchored the actor at its children's tight box
-    // origin (the goal's own corner, the topmost-left of the two).
-    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 150, y: 150 });
+    // Both children (150, 150) and (150, 250) already fit inside the default-size Actor box at
+    // the actor's own position (100, 100), so `setup()`'s `addElement` calls left it untouched.
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 100, y: 100 });
 
     store.moveElement(actor.id, 110, 90);
     const m = store.getModel();
+    const dx = 10;
+    const dy = -10;
     expect(m.elements.get(actor.id)).toMatchObject({ x: 110, y: 90 });
-    expect(m.elements.get(goal.id)).toMatchObject({ x: 110, y: 90 });
-    expect(m.elements.get(task.id)).toMatchObject({ x: 110, y: 190 });
+    expect(m.elements.get(goal.id)).toMatchObject({ x: 150 + dx, y: 150 + dy });
+    expect(m.elements.get(task.id)).toMatchObject({ x: 150 + dx, y: 250 + dy });
 
-    // Moving a child alone (not the actor) re-anchors the actor to the new tight origin.
+    // Moving a child alone (not the actor) past the actor's own corner anchors the actor there
+    // and grows the box to enclose the moved child.
     store.moveElement(goal.id, 0, 0);
     expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 0, y: 0 });
+    expect(store.getModel().elements.get(actor.id)?.display).toMatchObject({
+      anchor: { x: 110, y: 90 },
+    });
   });
 
   test('update name, custom properties and display', () => {
@@ -298,18 +304,23 @@ describe('undo/redo and events', () => {
   });
 });
 
-// An actor with at least one non-actor child is kept anchored on it by every operation that
+// An actor with at least one non-actor child is kept enclosing it by every operation that
 // changes what the actor contains (`operations.ts`'s `refreshActorBoxes`): `actor.x`/`y` becomes
-// the tight origin of its children, and a stored `display` size (when present) becomes the
-// content box there, floored on the kind's default size. An actor with no children keeps its
-// existing `x`/`y` and size. See `serialization.test.ts`'s "ratchet regression" describe for why
-// this can't grow forever across a save/parse round trip.
+// the union of the kind-default-size box at the actor's anchor (`display.anchor` when present,
+// else the actor's own position) and its children, and a stored `display` size (when present)
+// becomes that box's size, floored on the kind's default. `display.anchor` is written only while
+// a child reaches left of/above the anchor, and removed once nothing does — so an actor whose
+// children always fit inside its own default box never moves or gets an anchor key at all. An
+// actor with no children keeps its existing `x`/`y`, anchor and size. See
+// `serialization.test.ts`'s "ratchet regression" describe for why this can't grow forever across
+// a save/parse round trip.
 describe('refreshing an actor’s box', () => {
   // `updateElement` on the actor itself (not a child) never refreshes it, so this is the way to
   // give it a stored size that isn't immediately replaced by the content box: `addElement` with
   // `parent: actor.id` would refresh the actor right away, discarding a size given at creation.
-  // `addElement`'s own refresh (triggered by the goal's `parent`) already anchors the actor at
-  // (150, 150) — the goal's corner — before the size is set.
+  // The goal (150, 150) already fits inside the default-size Actor box at (100, 100), so
+  // `addElement`'s own refresh (triggered by the goal's `parent`) leaves the actor at its own
+  // position before the size is set.
   function setupWithSize() {
     const store = createModelStore(undefined, { createId: seqIds() });
     const actor = store.addElement({ kind: 'istar.Actor', x: 100, y: 100 });
@@ -318,40 +329,65 @@ describe('refreshing an actor’s box', () => {
     return { store, actor, goal };
   }
 
-  test('moving a child re-anchors the actor on it and floors the stored size to the kind default', () => {
+  test('a child inside the default box leaves x/y unchanged, with no anchor', () => {
+    const { store, actor, goal } = setup();
+    void goal;
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 100, y: 100 });
+    expect(store.getModel().elements.get(actor.id)?.display?.anchor).toBeUndefined();
+  });
+
+  test('moving a child left of the actor shifts x, sets the anchor, and grows the stored size', () => {
     const { store, actor, goal } = setupWithSize();
-    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
 
-    store.moveElement(goal.id, 3150, 150);
+    store.moveElement(goal.id, actor.x - 150, actor.y);
     const moved = store.getModel().elements.get(actor.id)!;
-    expect(moved).toMatchObject({ x: 3150, y: 150 });
-    // A single Goal-sized child (90x35) is smaller than the Actor default (200x120) wherever it
-    // moves, so the stored size always floors to the default, not to the original 300x200.
-    expect(moved.display).toEqual(defaultSize);
+    expect(moved).toMatchObject({ x: actor.x - 150, y: actor.y });
+    expect(moved.display?.anchor).toEqual({ x: actor.x, y: actor.y });
+    expect(moved.display!.width!).toBeGreaterThan(300);
 
-    store.moveElement(goal.id, 150, 150);
+    // Moving the child back drops the anchor key and restores the actor's own corner; the
+    // stored size floors back to the content box there (the kind default, for this one small
+    // child).
+    store.moveElement(goal.id, goal.x, goal.y);
     const back = store.getModel().elements.get(actor.id)!;
-    expect(back).toMatchObject({ x: 150, y: 150 });
+    expect(back).toMatchObject({ x: actor.x, y: actor.y });
+    expect(back.display?.anchor).toBeUndefined();
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
     expect(back.display).toEqual(defaultSize);
   });
 
-  test('moving the actor itself shifts it and its children by the same delta, with no extra refresh', () => {
+  test('dragging the actor shifts it, any anchor, and its children by the same delta, nothing else', () => {
     const { store, actor, goal } = setupWithSize();
+    store.moveElement(goal.id, actor.x - 150, actor.y);
+    const before = store.getModel().elements.get(actor.id)!;
+    const anchor = before.display!.anchor!;
+
     store.moveElement(actor.id, 500, 500);
+    const dx = 500 - before.x;
+    const dy = 500 - before.y;
     const m = store.getModel();
     expect(m.elements.get(actor.id)).toMatchObject({ x: 500, y: 500 });
-    expect(m.elements.get(goal.id)).toMatchObject({ x: 500, y: 500 });
-    expect(m.elements.get(actor.id)?.display).toEqual({ width: 300, height: 200 });
+    expect(m.elements.get(actor.id)?.display).toMatchObject({
+      anchor: { x: anchor.x + dx, y: anchor.y + dy },
+      width: before.display!.width,
+      height: before.display!.height,
+    });
+    // The goal sits at the box's own corner (it's the sole child, and pulled the box left of the
+    // actor's own position), so it shifts by the same delta as the actor.
+    expect(m.elements.get(goal.id)).toMatchObject({
+      x: before.x + dx,
+      y: before.y + dy,
+    });
   });
 
   test('resizing a child grows the stored size to fit it exactly', () => {
     const { store, actor, goal } = setupWithSize();
     store.updateElement(goal.id, { display: { width: 3000, height: 3000 } });
-    // A single child's box is exactly its own size (no padding), so the actor's floored size
-    // tracks it exactly too.
+    // The box is the union of the default-size floor at (100, 100) and the resized child
+    // (150, 150)-(3150, 3150), so it reaches to (3150, 3150) from the actor's own corner.
     expect(store.getModel().elements.get(actor.id)!.display).toEqual({
-      width: 3000,
-      height: 3000,
+      width: 3050,
+      height: 3050,
     });
   });
 
@@ -374,18 +410,21 @@ describe('refreshing an actor’s box', () => {
     // No children left to enclose: `x`/`y` and the stored size are untouched, not reset to a
     // default.
     const oldActor = store.getModel().elements.get(actor.id)!;
-    expect(oldActor).toMatchObject({ x: 150, y: 150 });
+    expect(oldActor).toMatchObject({ x: 100, y: 100 });
     expect(oldActor.display).toEqual({ width: 300, height: 200 });
 
     const newActor = store.getModel().elements.get(other.id)!;
     expect(newActor.display!.width!).toBeGreaterThan(50);
   });
 
-  test('adding a child outside the stored size grows it and moves the anchor to enclose both', () => {
+  test('adding a child outside the stored size grows it without moving the actor off its own corner', () => {
     const { store, actor } = setupWithSize();
     store.addElement({ kind: 'istar.Goal', x: 3000, y: 3000, parent: actor.id });
     const refreshed = store.getModel().elements.get(actor.id)!;
-    expect(refreshed).toMatchObject({ x: 150, y: 150 });
+    // The new child reaches right of/below the actor's own corner, not left of/above it, so the
+    // box grows without ever needing an anchor.
+    expect(refreshed).toMatchObject({ x: 100, y: 100 });
+    expect(refreshed.display?.anchor).toBeUndefined();
     expect(refreshed.display!.width!).toBeGreaterThan(300);
   });
 
@@ -407,13 +446,14 @@ describe('refreshing an actor’s box', () => {
     expect(store.getModel().elements.get(actor.id)?.display).toBeUndefined();
   });
 
-  test('undo restores the previous x/y and stored size', () => {
+  test('undo restores the previous x/y, anchor and stored size', () => {
     const { store, actor, goal } = setupWithSize();
     const before = store.getModel().elements.get(actor.id)!;
 
-    store.moveElement(goal.id, 3150, 150);
+    store.moveElement(goal.id, actor.x - 150, actor.y);
     const moved = store.getModel().elements.get(actor.id)!;
-    expect(moved).toMatchObject({ x: 3150, y: 150 });
+    expect(moved).toMatchObject({ x: actor.x - 150, y: actor.y });
+    expect(moved.display?.anchor).toEqual({ x: actor.x, y: actor.y });
     expect(moved.display).not.toEqual(before.display);
 
     store.undo();

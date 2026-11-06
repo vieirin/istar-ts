@@ -24,6 +24,11 @@ export interface ElementDisplay {
   readonly height?: number;
   /** Actors only. */
   readonly collapsed?: boolean;
+  /**
+   * Actors only; present only while a child lies left of/above the actor's own position, see
+   * `operations.ts`'s `refreshActorBoxes`.
+   */
+  readonly anchor?: Point;
   readonly [key: string]: unknown;
 }
 
@@ -384,16 +389,40 @@ function metamodelSizeOf(metamodel: AnyMetamodel, kind: string): Size {
 }
 
 /**
+ * The box enclosing two boxes.
+ */
+export function unionBox(a: Box, b: Box): Box {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  };
+}
+
+/**
+ * An actor's floor position: `display.anchor` when present, else the actor's own `x`/`y`. This
+ * is piStar's `originalPosition` (`istarcore/istarFunctions.js:150-204`) — the user-given point
+ * an actor's box is always grown from, kept in the file (rather than derived) so a mirror, which
+ * re-parses `toPistar`'s output after every edit, computes the identical box from it. See
+ * `operations.ts`'s `refreshActorBoxes` for when the key is written or dropped.
+ */
+export function actorAnchor<K extends string>(actor: IstarElement<K>): Point {
+  return actor.display?.anchor ?? { x: actor.x, y: actor.y };
+}
+
+/**
  * The tight box enclosing an actor's non-actor children: each child's box is its `x`/`y` and its
- * stored `display` size or the kind's default size (`defaultSizeOf`), unioned with no padding
- * and, unlike `actorContentBox`, no floor on the actor's own position or size — it only ever
- * reads children, never the actor being anchored. `undefined` when the actor has no such
- * children.
+ * stored `display` size or the kind's default size (`defaultSizeOf`), unioned and padded by
+ * `padding` on every side. `undefined` when the actor has no such children.
  *
- * `operations.ts`'s `refreshActorBoxes` uses this to anchor an actor's `x`/`y` to its children
- * after every operation that can change what it contains: because the result depends only on
- * live children, never on the actor's previous `x`/`y` or stored size, moving a child out and
- * back gives back the exact same box — no drift, no ratchet.
+ * `operations.ts`'s `refreshActorBoxes` unions this (at `padding` 0) with the floor box at the
+ * actor's anchor (`actorAnchor`) to compute the actor's stored box; `actorBounds` below unions it
+ * (at `ACTOR_PADDING`) the same way for the *drawn* box. Because the result depends only on live
+ * children, never on the actor's previous `x`/`y` or stored size, moving a child out and back
+ * gives back the exact same box — no drift, no ratchet.
  */
 export function childrenBox<EK extends string, LK extends string>(
   model: IstarModel<EK, LK>,
@@ -401,6 +430,7 @@ export function childrenBox<EK extends string, LK extends string>(
   metamodel: Metamodel<EK, LK> = metamodelOf(model),
   defaultSizeOf: (kind: EK) => Size = (kind) =>
     metamodelSizeOf(metamodel as unknown as AnyMetamodel, kind),
+  padding = 0,
 ): Box | undefined {
   const meta = metamodel as unknown as AnyMetamodel;
   let minX = Infinity;
@@ -413,76 +443,30 @@ export function childrenBox<EK extends string, LK extends string>(
     const base = defaultSizeOf(child.kind);
     const width = child.display?.width ?? base.width;
     const height = child.display?.height ?? base.height;
-    minX = Math.min(minX, child.x);
-    minY = Math.min(minY, child.y);
-    maxX = Math.max(maxX, child.x + width);
-    maxY = Math.max(maxY, child.y + height);
+    minX = Math.min(minX, child.x - padding);
+    minY = Math.min(minY, child.y - padding);
+    maxX = Math.max(maxX, child.x + width + padding);
+    maxY = Math.max(maxY, child.y + height + padding);
   }
   if (minX === Infinity) return undefined;
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 /**
- * An actor's content box: a rectangle at the actor's position (`actor.x`/`y`), floored on the
- * *kind's default size* (never the actor's own stored `display` size), then grown to include
- * every inner element (each padded by `padding`). This is what piStar's own
- * `_updateActorBoundary` (`istarcore/istarFunctions.js:150-204`) computes on every child change,
- * floored on `originalSize` (`istarFunctions.js:353`) — the kind's default, captured once and
- * never the loaded `display` size.
- *
- * Because the floor is always the kind default and the loop only ever reads live children (never
- * the actor's previous stored size), calling this twice in a row with the same model gives the
- * same box. This is the box `actorBounds` below unions with a stored `display` size; it is not
- * itself what anchors an actor's `x`/`y` after a child changes — see `childrenBox` above and
- * `operations.ts`'s `refreshActorBoxes`, which use the actor's *children* alone (no floor on the
- * actor's own position) so the anchor can't ratchet either.
- *
- * `defaultSizeOf` resolves a kind's default size; see `actorBounds`' doc comment. `padding`
- * defaults to 0 (unlike `actorBounds`), matching the file format, which stores no padding.
- */
-export function actorContentBox<EK extends string, LK extends string>(
-  model: IstarModel<EK, LK>,
-  actorId: string,
-  metamodel: Metamodel<EK, LK> = metamodelOf(model),
-  defaultSizeOf: (kind: EK) => Size = (kind) =>
-    metamodelSizeOf(metamodel as unknown as AnyMetamodel, kind),
-  padding = 0,
-): Box {
-  const actor = model.elements.get(actorId);
-  if (!actor) throw new Error(`no element "${actorId}" in the model`);
-  const meta = metamodel as unknown as AnyMetamodel;
-  const defaultSize = defaultSizeOf(actor.kind);
-  let minX = actor.x;
-  let minY = actor.y;
-  let maxX = actor.x + defaultSize.width;
-  let maxY = actor.y + defaultSize.height;
-  for (const child of model.elements.values()) {
-    if (child.parent !== actorId) continue;
-    if (meta.elements.get(child.kind)?.category === 'actor') continue;
-    const base = defaultSizeOf(child.kind);
-    const width = child.display?.width ?? base.width;
-    const height = child.display?.height ?? base.height;
-    minX = Math.min(minX, child.x - padding);
-    minY = Math.min(minY, child.y - padding);
-    maxX = Math.max(maxX, child.x + width + padding);
-    maxY = Math.max(maxY, child.y + height + padding);
-  }
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
-/**
- * An actor's boundary: the union of its content box (`actorContentBox`) and, when the actor has
- * a stored `display.width`/`height`, the box at the actor's position with that stored size. This
- * is the *drawn* box: a stored size is a floor that is never lost just because the content box
- * happens to be smaller right now, so the canvas/GModel/GLSP still grow and shrink around
- * children, but the actor never visibly shrinks past a size a consumer previously saved.
+ * An actor's *drawn* boundary: the union of the kind-default-size box at the actor's anchor
+ * (`actorAnchor`), the box at the actor's position (`actor.x`/`y`) with its stored `display`
+ * size (when it has one), and its padded children (`childrenBox` at `ACTOR_PADDING`). A stored
+ * size is a floor that is never lost just because the content box happens to be smaller right
+ * now, so the canvas/GModel/GLSP still grow and shrink around children, but the actor never
+ * visibly shrinks past a size a consumer previously saved.
  *
  * `toPistarObject` does *not* call this: an actor's written `x`/`y`/`display` are copied
  * verbatim from the model, which `operations.ts`'s `refreshActorBoxes` already keeps consistent
- * (see `childrenBox`'s doc comment) after every operation that changes the actor's content.
- * Deriving a saved value from this *drawn* box instead — as an earlier version of this code did
- * — let a round trip through a mirror store disagree with the host about an actor's position;
- * the model is now the only source of truth for what gets saved.
+ * with this same rule (anchor ∪ children, floored on the kind default) after every operation that
+ * changes the actor's content. Deriving a saved value from this *drawn* box instead — as an
+ * earlier version of this code did — let a round trip through a mirror store disagree with the
+ * host about an actor's position; the model is now the only source of truth for what gets saved,
+ * and this function only reconstructs the same box for drawing.
  *
  * Shared by `@istar-ts/react`'s node layout and `@istar-ts/glsp`'s GModel, so an actor draws the
  * same box in both: children are looked up by category (`metamodelOf`), not `istar.*` names.
@@ -505,14 +489,16 @@ export function actorBounds<EK extends string, LK extends string>(
 ): Box {
   const actor = model.elements.get(actorId);
   if (!actor) throw new Error(`no element "${actorId}" in the model`);
-  const content = actorContentBox(model, actorId, metamodel, defaultSizeOf, padding);
+  const anchor = actorAnchor(actor);
+  const defaultSize = defaultSizeOf(actor.kind);
+  let box: Box = { x: anchor.x, y: anchor.y, ...defaultSize };
   const { width, height } = actor.display ?? {};
-  if (width === undefined || height === undefined) return content;
-  const minX = Math.min(actor.x, content.x);
-  const minY = Math.min(actor.y, content.y);
-  const maxX = Math.max(actor.x + width, content.x + content.width);
-  const maxY = Math.max(actor.y + height, content.y + content.height);
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  if (width !== undefined && height !== undefined) {
+    box = unionBox(box, { x: actor.x, y: actor.y, width, height });
+  }
+  const children = childrenBox(model, actorId, metamodel, defaultSizeOf, padding);
+  if (children) box = unionBox(box, children);
+  return box;
 }
 
 /** Space kept between a suggested box and any existing element (`suggestPosition`). */

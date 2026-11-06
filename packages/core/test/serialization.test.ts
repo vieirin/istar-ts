@@ -231,15 +231,18 @@ describe('ratchet regression: moving a child out and back never grows the saved 
     };
   }
 
-  test('move +3000 in x: the saved box grows to enclose both goals, anchored on the stationary one', () => {
+  test('move +3000 in x: the saved box grows to enclose both goals, anchored at (10, 10)', () => {
     const store = createModelStore(parsePistar(fileWithTwoGoals(originalDisplay)));
     store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
 
     const json = toPistarObject(store.getModel());
     const actor = json.actors[0]!;
     const g1 = actor.nodes.find((node) => node.id === 'g1')!;
-    expect(actor.x).toBe(50);
-    expect(actor.y).toBe(50);
+    // The actor's own saved position (10, 10) is already left of/above both goals, so it stays
+    // the box's anchor and origin — no `display.anchor` is written.
+    expect(actor.x).toBe(10);
+    expect(actor.y).toBe(10);
+    expect(json.display?.a1?.anchor).toBeUndefined();
     const displayWidth = json.display!.a1!.width as number;
     expect(actor.x + displayWidth).toBeGreaterThanOrEqual(g1.x + 90); // istar.Goal default width
     expect(displayWidth).toBeGreaterThan(originalDisplay.width);
@@ -252,10 +255,14 @@ describe('ratchet regression: moving a child out and back never grows the saved 
     store.moveElement('g1', originalGoal.x, originalGoal.y);
 
     const json = toPistarObject(store.getModel());
-    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([50, 50]);
-    // Width floors to the kind default (200); height still reflects g2's own extent (135), which
-    // was never the original 300x200 stored value (replaced outright, not consulted).
-    expect(json.display?.a1).toEqual({ width: 200, height: 135 });
+    // The actor's own position (10, 10) remains left of/above both goals throughout, so it never
+    // moves and no `display.anchor` is ever written.
+    expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([10, 10]);
+    expect(json.display?.a1?.anchor).toBeUndefined();
+    // Width floors to the kind default (200); height grows to enclose both goals (g2 reaches to
+    // 185 from the actor's y of 10), which was never the original 300x200 stored value (replaced
+    // outright, not consulted).
+    expect(json.display?.a1).toMatchObject({ width: 200, height: 175 });
   });
 
   test('repeating move out / move back gives the identical saved box every time (no ratchet)', () => {
@@ -282,6 +289,32 @@ describe('ratchet regression: moving a child out and back never grows the saved 
     const once = toPistar(store.getModel());
     const twice = toPistar(parsePistar(once));
     expect(twice).toBe(once);
+  });
+
+  test('display.anchor appears only while a child reaches left of/above the actor, round-tripping through a mirror', () => {
+    let store = createModelStore(
+      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
+    );
+    // Move the goal left of and above the actor's own (10, 10) corner.
+    store.moveElement('g1', -40, -20);
+    let json = toPistarObject(store.getModel());
+    expect(json.display?.a1?.anchor).toEqual({ x: 10, y: 10 });
+    expect(json.actors[0]).toMatchObject({ x: -40, y: -20 });
+
+    // A mirror re-parses the saved file and computes the identical box without re-running any
+    // operation.
+    let mirror = createModelStore(parsePistar(json));
+    expect(mirror.getModel().elements.get('a1')).toMatchObject({ x: -40, y: -20 });
+    expect(mirror.getModel().elements.get('a1')?.display?.anchor).toEqual({ x: 10, y: 10 });
+
+    // Moving the goal back drops the anchor key and restores the actor's own corner.
+    store.moveElement('g1', originalGoal.x, originalGoal.y);
+    json = toPistarObject(store.getModel());
+    expect(json.display?.a1?.anchor).toBeUndefined();
+    expect(json.actors[0]).toMatchObject({ x: 10, y: 10 });
+
+    mirror = createModelStore(parsePistar(json));
+    expect(mirror.getModel().elements.get('a1')?.display?.anchor).toBeUndefined();
   });
 });
 

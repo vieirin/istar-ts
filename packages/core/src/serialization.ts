@@ -590,11 +590,13 @@ function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): Pi
 /**
  * Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`.
  *
- * An actor's written `x`/`y`/`display.width`/`display.height` are copied verbatim from the
- * model: `operations.ts`'s `refreshActorBoxes` already keeps `actor.x`/`y` equal to the tight
- * origin of its children (and a stored `display` size equal to the content box there) after
- * every operation that can change what the actor contains, so there is nothing left to derive
- * here, and a model that hasn't changed round-trips byte for byte. This is a pure projection —
+ * An actor's written `x`/`y`/`display.anchor`/`display.width`/`display.height` are copied
+ * verbatim from the model: `operations.ts`'s `refreshActorBoxes` already keeps `actor.x`/`y`
+ * equal to the union of the kind-default box at the actor's anchor and its children (and a
+ * stored `display` size equal to that box, floored on the kind default, and a `display.anchor`
+ * kept only while a child reaches left of/above it) after every operation that can change what
+ * the actor contains, so there is nothing left to derive here, and a model that hasn't changed
+ * round-trips byte for byte. This is a pure projection —
  * no `actorBounds` call, no union with anything — on purpose: deriving a saved value from
  * anything other than the model itself is what let a round trip through a mirror store
  * (`@istar-ts/actions`' `createActionDispatcher({ sendModel: true })`, which re-parses and

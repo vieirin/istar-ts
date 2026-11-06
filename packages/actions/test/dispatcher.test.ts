@@ -76,13 +76,14 @@ describe('operations', () => {
       args: { name: 'Fast' },
     });
     expect(node).toEqual({ ok: true, createdIds: ['id1'] });
-    // `setup()`'s children already anchored actor `a` at their tight box origin (10, 10), not
-    // at the (0, 0) it was created with.
+    // `createNode` with no explicit `location` places the new node at the container's own
+    // position; `setup()`'s children all fit inside the default-size box at actor `a`'s own
+    // (0, 0), so it was never re-anchored off that.
     expect(env.store.getModel().elements.get('id1')).toMatchObject({
       name: 'Fast',
       parent: 'a',
-      x: 10,
-      y: 10,
+      x: 0,
+      y: 0,
     });
 
     const dependency = await env.dispatcher.dispatch({
