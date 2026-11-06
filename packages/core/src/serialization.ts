@@ -590,13 +590,17 @@ function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): Pi
 /**
  * Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`.
  *
- * An actor's written `x`/`y`/`display.width`/`display.height` are a pure projection of the
- * model's own fields — no `actorBounds` call here, and no derivation from children. Any `f`
- * combining a stored size with a tight box around the children that ever grows the stored size
- * would ratchet it upward forever once the result is re-parsed and re-saved (a mirror store,
- * `@istar-ts/actions`' `connectDispatcher({ sendModel: true })`, does exactly that after every
- * edit), so this never grows it: the saved box is the user's box, which may be smaller than its
- * children. A consumer that needs the box enclosing them calls `actorBounds`.
+ * An actor's written `x`/`y`/`display.width`/`display.height` are copied verbatim from the
+ * model: `operations.ts`'s `refreshActorBoxes` already keeps `actor.x`/`y` equal to the tight
+ * origin of its children (and a stored `display` size equal to the content box there) after
+ * every operation that can change what the actor contains, so there is nothing left to derive
+ * here, and a model that hasn't changed round-trips byte for byte. This is a pure projection —
+ * no `actorBounds` call, no union with anything — on purpose: deriving a saved value from
+ * anything other than the model itself is what let a round trip through a mirror store
+ * (`@istar-ts/actions`' `createActionDispatcher({ sendModel: true })`, which re-parses and
+ * re-saves every edit) disagree with the host about an actor's position (#279's original bug).
+ * Keeping the model the single source of truth — the file holds exactly the numbers the model
+ * holds — makes host and mirror agree and makes repeated saves idempotent.
  */
 export function toPistarObject<EK extends string, LK extends string>(
   input: IstarModel<EK, LK>,
@@ -629,10 +633,7 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
-      // The actor's own x/y and display size are the user's box: unlike piStar's
-      // `_updateActorBoundary` (istarcore/istarFunctions.js:150-204), this never derives it from
-      // children. Children may lie outside this box; a consumer that needs the box enclosing
-      // them uses `actorBounds`, which floors on this stored size and grows for children.
+      // Verbatim: see this function's doc comment.
       actors.push(
         sourceOrder(element.id, {
           ...elementJson(element, metamodel),

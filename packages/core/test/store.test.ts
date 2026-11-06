@@ -4,6 +4,7 @@ import {
   childrenOf,
   createModelStore,
   getSourceLayout,
+  metamodelOf,
   parsePistar,
   toPistar,
   validateModel,
@@ -64,13 +65,20 @@ describe('Elements', () => {
 
 describe('editing', () => {
   test('moving an actor moves its children', () => {
-    const { store, actor, goal } = setup();
+    const { store, actor, goal, task } = setup();
+    // `setup()`'s `addElement` calls already anchored the actor at its children's tight box
+    // origin (the goal's own corner, the topmost-left of the two).
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 150, y: 150 });
+
     store.moveElement(actor.id, 110, 90);
     const m = store.getModel();
     expect(m.elements.get(actor.id)).toMatchObject({ x: 110, y: 90 });
-    expect(m.elements.get(goal.id)).toMatchObject({ x: 160, y: 140 });
+    expect(m.elements.get(goal.id)).toMatchObject({ x: 110, y: 90 });
+    expect(m.elements.get(task.id)).toMatchObject({ x: 110, y: 190 });
+
+    // Moving a child alone (not the actor) re-anchors the actor to the new tight origin.
     store.moveElement(goal.id, 0, 0);
-    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 110, y: 90 });
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: 0, y: 0 });
   });
 
   test('update name, custom properties and display', () => {
@@ -287,5 +295,133 @@ describe('undo/redo and events', () => {
     expect(store.canLink(task.id, goal.id, 'istar.AndRefinementLink')).toEqual({ ok: true });
     store.connect({ kind: 'istar.AndRefinementLink', source: task.id, target: goal.id });
     expect(store.canLink(task, goal, 'istar.AndRefinementLink').ok).toBe(false);
+  });
+});
+
+// An actor with at least one non-actor child is kept anchored on it by every operation that
+// changes what the actor contains (`operations.ts`'s `refreshActorBoxes`): `actor.x`/`y` becomes
+// the tight origin of its children, and a stored `display` size (when present) becomes the
+// content box there, floored on the kind's default size. An actor with no children keeps its
+// existing `x`/`y` and size. See `serialization.test.ts`'s "ratchet regression" describe for why
+// this can't grow forever across a save/parse round trip.
+describe('refreshing an actor’s box', () => {
+  // `updateElement` on the actor itself (not a child) never refreshes it, so this is the way to
+  // give it a stored size that isn't immediately replaced by the content box: `addElement` with
+  // `parent: actor.id` would refresh the actor right away, discarding a size given at creation.
+  // `addElement`'s own refresh (triggered by the goal's `parent`) already anchors the actor at
+  // (150, 150) — the goal's corner — before the size is set.
+  function setupWithSize() {
+    const store = createModelStore(undefined, { createId: seqIds() });
+    const actor = store.addElement({ kind: 'istar.Actor', x: 100, y: 100 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 150, y: 150, parent: actor.id });
+    store.updateElement(actor.id, { display: { width: 300, height: 200 } });
+    return { store, actor, goal };
+  }
+
+  test('moving a child re-anchors the actor on it and floors the stored size to the kind default', () => {
+    const { store, actor, goal } = setupWithSize();
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+
+    store.moveElement(goal.id, 3150, 150);
+    const moved = store.getModel().elements.get(actor.id)!;
+    expect(moved).toMatchObject({ x: 3150, y: 150 });
+    // A single Goal-sized child (90x35) is smaller than the Actor default (200x120) wherever it
+    // moves, so the stored size always floors to the default, not to the original 300x200.
+    expect(moved.display).toEqual(defaultSize);
+
+    store.moveElement(goal.id, 150, 150);
+    const back = store.getModel().elements.get(actor.id)!;
+    expect(back).toMatchObject({ x: 150, y: 150 });
+    expect(back.display).toEqual(defaultSize);
+  });
+
+  test('moving the actor itself shifts it and its children by the same delta, with no extra refresh', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.moveElement(actor.id, 500, 500);
+    const m = store.getModel();
+    expect(m.elements.get(actor.id)).toMatchObject({ x: 500, y: 500 });
+    expect(m.elements.get(goal.id)).toMatchObject({ x: 500, y: 500 });
+    expect(m.elements.get(actor.id)?.display).toEqual({ width: 300, height: 200 });
+  });
+
+  test('resizing a child grows the stored size to fit it exactly', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.updateElement(goal.id, { display: { width: 3000, height: 3000 } });
+    // A single child's box is exactly its own size (no padding), so the actor's floored size
+    // tracks it exactly too.
+    expect(store.getModel().elements.get(actor.id)!.display).toEqual({
+      width: 3000,
+      height: 3000,
+    });
+  });
+
+  test('resizing the actor itself through updateElement is not immediately overridden', () => {
+    const { store, actor } = setupWithSize();
+    store.updateElement(actor.id, { display: { width: 900, height: 900 } });
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual({ width: 900, height: 900 });
+  });
+
+  test('nesting a child out leaves the now-childless actor as-is, and grows the new one', () => {
+    const { store, actor, goal } = setupWithSize();
+    const other = store.addElement({
+      kind: 'istar.Agent',
+      x: 2000,
+      y: 2000,
+      display: { width: 50, height: 50 },
+    });
+    store.nestElement(goal.id, other.id);
+
+    // No children left to enclose: `x`/`y` and the stored size are untouched, not reset to a
+    // default.
+    const oldActor = store.getModel().elements.get(actor.id)!;
+    expect(oldActor).toMatchObject({ x: 150, y: 150 });
+    expect(oldActor.display).toEqual({ width: 300, height: 200 });
+
+    const newActor = store.getModel().elements.get(other.id)!;
+    expect(newActor.display!.width!).toBeGreaterThan(50);
+  });
+
+  test('adding a child outside the stored size grows it and moves the anchor to enclose both', () => {
+    const { store, actor } = setupWithSize();
+    store.addElement({ kind: 'istar.Goal', x: 3000, y: 3000, parent: actor.id });
+    const refreshed = store.getModel().elements.get(actor.id)!;
+    expect(refreshed).toMatchObject({ x: 150, y: 150 });
+    expect(refreshed.display!.width!).toBeGreaterThan(300);
+  });
+
+  test('removing the child that needed the grown size shrinks it back', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.moveElement(goal.id, 3150, 150);
+    const other = store.addElement({ kind: 'istar.Task', x: 150, y: 150, parent: actor.id });
+    expect(store.getModel().elements.get(actor.id)!.display!.width!).toBeGreaterThan(300);
+
+    store.removeElement(goal.id);
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+    expect(store.getModel().elements.get(actor.id)!.display).toEqual(defaultSize);
+    expect(store.getModel().elements.has(other.id)).toBe(true);
+  });
+
+  test('no stored size: an actor is left with none after a child moves', () => {
+    const { store, actor, goal } = setup();
+    store.moveElement(goal.id, 3150, 150);
+    expect(store.getModel().elements.get(actor.id)?.display).toBeUndefined();
+  });
+
+  test('undo restores the previous x/y and stored size', () => {
+    const { store, actor, goal } = setupWithSize();
+    const before = store.getModel().elements.get(actor.id)!;
+
+    store.moveElement(goal.id, 3150, 150);
+    const moved = store.getModel().elements.get(actor.id)!;
+    expect(moved).toMatchObject({ x: 3150, y: 150 });
+    expect(moved.display).not.toEqual(before.display);
+
+    store.undo();
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: before.x, y: before.y });
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual(before.display);
+
+    store.redo();
+    expect(store.getModel().elements.get(actor.id)).toMatchObject({ x: moved.x, y: moved.y });
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual(moved.display);
   });
 });

@@ -57,9 +57,12 @@ test.describe('protocol lab', () => {
     // Drag (move) the actor. Deselecting first lets it drag by its whole body, not just its
     // symbol (see `IstarCanvas`'s `nothingSelected` handling); a few hundred px, since the
     // canvas's initial zoom (a fresh empty model fits the whole 2000×1300 diagram) shrinks a
-    // smaller move below the rounding that turns into a real position change.
+    // smaller move below the rounding that turns into a real position change. fy sits in the
+    // gap between goal1 and goal2's rows: `@istar-ts/core` now keeps the actor's box hugging
+    // its children (`operations.ts`'s `refreshActorBoxes`), so a fixed fraction near an edge —
+    // fy: 0.1, before this — can land on a child instead of the body.
     await canvasPane(page).click({ position: { x: 20, y: 20 } });
-    await dragNodeBy(page, nodeById(page, actorId), 300, 150, { fx: 0.85, fy: 0.1 });
+    await dragNodeBy(page, nodeById(page, actorId), 300, 150, { fx: 0.85, fy: 0.5 });
 
     // Connect the two canvas-created goals with an And-Refinement link.
     await selectTool(page, 'And');

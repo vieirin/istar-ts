@@ -135,6 +135,10 @@ describe('IstarCanvas over a mirror store', () => {
     const goal = only(remoteElements(), 'istar.Goal');
     expect(goal.parent).toBe(actor.id);
     expect(mirror.getModel().elements.get(goal.id)).toEqual(goal);
+    // Nesting the goal re-anchored the actor on it (`operations.ts`'s `refreshActorBoxes`):
+    // `actor`'s own `x` is now stale, so re-read it for the assertions below.
+    const anchoredActor = only(remoteElements(), 'istar.Actor');
+    expect(mirror.getModel().elements.get(actor.id)).toEqual(anchoredActor);
 
     // Move: the actor dropped 40 to the right, its goal with it.
     const flowNode = captured!.nodes!.find((n) => n.id === actor.id)!;
@@ -143,13 +147,15 @@ describe('IstarCanvas over a mirror store', () => {
         { ...flowNode, position: { x: flowNode.position.x + 40, y: flowNode.position.y } },
       ]);
     });
-    await waitFor(() => expect(mirror.getModel().elements.get(actor.id)?.x).toBe(actor.x + 40));
-    expect(store.getModel().elements.get(actor.id)?.x).toBe(actor.x + 40);
+    await waitFor(() =>
+      expect(mirror.getModel().elements.get(actor.id)?.x).toBe(anchoredActor.x + 40),
+    );
+    expect(store.getModel().elements.get(actor.id)?.x).toBe(anchoredActor.x + 40);
     expect(store.getModel().elements.get(goal.id)?.x).toBe(goal.x + 40);
 
     // Undo (the palette's button): the remote's stack, mirrored back.
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    await waitFor(() => expect(mirror.getModel().elements.get(actor.id)?.x).toBe(actor.x));
+    await waitFor(() => expect(mirror.getModel().elements.get(actor.id)?.x).toBe(anchoredActor.x));
     expect(store.getModel().elements.get(goal.id)?.x).toBe(goal.x);
 
     // Inspector: rename the goal.

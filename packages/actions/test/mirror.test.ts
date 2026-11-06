@@ -335,20 +335,40 @@ describe.each([
     const mirror = createMirrorStore(connect());
     await mirror.ready;
 
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+
     await mirror.dispatcher.dispatch({
       kind: 'changeBounds',
       newBounds: [{ elementId: 'g1', newPosition: { x: 3100, y: 3100 } }],
     });
+    await mirror.synced();
+
+    // Moved out: `a1` re-anchors on its lone child and its stored size floors to the kind
+    // default (90x35 is smaller than 200x120 wherever the child sits) — not the original
+    // 500x400, which was replaced outright, never consulted. Host and mirror agree exactly.
+    const moved = mirror.getModel().elements.get('a1');
+    expect(moved).toMatchObject({ x: 3100, y: 3100 });
+    expect(moved?.display).toEqual(defaultSize);
+    expect(moved).toMatchObject({
+      x: store.getModel().elements.get('a1')!.x,
+      y: store.getModel().elements.get('a1')!.y,
+    });
+    expect(moved?.display).toEqual(store.getModel().elements.get('a1')?.display);
+    expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
+      actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
+    );
+
     await mirror.dispatcher.dispatch({
       kind: 'changeBounds',
       newBounds: [{ elementId: 'g1', newPosition: { x: 100, y: 100 } }],
     });
     await mirror.synced();
 
-    expect(mirror.getModel().elements.get('a1')?.display).toEqual(
-      store.getModel().elements.get('a1')?.display,
-    );
-    expect(mirror.getModel().elements.get('a1')?.display).toEqual({ width: 500, height: 400 });
+    // Moved back: the exact same box as before the move (no ratchet), still agreeing exactly.
+    const back = mirror.getModel().elements.get('a1');
+    expect(back).toMatchObject({ x: 100, y: 100 });
+    expect(back?.display).toEqual(defaultSize);
+    expect(back?.display).toEqual(store.getModel().elements.get('a1')?.display);
     expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
       actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
     );

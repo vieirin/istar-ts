@@ -112,28 +112,40 @@ describe('usePaletteControls', () => {
 describe('actors without a boundary', () => {
   test('are laid out at their own size, with their elements still nested', () => {
     const { store, actor, g1 } = actorWithGoals();
+    // `actorWithGoals()`'s two `addElement` calls already anchored the actor on its children's
+    // tight box origin (40, 200) — the shared `x` of both goals, and `g1`'s `y`.
     // A saved display size (e.g. the old MutRoSe editor stored 3604x1207) is ignored.
     store.updateElement(actor, { display: { width: 3604, height: 1207 } });
     const registry = createRegistry(frameless.elements ? { elements: frameless.elements } : {});
     const { nodes } = modelToFlow(store.getModel(), registry);
     expect(nodes.find((n) => n.id === actor)).toMatchObject({
-      position: { x: 0, y: 0 },
+      position: { x: 40, y: 200 },
       width: 300,
       height: 40,
       data: { frameless: true },
     });
     expect(nodes.find((n) => n.id === g1)).toMatchObject({
       parentId: actor,
-      position: { x: 40, y: 200 },
+      position: { x: 0, y: 0 },
     });
   });
 
   test('render at their own x/y, even when an inner element sits above and left of it (#194)', () => {
     const { store, actor, g1 } = actorWithGoals();
-    store.moveElement(actor, 100, 100);
-    store.moveElement(g1, 50, 50);
+    // Set positions directly on the model, bypassing `moveElement`'s refresh (`operations.ts`'s
+    // `refreshActorBoxes`, which always keeps an actor anchored on its children): this pins down
+    // `modelToFlow`'s own drawing, for a loaded file whose actor hasn't been refreshed yet (the
+    // "loaded slack" case in `refreshActorBoxes`'s doc comment), not reachable by moving through
+    // the store.
+    const model = store.getModel();
+    const raw = {
+      ...model,
+      elements: new Map(model.elements)
+        .set(actor, { ...model.elements.get(actor)!, x: 100, y: 100 })
+        .set(g1, { ...model.elements.get(g1)!, x: 50, y: 50 }),
+    };
     const registry = createRegistry(frameless.elements ? { elements: frameless.elements } : {});
-    const { nodes } = modelToFlow(store.getModel(), registry);
+    const { nodes } = modelToFlow(raw, registry);
     expect(nodes.find((n) => n.id === actor)).toMatchObject({ position: { x: 100, y: 100 } });
     expect(nodes.find((n) => n.id === g1)).toMatchObject({
       parentId: actor,
