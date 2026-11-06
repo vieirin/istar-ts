@@ -125,8 +125,11 @@ export function adoptFlowNode(next: IstarFlowNode, prev: IstarFlowNode | undefin
 /**
  * The actor's boundary: a rectangle floored on the actor's stored `display.width`/`height` (or
  * the kind's default size, absent one), grown to include all inner elements. The stored size is
- * a permanent floor, not just the last expanded size (see `actorBounds`'s doc comment for why,
- * and how this differs from piStar's `updateBoundary`).
+ * a floor here, but it isn't a stale one: `@istar-ts/core`'s operations (`refreshActorBoxes`)
+ * keep it equal to the content box after every change to the actor's content, so this never
+ * shows a size that was expanded and then never shrunk back (see `actorBounds`'s and
+ * `actorContentBox`'s doc comments for the full picture, and how this differs from piStar's
+ * `updateBoundary`, which drops a loaded size on the first child move instead of keeping it).
  *
  * A thin wrapper over core's `actorBounds` (the geometry `@istar-ts/gmodel` lays actors out
  * with), kept under its old name and signature for compatibility. `children` is unused:

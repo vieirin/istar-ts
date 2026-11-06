@@ -31,6 +31,7 @@ import type {
   LinkDisplay,
 } from './model';
 import {
+  actorContentBox,
   defaultHubPosition,
   dependencyLinksOf,
   hubLinkOf,
@@ -93,6 +94,38 @@ function metaOf(model: AnyIstarModel): AnyMetamodel {
 
 function isActorIn(model: AnyIstarModel, kind: string): boolean {
   return metaOf(model).elements.get(kind)?.category === 'actor';
+}
+
+/**
+ * Keeps each actor's stored `display.width`/`height` equal to its content box
+ * (`actorContentBox`), for every actor in `actorIds` that has a stored size. An actor with no
+ * stored size is left untouched (piStar never writes one; see `toPistarObject`'s doc comment).
+ *
+ * Every operation that can change what an actor contains — a child moving, resizing, or
+ * (un)nesting; an actor's own move, which takes its children with it — calls this on the
+ * actor(s) whose content changed. Each call *replaces* the stored size outright: it never reads
+ * the size being replaced, so no save's output can feed back in as next save's floor (the
+ * ratchet #276 fixed). `actor.x`/`y` are never touched here; they stay the user's anchor.
+ */
+function refreshActorBoxes(model: AnyIstarModel, actorIds: Iterable<string>): AnyIstarModel {
+  let elements: Map<string, AnyElement> | undefined;
+  const seen = new Set<string>();
+  for (const actorId of actorIds) {
+    if (seen.has(actorId)) continue;
+    seen.add(actorId);
+    const actor = model.elements.get(actorId);
+    if (!actor || !isActorIn(model, actor.kind)) continue;
+    const { width, height } = actor.display ?? {};
+    if (width === undefined || height === undefined) continue;
+    const box = actorContentBox(model, actorId);
+    if (box.width === width && box.height === height) continue;
+    elements ??= new Map(model.elements);
+    elements.set(actorId, {
+      ...actor,
+      display: { ...actor.display, width: box.width, height: box.height },
+    });
+  }
+  return elements ? derive(model, { elements }) : model;
 }
 
 function derive(from: AnyIstarModel, changes: Partial<AnyIstarModel>): AnyIstarModel {
@@ -165,7 +198,9 @@ export function addElement<EK extends string = ElementKind, LK extends string = 
     display: input.display,
   });
   const elements = new Map(m.elements).set(id, element);
-  return { model: typed(derive(m, { elements })), element: element as IstarElement<EK> };
+  let next = derive(m, { elements });
+  if (input.parent !== undefined) next = refreshActorBoxes(next, [input.parent]);
+  return { model: typed(next), element: element as IstarElement<EK> };
 }
 
 export interface ElementPatch {
@@ -206,7 +241,11 @@ export function updateElement<EK extends string = ElementKind, LK extends string
         : (patch.customProperties ?? undefined),
     display: mergeDisplay<ElementDisplay>(current.display, patch.display),
   });
-  return typed(derive(m, { elements: new Map(m.elements).set(id, next) }));
+  let result = derive(m, { elements: new Map(m.elements).set(id, next) });
+  if (patch.display !== undefined && current.parent !== undefined) {
+    result = refreshActorBoxes(result, [current.parent]);
+  }
+  return typed(result);
 }
 
 /**
@@ -232,7 +271,9 @@ export function moveElement<EK extends string = ElementKind, LK extends string =
         elements.set(child.id, { ...child, x: child.x + dx, y: child.y + dy });
     }
   }
-  return typed(derive(m, { elements }));
+  let result = derive(m, { elements });
+  if (current.parent !== undefined) result = refreshActorBoxes(result, [current.parent]);
+  return typed(result);
 }
 
 /**
@@ -257,7 +298,12 @@ export function nestElement<EK extends string = ElementKind, LK extends string =
   elements.delete(id);
   const { parent: _old, ...rest } = current;
   elements.set(id, parent === null ? rest : { ...rest, parent });
-  return typed(derive(m, { elements }));
+  let result = derive(m, { elements });
+  const toRefresh = [current.parent, parent ?? undefined].filter(
+    (p): p is string => p !== undefined,
+  );
+  if (toRefresh.length > 0) result = refreshActorBoxes(result, toRefresh);
+  return typed(result);
 }
 
 /**
@@ -342,11 +388,19 @@ function removeCascade(
     }
   }
   if (elementIds.size === 0 && linkIds.size === 0) return model;
+  const parents = new Set<string>();
+  for (const id of elementIds) {
+    const removed = model.elements.get(id)?.parent;
+    if (removed !== undefined) parents.add(removed);
+  }
   const elements = new Map(model.elements);
   for (const id of elementIds) elements.delete(id);
   const links = new Map(model.links);
   for (const id of linkIds) links.delete(id);
-  return derive(model, { elements, links });
+  let result = derive(model, { elements, links });
+  const survivingParents = [...parents].filter((id) => !elementIds.has(id));
+  if (survivingParents.length > 0) result = refreshActorBoxes(result, survivingParents);
+  return result;
 }
 
 // ---------------------------------------------------------------------------------------------

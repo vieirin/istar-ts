@@ -3,6 +3,7 @@ import {
   PistarParseError,
   childrenOf,
   createEmptyModel,
+  createModelStore,
   inheritSourceLayout,
   parsePistar,
   toPistar,
@@ -63,7 +64,7 @@ describe('fixture round trip', () => {
   );
 });
 
-describe('toPistarObject: actor box is a pure projection, never derived from children', () => {
+describe('toPistarObject: actor display is a verbatim projection, x/y encloses it', () => {
   const baseFile = {
     actors: [
       {
@@ -92,7 +93,12 @@ describe('toPistarObject: actor box is a pure projection, never derived from chi
     };
   }
 
-  test('actor x/y never move to enclose a child moved outside it', () => {
+  // These tests mutate the raw model (bypassing `moveElement`/`updateElement`, which keep a
+  // stored display size in sync via `refreshActorBoxes`), to pin down `toPistarObject` itself:
+  // display width/height are always a verbatim copy of the model's, and x/y only ever come from
+  // `actorBounds`, which can shift them left/up but never changes a stored display size.
+
+  test('a child moved right/down does not shift x/y (it is already enclosed)', () => {
     const grown = toPistarObject(moveChild(3050, 3050));
     expect([grown.actors[0]!.x, grown.actors[0]!.y]).toEqual([0, 0]);
 
@@ -100,7 +106,15 @@ describe('toPistarObject: actor box is a pure projection, never derived from chi
     expect([reparsed.elements.get('a1')!.x, reparsed.elements.get('a1')!.y]).toEqual([0, 0]);
   });
 
-  test('display width/height: never added when absent, never changed by a child moving', () => {
+  test('a child moved left/up shifts x/y to stay enclosed, with no stored display size', () => {
+    const json = toPistarObject(moveChild(-200, -300));
+    const actor = json.actors[0]!;
+    expect(actor.x).toBeLessThanOrEqual(-200);
+    expect(actor.y).toBeLessThanOrEqual(-300);
+    expect(json.display?.a1).toBeUndefined();
+  });
+
+  test('display width/height: never added when absent, always verbatim when present', () => {
     const noSize = toPistarObject(moveChild(3050, 3050));
     expect(noSize.display?.a1).toBeUndefined();
 
@@ -116,7 +130,7 @@ describe('toPistarObject: actor box is a pure projection, never derived from chi
     expect(json.display?.a1).toEqual({ width: 10, height: 10 });
   });
 
-  test('a stored size is written exactly, regardless of whether children fit inside it', () => {
+  test('a stored size smaller than the content still shifts x/y to enclose it', () => {
     const model = parsePistar(baseFile);
     const withStoredSize = {
       ...model,
@@ -160,30 +174,6 @@ describe('toPistarObject: actor box is a pure projection, never derived from chi
     expect(reparsed.elements.get('a1')?.display).toEqual({ width: 820, height: 520 });
   });
 
-  test('a child moved out and back never ratchets the stored size up', () => {
-    const model = parsePistar(baseFile);
-    const withStoredSize = {
-      ...model,
-      elements: new Map(model.elements)
-        .set('a1', { ...model.elements.get('a1')!, display: { width: 820, height: 520 } })
-        .set('g1', { ...model.elements.get('g1')!, x: 3050, y: 3050 }),
-    };
-    const grown = toPistarObject(withStoredSize);
-    expect(grown.display?.a1).toEqual({ width: 820, height: 520 });
-
-    const shrunkBack = {
-      ...withStoredSize,
-      elements: new Map(withStoredSize.elements).set('g1', {
-        ...withStoredSize.elements.get('g1')!,
-        x: 50,
-        y: 50,
-      }),
-    };
-    const shrunk = toPistarObject(shrunkBack);
-    expect([shrunk.actors[0]!.x, shrunk.actors[0]!.y]).toEqual([0, 0]);
-    expect(shrunk.display?.a1).toEqual({ width: 820, height: 520 });
-  });
-
   test('extraDisplay entries (ids not in the model) are untouched', () => {
     const model = moveChild(3050, 3050);
     const withExtra = { ...model, extraDisplay: { ghost: { backgroundColor: 'red' } } };
@@ -192,7 +182,7 @@ describe('toPistarObject: actor box is a pure projection, never derived from chi
   });
 });
 
-describe('ratchet regression: round trip never grows the stored actor box', () => {
+describe('ratchet regression: moving a child out and back never grows the saved actor box', () => {
   function fileWith(actorDisplay: { width: number; height: number }, goalX: number, goalY: number) {
     return {
       actors: [
@@ -214,44 +204,66 @@ describe('ratchet regression: round trip never grows the stored actor box', () =
     };
   }
 
-  test('move a goal out then back across a re-parse: the actor box returns to its original', () => {
-    const originalDisplay = { width: 3604, height: 1207 };
-    const originalGoal = { x: 100, y: 100 };
-    const file = fileWith(originalDisplay, originalGoal.x, originalGoal.y);
+  // Smaller than the box the goal needs once moved +3000 (unlike the default actor size, which
+  // alone would already enclose it), so the move genuinely grows the saved box past what was
+  // stored, and moving back genuinely shrinks it to the (default-floored) content box.
+  const originalDisplay = { width: 300, height: 200 };
+  const originalGoal = { x: 50, y: 50 };
 
-    const m = parsePistar(file);
-    const moved = {
-      ...m,
-      elements: new Map(m.elements).set('g1', {
-        ...m.elements.get('g1')!,
-        x: originalGoal.x + 3000,
-      }),
-    };
+  test('move +3000 in x: the saved box grows to enclose the goal', () => {
+    const store = createModelStore(
+      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
+    );
+    store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
 
-    const m2 = parsePistar(toPistar(moved));
-    const movedBack = {
-      ...m2,
-      elements: new Map(m2.elements).set('g1', {
-        ...m2.elements.get('g1')!,
-        x: originalGoal.x,
-        y: originalGoal.y,
-      }),
-    };
+    const json = toPistarObject(store.getModel());
+    const actor = json.actors[0]!;
+    const goal = json.actors[0]!.nodes[0]!;
+    expect(actor.x).toBeLessThanOrEqual(goal.x);
+    expect(actor.y).toBeLessThanOrEqual(goal.y);
+    const displayWidth = json.display!.a1!.width as number;
+    const displayHeight = json.display!.a1!.height as number;
+    expect(actor.x + displayWidth).toBeGreaterThanOrEqual(goal.x + 90); // istar.Goal default width
+    expect(actor.y + displayHeight).toBeGreaterThanOrEqual(goal.y + 35); // istar.Goal default height
+    expect(displayWidth).toBeGreaterThan(originalDisplay.width);
+  });
 
-    const json = toPistarObject(movedBack);
-    expect(json.display?.a1).toEqual(originalDisplay);
+  test('move out, re-parse, move back: the saved box is the (default-floored) content box, not the original', () => {
+    let store = createModelStore(
+      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
+    );
+    store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
+    store = createModelStore(parsePistar(toPistar(store.getModel())));
+    store.moveElement('g1', originalGoal.x, originalGoal.y);
+
+    const json = toPistarObject(store.getModel());
     expect([json.actors[0]!.x, json.actors[0]!.y]).toEqual([10, 10]);
+    // Default-floored, not the original 300x200 (that stored value was replaced, not consulted).
+    expect(json.display?.a1).toEqual({ width: 200, height: 120 });
+  });
+
+  test('repeating move out / move back gives the identical saved box every time (no ratchet)', () => {
+    let store = createModelStore(
+      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
+    );
+    const outputs: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
+      store = createModelStore(parsePistar(toPistar(store.getModel())));
+      store.moveElement('g1', originalGoal.x, originalGoal.y);
+      store = createModelStore(parsePistar(toPistar(store.getModel())));
+      outputs.push(toPistar(store.getModel()));
+    }
+    expect(outputs).toEqual(outputs.map(() => outputs[0]));
   });
 
   test('toPistar is idempotent for the moved-out state', () => {
-    const file = fileWith({ width: 3604, height: 1207 }, 100, 100);
-    const m = parsePistar(file);
-    const moved = {
-      ...m,
-      elements: new Map(m.elements).set('g1', { ...m.elements.get('g1')!, x: 3100 }),
-    };
+    const store = createModelStore(
+      parsePistar(fileWith(originalDisplay, originalGoal.x, originalGoal.y)),
+    );
+    store.moveElement('g1', originalGoal.x + 3000, originalGoal.y);
 
-    const once = toPistar(moved);
+    const once = toPistar(store.getModel());
     const twice = toPistar(parsePistar(once));
     expect(twice).toBe(once);
   });

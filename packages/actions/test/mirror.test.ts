@@ -339,16 +339,28 @@ describe.each([
       kind: 'changeBounds',
       newBounds: [{ elementId: 'g1', newPosition: { x: 3100, y: 3100 } }],
     });
+    await mirror.synced();
+
+    // Moved out: the stored size grew to enclose the goal, same on both sides.
+    const grown = mirror.getModel().elements.get('a1')?.display;
+    expect(grown).toEqual(store.getModel().elements.get('a1')?.display);
+    expect(grown!.width!).toBeGreaterThan(500);
+    expect(grown!.height!).toBeGreaterThan(400);
+    expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
+      actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
+    );
+
     await mirror.dispatcher.dispatch({
       kind: 'changeBounds',
       newBounds: [{ elementId: 'g1', newPosition: { x: 100, y: 100 } }],
     });
     await mirror.synced();
 
-    expect(mirror.getModel().elements.get('a1')?.display).toEqual(
-      store.getModel().elements.get('a1')?.display,
-    );
-    expect(mirror.getModel().elements.get('a1')?.display).toEqual({ width: 500, height: 400 });
+    // Moved back: the stored size shrank to the (default-floored) content box, not back to the
+    // original 500x400 — that value was replaced outright, never consulted, on either move.
+    const shrunk = mirror.getModel().elements.get('a1')?.display;
+    expect(shrunk).toEqual(store.getModel().elements.get('a1')?.display);
+    expect(shrunk).not.toEqual({ width: 500, height: 400 });
     expect(actorBounds(mirror.getModel(), 'a1', metamodelOf(mirror.getModel()))).toEqual(
       actorBounds(store.getModel(), 'a1', metamodelOf(store.getModel())),
     );

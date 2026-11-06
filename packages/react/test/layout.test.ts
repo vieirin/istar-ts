@@ -136,13 +136,12 @@ describe('modelToFlow', () => {
     // permanent floor (see `actorBounds`'s doc comment in @istar-ts/core) so moving children
     // inward never shrinks the boundary past the size the user (or a saved file) set.
     const store = createModelStore();
-    const actor = store.addElement({
-      kind: 'istar.Actor',
-      x: 0,
-      y: 0,
-      display: { width: 800, height: 600 },
-    });
+    const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
     const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
+    // Set after the goal exists: `@istar-ts/core`'s operations keep a stored size in sync with
+    // the content box on every change to an actor's content, so setting it at creation (before
+    // any child) would otherwise be replaced by the first `addElement` with this actor as parent.
+    store.updateElement(actor.id, { display: { width: 800, height: 600 } });
     const box = actorBoundary(
       store.getModel(),
       defaultRegistry,

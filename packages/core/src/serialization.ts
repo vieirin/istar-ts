@@ -26,6 +26,7 @@ import type {
   LinkDisplay,
 } from './model';
 import {
+  actorBounds,
   dependencyLinksOf,
   hostMetamodelOf,
   metamodelOf,
@@ -590,13 +591,20 @@ function elementJson(element: IstarElement<string>, metamodel: AnyMetamodel): Pi
 /**
  * Builds the save-file object for a model. `toPistar` is this plus `JSON.stringify`.
  *
- * An actor's written `x`/`y`/`display.width`/`display.height` are a pure projection of the
- * model's own fields — no `actorBounds` call here, and no derivation from children. Any `f`
- * combining a stored size with a tight box around the children that ever grows the stored size
- * would ratchet it upward forever once the result is re-parsed and re-saved (a mirror store,
- * `@istar-ts/actions`' `connectDispatcher({ sendModel: true })`, does exactly that after every
- * edit), so this never grows it: the saved box is the user's box, which may be smaller than its
- * children. A consumer that needs the box enclosing them calls `actorBounds`.
+ * An actor's written `display.width`/`display.height` are copied verbatim from the model: every
+ * operation that can change what an actor contains already keeps them equal to the actor's
+ * content box (`operations.ts`'s `refreshActorBoxes`, built on `actorContentBox`), so there is
+ * nothing left to derive here, and a model that hasn't changed round-trips byte for byte. An
+ * actor's written `x`/`y` come from `actorBounds(model, id, metamodel, undefined, 0)` instead of
+ * the raw `actor.x`/`y`: `actor.x`/`y` is a fixed anchor that operations never move, but a child
+ * left of or above it still needs to shift the saved origin left/up to stay enclosed (as 0.16.1
+ * did), which `actorBounds`' union with the content box gives for free.
+ *
+ * This can't ratchet: `refreshActorBoxes` replaces the stored size outright (it never reads the
+ * size it's replacing), so no save's output ever becomes next save's floor — unlike unioning a
+ * *stored* size with a tight box around the children at save time (what pre-#276 code did, and
+ * what ratcheted the size upward forever once a mirror store, `@istar-ts/actions`'
+ * `connectDispatcher({ sendModel: true })`, re-parsed and re-saved every edit).
  */
 export function toPistarObject<EK extends string, LK extends string>(
   input: IstarModel<EK, LK>,
@@ -629,13 +637,14 @@ export function toPistarObject<EK extends string, LK extends string>(
   for (const element of model.elements.values()) {
     if (isHub(element)) continue;
     if (isActorKind(element.kind)) {
-      // The actor's own x/y and display size are the user's box: unlike piStar's
-      // `_updateActorBoundary` (istarcore/istarFunctions.js:150-204), this never derives it from
-      // children. Children may lie outside this box; a consumer that needs the box enclosing
-      // them uses `actorBounds`, which floors on this stored size and grows for children.
+      // x/y: the enclosing origin (actor.x/y shifted left/up for a child outside it); see this
+      // function's doc comment. display.width/height: verbatim, already the enclosing size.
+      const bounds = actorBounds(model, element.id, metamodel, undefined, 0);
       actors.push(
         sourceOrder(element.id, {
           ...elementJson(element, metamodel),
+          x: bounds.x,
+          y: bounds.y,
           nodes: children.get(element.id) ?? [],
           ...element.extra,
         }),

@@ -4,6 +4,7 @@ import {
   childrenOf,
   createModelStore,
   getSourceLayout,
+  metamodelOf,
   parsePistar,
   toPistar,
   validateModel,
@@ -287,5 +288,109 @@ describe('undo/redo and events', () => {
     expect(store.canLink(task.id, goal.id, 'istar.AndRefinementLink')).toEqual({ ok: true });
     store.connect({ kind: 'istar.AndRefinementLink', source: task.id, target: goal.id });
     expect(store.canLink(task, goal, 'istar.AndRefinementLink').ok).toBe(false);
+  });
+});
+
+// An actor's stored display size (when present) is kept equal to its content box by every
+// operation that changes what it contains (`operations.ts`'s `refreshActorBoxes`); `actor.x`/`y`
+// is never touched. See `serialization.test.ts`'s "ratchet regression" describe for why this
+// can't grow forever across a save/parse round trip.
+describe('refreshing an actor’s stored box', () => {
+  // `updateElement` on the actor itself (not a child) never refreshes it, so this is the way to
+  // give it a stored size that isn't immediately replaced by the content box: `addElement` with
+  // `parent: actor.id` would refresh the actor right away, discarding a size given at creation.
+  function setupWithSize() {
+    const store = createModelStore(undefined, { createId: seqIds() });
+    const actor = store.addElement({ kind: 'istar.Actor', x: 100, y: 100 });
+    const goal = store.addElement({ kind: 'istar.Goal', x: 150, y: 150, parent: actor.id });
+    store.updateElement(actor.id, { display: { width: 300, height: 200 } });
+    return { store, actor, goal };
+  }
+
+  test('moving a child out grows the stored size; moving it back shrinks it to the content box', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.moveElement(goal.id, 3150, 150);
+    const grown = store.getModel().elements.get(actor.id)!;
+    expect(grown).toMatchObject({ x: 100, y: 100 });
+    expect(grown.display!.width!).toBeGreaterThan(300);
+
+    store.moveElement(goal.id, 150, 150);
+    const shrunk = store.getModel().elements.get(actor.id)!;
+    expect(shrunk).toMatchObject({ x: 100, y: 100 });
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+    expect(shrunk.display).toEqual(defaultSize);
+  });
+
+  test('moving the actor itself leaves its stored size untouched (children move with it)', () => {
+    const { store, actor } = setupWithSize();
+    store.moveElement(actor.id, 500, 500);
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual({ width: 300, height: 200 });
+  });
+
+  test('resizing a child grows the stored size to fit it', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.updateElement(goal.id, { display: { width: 3000, height: 3000 } });
+    expect(store.getModel().elements.get(actor.id)!.display!.width!).toBeGreaterThan(3000);
+  });
+
+  test('resizing the actor itself through updateElement is not immediately overridden', () => {
+    const { store, actor } = setupWithSize();
+    store.updateElement(actor.id, { display: { width: 900, height: 900 } });
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual({ width: 900, height: 900 });
+  });
+
+  test('nesting a child out shrinks the old actor and grows the new one', () => {
+    const { store, actor, goal } = setupWithSize();
+    const other = store.addElement({
+      kind: 'istar.Agent',
+      x: 2000,
+      y: 2000,
+      display: { width: 50, height: 50 },
+    });
+    store.nestElement(goal.id, other.id);
+
+    const oldActor = store.getModel().elements.get(actor.id)!;
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+    expect(oldActor.display).toEqual(defaultSize);
+
+    const newActor = store.getModel().elements.get(other.id)!;
+    expect(newActor.display!.width!).toBeGreaterThan(50);
+  });
+
+  test('adding a child outside the stored size grows it', () => {
+    const { store, actor } = setupWithSize();
+    store.addElement({ kind: 'istar.Goal', x: 3000, y: 3000, parent: actor.id });
+    expect(store.getModel().elements.get(actor.id)!.display!.width!).toBeGreaterThan(300);
+  });
+
+  test('removing the child that needed the grown size shrinks it back', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.moveElement(goal.id, 3150, 150);
+    const other = store.addElement({ kind: 'istar.Task', x: 150, y: 150, parent: actor.id });
+    expect(store.getModel().elements.get(actor.id)!.display!.width!).toBeGreaterThan(300);
+
+    store.removeElement(goal.id);
+    const defaultSize = metamodelOf(store.getModel()).elements.get('istar.Actor')!.size;
+    expect(store.getModel().elements.get(actor.id)!.display).toEqual(defaultSize);
+    expect(store.getModel().elements.has(other.id)).toBe(true);
+  });
+
+  test('no stored size: an actor is left with none after a child moves', () => {
+    const { store, actor, goal } = setup();
+    store.moveElement(goal.id, 3150, 150);
+    expect(store.getModel().elements.get(actor.id)?.display).toBeUndefined();
+  });
+
+  test('undo restores the previous stored size', () => {
+    const { store, actor, goal } = setupWithSize();
+    store.moveElement(goal.id, 3150, 150);
+    const grownWidth = store.getModel().elements.get(actor.id)!.display!.width!;
+    expect(grownWidth).toBeGreaterThan(300);
+
+    store.undo();
+    expect(store.getModel().elements.get(actor.id)?.display).toEqual({ width: 300, height: 200 });
+
+    store.redo();
+    expect(store.getModel().elements.get(actor.id)?.display!.width).toBe(grownWidth);
   });
 });
