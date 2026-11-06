@@ -37,6 +37,7 @@ import {
   hubLinkOf,
   inheritMetamodel,
   metamodelOf,
+  unionBox,
 } from './model';
 import { inheritSourceLayout } from './serialization';
 
@@ -97,25 +98,27 @@ function isActorIn(model: AnyIstarModel, kind: string): boolean {
 }
 
 /**
- * Keeps each actor in `actorIds` enclosing its children: `actor.x`/`y` becomes the tight box
- * around its non-actor children (`childrenBox` — padding 0, each child's own size or the kind
- * default), and, when the actor has a stored `display.width`/`height`, that size becomes the
- * kind's default-size box at the new `x`/`y` grown to enclose the children (so it never shrinks
- * past the kind default). An actor with no non-actor children is left untouched — there is
- * nothing to enclose, so it keeps its existing `x`/`y` and size.
+ * Keeps each actor in `actorIds` enclosing its children, while never moving it off a position
+ * the user gave it: `actor.x`/`y` becomes the union of the kind-default-size box at the actor's
+ * anchor (`display.anchor` when present, else the actor's own `x`/`y` — see `model.ts`'s
+ * `actorAnchor`) and its non-actor children's box (`childrenBox` — padding 0, each child's own
+ * size or the kind default). `display.anchor` is then set to that anchor if the box's `x`/`y`
+ * ends up left of or above it (a child reaches past that edge), or removed if not (the children
+ * fit inside the default box at the anchor, so the box's origin and the anchor coincide and
+ * there is nothing extra to remember). When the actor has a stored `display.width`/`height`,
+ * that size becomes the kind's default-size box at the new `x`/`y` grown to enclose the children
+ * (so it never shrinks past the kind default). An actor with no non-actor children is left
+ * untouched — there is nothing to enclose, so it keeps its existing `x`/`y`, anchor and size.
  *
  * Every operation that can change what an actor contains — a child moving, resizing, or
- * (un)nesting; an actor's own move, which takes its children with it — calls this on the
- * actor(s) whose content changed. Because the result depends only on the actor's *current*
- * children, never on its previous `x`/`y` or stored size, the box is a pure function of the
- * children: moving a child out and back restores the exact same box, with no drift and no
- * ratchet. A loaded file's slack (a box larger than, or offset from, its children — piStar keeps
- * the left/top edge through `originalPosition`) survives a no-op round trip, since nothing here
- * runs without a content change, but is dropped by the first operation that does touch the
- * actor's content: that operation's refresh snaps `x`/`y` to the tight origin and any stored
- * size down to the content size. This trades piStar's saved-slack fidelity for an invariant
- * piStar itself doesn't keep across a reload: here, the model (and so every store derived from
- * it, including a mirror's) always agrees with what `actorBounds` draws.
+ * (un)nesting — calls this on the actor(s) whose content changed. Moving the actor itself
+ * (`moveElement`) shifts its `x`/`y`, its `display.anchor` (if any) and its children by the same
+ * delta instead, so a call here after that move is a no-op: the box is a pure function of
+ * (anchor, children), the anchor only changes when the user drags the actor, and both anchor and
+ * children move together — nothing is left to re-anchor. Because `x`/`y`, `display.anchor` and
+ * any stored size are all written to the file and read back (`toPistarObject`/`parsePistar`),
+ * host, mirror and a reopened file all compute the same box from them; moving a child out and
+ * back restores the exact same box, with no drift and no ratchet.
  */
 function refreshActorBoxes(model: AnyIstarModel, actorIds: Iterable<string>): AnyIstarModel {
   let elements: Map<string, AnyElement> | undefined;
@@ -125,18 +128,33 @@ function refreshActorBoxes(model: AnyIstarModel, actorIds: Iterable<string>): An
     seen.add(actorId);
     const actor = model.elements.get(actorId);
     if (!actor || !isActorIn(model, actor.kind)) continue;
-    const box = childrenBox(model, actorId);
-    if (!box) continue;
-    const { width, height } = actor.display ?? {};
+    const children = childrenBox(model, actorId);
+    if (!children) continue;
+    const anchor = actor.display?.anchor ?? { x: actor.x, y: actor.y };
+    const defaultSize = metaOf(model).elements.get(actor.kind)?.size ?? { width: 0, height: 0 };
+    const box = unionBox({ x: anchor.x, y: anchor.y, ...defaultSize }, children);
+
+    const needsAnchor = box.x !== anchor.x || box.y !== anchor.y;
+    const hadAnchor = actor.display?.anchor !== undefined;
     let display = actor.display;
+    if (needsAnchor !== hadAnchor) {
+      if (needsAnchor) {
+        display = { ...display, anchor };
+      } else {
+        const { anchor: _drop, ...rest } = display ?? {};
+        display = Object.keys(rest).length > 0 ? (rest as ElementDisplay) : undefined;
+      }
+    }
+
+    const { width, height } = actor.display ?? {};
     if (width !== undefined && height !== undefined) {
-      const defaultSize = metaOf(model).elements.get(actor.kind)?.size ?? { width: 0, height: 0 };
       const newWidth = Math.max(defaultSize.width, box.width);
       const newHeight = Math.max(defaultSize.height, box.height);
       if (newWidth !== width || newHeight !== height) {
-        display = { ...actor.display, width: newWidth, height: newHeight };
+        display = { ...display, width: newWidth, height: newHeight };
       }
     }
+
     if (actor.x === box.x && actor.y === box.y && display === actor.display) continue;
     elements ??= new Map(model.elements);
     elements.set(actorId, { ...actor, x: box.x, y: box.y, display });
@@ -280,12 +298,18 @@ export function moveElement<EK extends string = ElementKind, LK extends string =
   const dy = y - current.y;
   if (dx === 0 && dy === 0) return model;
   const elements = new Map(m.elements);
-  elements.set(id, { ...current, x, y });
   if (isActorIn(m, current.kind)) {
+    const anchor = current.display?.anchor;
+    const display = anchor
+      ? { ...current.display, anchor: { x: anchor.x + dx, y: anchor.y + dy } }
+      : current.display;
+    elements.set(id, { ...current, x, y, display });
     for (const child of m.elements.values()) {
       if (child.parent === id)
         elements.set(child.id, { ...child, x: child.x + dx, y: child.y + dy });
     }
+  } else {
+    elements.set(id, { ...current, x, y });
   }
   let result = derive(m, { elements });
   if (current.parent !== undefined) result = refreshActorBoxes(result, [current.parent]);

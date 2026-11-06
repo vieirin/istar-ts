@@ -77,19 +77,12 @@ test.describe('selectActorOnBodyClick', () => {
    * An actor and a goal inside it, away from the symbol (top-left) and each other. The goal
    * stays selected (a fresh element is selected right after creation): dragging the actor's body
    * with something else already selected is exactly the case the body-drag fix covers.
-   *
-   * A Resource pinned near the actor's own top-left corner goes in first: `@istar-ts/core`'s
-   * operations keep an actor's `x`/`y` at the tight origin of its children (`operations.ts`'s
-   * `refreshActorBoxes`), so a single child would otherwise become that origin itself, landing
-   * right under the symbol instead of away from it.
    */
   async function createActorWithChild(page: Page): Promise<{ actor: Locator; child: Locator }> {
     await selectActorTool(page);
     await canvasPane(page).click({ position: { x: 160, y: 140 } });
     const actorId = await lastCreatedId(page);
     const actor = nodeById(page, actorId);
-    await selectTool(page, 'Resource');
-    await clickInside(actor, 0.05, 0.05);
     await selectTool(page, 'Goal');
     await clickInside(actor, 0.2, 0.6);
     const childId = await lastCreatedId(page);

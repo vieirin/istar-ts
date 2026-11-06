@@ -112,21 +112,21 @@ describe('usePaletteControls', () => {
 describe('actors without a boundary', () => {
   test('are laid out at their own size, with their elements still nested', () => {
     const { store, actor, g1 } = actorWithGoals();
-    // `actorWithGoals()`'s two `addElement` calls already anchored the actor on its children's
-    // tight box origin (40, 200) — the shared `x` of both goals, and `g1`'s `y`.
+    // Both goals (40, 200+) sit right of/below the actor's own (0, 0), so `actorWithGoals()`'s
+    // two `addElement` calls never moved it off that.
     // A saved display size (e.g. the old MutRoSe editor stored 3604x1207) is ignored.
     store.updateElement(actor, { display: { width: 3604, height: 1207 } });
     const registry = createRegistry(frameless.elements ? { elements: frameless.elements } : {});
     const { nodes } = modelToFlow(store.getModel(), registry);
     expect(nodes.find((n) => n.id === actor)).toMatchObject({
-      position: { x: 40, y: 200 },
+      position: { x: 0, y: 0 },
       width: 300,
       height: 40,
       data: { frameless: true },
     });
     expect(nodes.find((n) => n.id === g1)).toMatchObject({
       parentId: actor,
-      position: { x: 0, y: 0 },
+      position: { x: 40, y: 200 },
     });
   });
 

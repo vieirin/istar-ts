@@ -100,25 +100,26 @@ describe('modelToFlow', () => {
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    // Adding the goal already re-anchored the actor on it (20, 60), so the padded box is
-    // 10 (padding) + 300 (overridden width) + 10 (padding) = 320, not 200 at the default size.
-    expect(box.width).toBe(320);
+    // The goal (20, 60) fits inside the default-size box at the actor's own (0, 0), so adding it
+    // never moved the actor: the padded child reaches to (20 + 300 + 10) = 330, past the
+    // default-size floor's 200.
+    expect(box.width).toBe(330);
   });
 
-  test('actor boundary grows with children and shrinks back toward the anchored size', () => {
+  test('actor boundary grows with children and shrinks back toward the actor’s own position', () => {
     const store = createModelStore();
     const actor = store.addElement({ kind: 'istar.Actor', x: 0, y: 0 });
     const goal = store.addElement({ kind: 'istar.Goal', x: 20, y: 60, parent: actor.id });
-    // Adding the goal already re-anchored the actor on it (20, 60): the padded default-size
-    // floor and the padded child box both start from there, giving 210x130, not 200x120.
+    // The goal (20, 60) fits inside the default-size box at the actor's own (0, 0), so adding it
+    // never moved the actor: the boundary is exactly the default-size box, 200x120.
     const resting = actorBoundary(
       store.getModel(),
       defaultRegistry,
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    expect(resting.width).toBe(210);
-    expect(resting.height).toBe(130);
+    expect(resting.width).toBe(200);
+    expect(resting.height).toBe(120);
 
     store.moveElement(goal.id, 300, 60);
     const grown = modelToFlow(store.getModel(), defaultRegistry).nodes.find(
@@ -144,9 +145,9 @@ describe('modelToFlow', () => {
     // Set after the goal exists: `@istar-ts/core`'s operations keep a stored size in sync with
     // the content box on every change to an actor's content, so setting it at creation (before
     // any child) would otherwise be replaced by the first `addElement` with this actor as parent.
-    // Adding the goal already re-anchored the actor at (20, 60), so the stored box's bottom-right
-    // corner is at (20 + 800, 60 + 600) = (820, 660); unioned with the (10, 50)-(220, 180) padded
-    // content box, that's (10, 50)-(820, 660) — 810x610, not 800x600.
+    // The goal (20, 60) already fit inside the default box at the actor's own (0, 0), so the
+    // actor was never moved; the stored size box at (0, 0) is (0, 0)-(800, 600), which already
+    // encloses the padded child box (10, 50)-(120, 105), so the boundary is exactly 800x600.
     store.updateElement(actor.id, { display: { width: 800, height: 600 } });
     const box = actorBoundary(
       store.getModel(),
@@ -154,8 +155,8 @@ describe('modelToFlow', () => {
       store.getModel().elements.get(actor.id)!,
       [store.getModel().elements.get(goal.id)!],
     );
-    expect(box.width).toBe(810);
-    expect(box.height).toBe(610);
+    expect(box.width).toBe(800);
+    expect(box.height).toBe(600);
   });
 });
 

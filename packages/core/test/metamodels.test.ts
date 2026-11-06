@@ -591,10 +591,11 @@ describe('canLink with extended kinds', () => {
     expect(store.getModel().elements.has(dep.dependum.id)).toBe(false);
     // Moving the extended actor moves nothing else but it; nesting into it works.
     const goal = store.addElement({ kind: 'istar.Goal', x: 5, y: 5, parent: team.id });
-    // Adding the goal already anchored `team` on it (5, 5), so moving `team` to (10, 0) shifts
-    // the goal by the same (+5, -5) delta.
+    // The goal (5, 5) fits inside the default-size box at `team`'s own position (0, 0), so adding
+    // it left `team` untouched; moving `team` to (10, 0) shifts the goal by the same (+10, 0)
+    // delta.
     store.moveElement(team.id, 10, 0);
-    expect(store.getModel().elements.get(goal.id)?.x).toBe(10);
+    expect(store.getModel().elements.get(goal.id)?.x).toBe(15);
   });
 
   test('connect retries reversed for kinds behaving like Needed-By', () => {
